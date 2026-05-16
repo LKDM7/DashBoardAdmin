@@ -14,9 +14,20 @@ loom {
     splitEnvironmentSourceSets()
 
     mods {
-        "test" {
+        "dashboardadmin" {
             sourceSet sourceSets.main
             sourceSet sourceSets.client
+        }
+    }
+
+    runs {
+        client {
+            programArgs "--username", "Dev1"
+        }
+        client2 {
+            inherit client
+            programArgs "--username", "Dev2"
+            runDir "run/client2"
         }
     }
 }

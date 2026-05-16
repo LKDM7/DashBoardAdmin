@@ -1,13 +1,12 @@
 {
   "schemaVersion": 1,
-  "id": "test",
+  "id": "dashboardadmin",
   "version": "${version}",
-  "name": "TEST",
-  "description": "Mod d'administration complet",
-  "authors": [],
+  "name": "DashBoardAdmin",
+  "description": "Mod d'administration complet pour serveur SMP",
+  "authors": ["LKDM"],
   "contact": {},
   "license": "All-Rights-Reserved",
-  "icon": "assets/test/icon.png",
   "environment": "*",
   "entrypoints": {
     "main": [
@@ -20,6 +19,7 @@
       "Fabric.test.client.TestDataGenerator"
     ]
   },
+  "mixins": ["dashboardadmin.mixins.json"],
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric-api": "*",

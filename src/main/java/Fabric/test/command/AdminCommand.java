@@ -24,7 +24,12 @@ public class AdminCommand {
                         Fabric.test.Test.getReportsSerialized(),
                         Fabric.test.Test.getKeepInventoryPlayerNames(server),
                         Fabric.test.Test.getAcceptedReportsSerialized(),
-                        Fabric.test.Test.getClosedReportsSerialized()
+                        Fabric.test.Test.getClosedReportsSerialized(),
+                        Fabric.test.Test.getScheduledBroadcastsSerialized(),
+                        Fabric.test.Test.getCooldownsSerialized(),
+                        Fabric.test.Test.getFeaturesSerialized(),
+                        Fabric.test.Test.getBannedPlayersSerialized(server),
+                        Fabric.test.GroupManager.getGroupsSerialized(server)
                     ));
                     return 1;
                 })
@@ -38,7 +43,12 @@ public class AdminCommand {
         String reports,
         String keepInventoryPlayers,
         String acceptedReports,
-        String closedReports
+        String closedReports,
+        String scheduledBroadcasts,
+        String cooldowns,
+        String features,
+        String bannedPlayers,
+        String groupsSerialized  // "leaderName:groupName:count|..."
     ) implements CustomPacketPayload {
         public static final Type<OpenAdminGuiPayload> TYPE = new Type<>(ModMessages.OPEN_ADMIN_GUI);
         public static final StreamCodec<FriendlyByteBuf, OpenAdminGuiPayload> CODEC = StreamCodec.of(
@@ -50,10 +60,17 @@ public class AdminCommand {
                 buf.writeUtf(p.keepInventoryPlayers);
                 buf.writeUtf(p.acceptedReports);
                 buf.writeUtf(p.closedReports);
+                buf.writeUtf(p.scheduledBroadcasts);
+                buf.writeUtf(p.cooldowns);
+                buf.writeUtf(p.features);
+                buf.writeUtf(p.bannedPlayers);
+                buf.writeUtf(p.groupsSerialized);
             },
             buf -> new OpenAdminGuiPayload(
                 buf.readBoolean(), buf.readUtf(), buf.readUtf(),
-                buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf()
+                buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
+                buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
+                buf.readUtf()
             )
         );
 

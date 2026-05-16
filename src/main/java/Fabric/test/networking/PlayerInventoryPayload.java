@@ -1,0 +1,1 @@
+// Fichier supprimé - Fonctionnalité retirée

@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "test",
+  "version": "${version}",
+  "name": "TEST",
+  "description": "Mod d'administration complet",
+  "authors": [],
+  "contact": {},
+  "license": "All-Rights-Reserved",
+  "icon": "assets/test/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "Fabric.test.Test"
+    ],
+    "client": [
+      "Fabric.test.client.TestClient"
+    ],
+    "fabric-datagen": [
+      "Fabric.test.client.TestDataGenerator"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}

@@ -4,6 +4,7 @@
   "package": "Fabric.test.mixin.client",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "AbstractContainerScreenAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -19,7 +19,7 @@
       "Fabric.test.client.TestDataGenerator"
     ]
   },
-  "mixins": ["dashboardadmin.mixins.json"],
+  "mixins": ["dashboardadmin.mixins.json", "test.client.mixins.json"],
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric-api": "*",

@@ -576,6 +576,7 @@ public class Test implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        Fabric.test.invsort.networking.InvSortNetworking.register();
         HomePersistence.register();
         registerDispenserHoeBehavior();
         VirtualChestManager.register();

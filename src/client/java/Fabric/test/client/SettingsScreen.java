@@ -23,7 +23,7 @@ public class SettingsScreen extends Screen {
     private static final int C_ROW    = 0x22FFFFFF;
     private static final int C_TABSEL = 0x1A00AAFF;
     private static final int C_DIV    = 0x33FFFFFF;
-    private static final int C_SEC    = 0xFF444444;
+    private static final int C_SEC    = 0xFF888888;
 
     private static final int SIDE_W = 100;
     private static final int ROW_H  = 38;
@@ -461,16 +461,24 @@ public class SettingsScreen extends Screen {
             case 5 -> renderStats(g);
         }
 
+        g.drawString(font, "@LKDM", px + pw - font.width("@LKDM") - 4, py + ph - 10, 0x55AAAAAA, false);
+
         super.render(g, mouseX, mouseY, delta);
     }
 
     private void renderSettings(GuiGraphics g) {
         int start = py + 34;
+        boolean[] vals = { allowPrivateMessages, allowTpaRequests, allowTrades, showChatNotifications, showConnectionAlerts };
         for (int i = 0; i < LABELS.length; i++) {
             int ry = start + ROW_H * i;
-            if (i % 2 == 0) g.fill(cx + 4, ry + 2, px + pw - 4, ry + ROW_H - 2, C_ROW);
-            g.drawString(font, "§f" + LABELS[i], cx + 12, ry + 6,  0xFFFFFFFF);
-            g.drawString(font, "§7" + DESCS[i],  cx + 12, ry + 18, 0xFFAAAAAA);
+            // Full row: green tint when ON, subtle otherwise
+            g.fill(cx + 4, ry + 2, px + pw - 4, ry + ROW_H - 2,
+                vals[i] ? 0x5000CC44 : (i % 2 == 0 ? C_ROW : 0));
+            // Left accent bar (5px)
+            g.fill(cx + 4, ry + 2, cx + 9, ry + ROW_H - 2,
+                vals[i] ? 0xFF00CC44 : 0xFF555555);
+            g.drawString(font, "§f" + LABELS[i], cx + 14, ry + 6,  0xFFFFFFFF);
+            g.drawString(font, "§7" + DESCS[i],  cx + 14, ry + 18, 0xFFAAAAAA);
         }
     }
 
@@ -624,7 +632,7 @@ public class SettingsScreen extends Screen {
             g.drawCenteredString(font, "§8Vous n'êtes dans aucun groupe.", midX, y + 8, 0xFF555555);
             y += 22;
         } else {
-            g.drawString(font, "§8MEMBRES", cx + 8, y, C_SEC);
+            g.drawString(font, "MEMBRES", cx + 8, y, C_SEC);
             g.fill(cx + 8, y + 10, px + pw - 8, y + 11, C_DIV);
             y += 14;
             for (String[] m : groupMembers) {
@@ -642,7 +650,7 @@ public class SettingsScreen extends Screen {
 
         if (!onlinePlayers.isEmpty()) {
             y += 4;
-            g.drawString(font, "§8INVITER", cx + 8, y, C_SEC);
+            g.drawString(font, "INVITER", cx + 8, y, C_SEC);
             g.fill(cx + 8, y + 10, px + pw - 8, y + 11, C_DIV);
             y += 14;
             for (String pName : onlinePlayers) {
@@ -659,14 +667,14 @@ public class SettingsScreen extends Screen {
         g.fill(cx, contentBot + 1, px + pw, py + ph, 0x0AFFFFFF);
 
         // Color swatches (2 rows of 8)
-        g.drawString(font, "§8COULEUR", cx + 8, botY + 4, C_SEC);
+        g.drawString(font, "COULEUR", cx + 8, botY + 4, C_SEC);
         for (int i = 0; i < GroupHud.COLOR_ARGB.length; i++) {
             int row = i / 8, col = i % 8;
             int argb = GroupHud.COLOR_ARGB[i];
             int sx = cx + 8 + col * 18;
             int sy = botY + 14 + row * 18;
             boolean sel = (i == myColorIdx);
-            if (sel) g.fill(sx - 1, sy - 1, sx + 17, sy + 17, 0xFFFFFFFF);
+            if (sel) g.fill(sx - 1, sy - 1, sx + 17, sy + 17, C_ACCENT);
             g.fill(sx, sy, sx + 16, sy + 16, sel ? argb : (argb & 0x00FFFFFF) | 0x88000000);
         }
 
@@ -674,12 +682,12 @@ public class SettingsScreen extends Screen {
         g.fill(cx + 4, botY + 50, px + pw - 4, botY + 51, C_DIV);
         if (!groupMembers.isEmpty()) {
             if (groupNameBox != null) {
-                g.drawString(font, "§8NOM DU GROUPE", cx + 8, botY + 55, C_SEC);
+                g.drawString(font, "NOM DU GROUPE", cx + 8, botY + 55, C_SEC);
             } else if (!groupName.isEmpty()) {
-                g.drawString(font, "§8NOM §7" + groupName, cx + 8, botY + 58, 0xFFAAAAAA);
+                g.drawString(font, "NOM §7" + groupName, cx + 8, botY + 58, C_SEC);
             }
         } else if (pendingInviteFrom.isEmpty()) {
-            g.drawString(font, "§8NOM DU GROUPE", cx + 8, botY + 55, C_SEC);
+            g.drawString(font, "NOM DU GROUPE", cx + 8, botY + 55, C_SEC);
         }
     }
 
@@ -701,7 +709,7 @@ public class SettingsScreen extends Screen {
         for (int i = 0; i < rows.length; i++) {
             int ry = y + i * gap;
             if (i % 2 == 0) g.fill(cx + 8, ry - 3, px + pw - 8, ry + gap - 5, C_ROW);
-            g.fill(cx + 8, ry - 3, cx + 9, ry + gap - 5, C_ACCENT);
+            g.fill(cx + 8, ry - 3, cx + 11, ry + gap - 5, C_ACCENT);
             g.drawString(font, "§7" + rows[i][0], lx, ry + 4, 0xFFAAAAAA);
             g.drawString(font, "§f" + rows[i][1], rx, ry + 4, 0xFFFFFFFF);
         }

@@ -55,6 +55,12 @@ public class AdminScreen extends Screen {
     private int  sanctionsScroll      = 0;
     private int  cdHome = 30, cdBack = 10, cdTpa = 60, cdAfk = 5;
     private EditBox broadcastMsgBox, broadcastIntervalBox, cdHomeBox, cdBackBox, cdTpaBox, afkDelayBox;
+    private int     maxHomes         = 3;
+    private String  webhookReports   = "";
+    private String  webhookSanctions = "";
+    private EditBox maxHomesBox;
+    private EditBox webhookReportsBox;
+    private EditBox webhookSanctionsBox;
     private boolean  pvpEnabled;
     private boolean  chatLocked          = Fabric.test.Test.isChatLocked();
     private boolean  weatherCycleEnabled = Fabric.test.Test.isWeatherCycleEnabled();
@@ -66,6 +72,12 @@ public class AdminScreen extends Screen {
     private boolean  cropTrampleEnabled         = false;
     private boolean  rightClickHarvestEnabled  = false;
     private boolean  dispenserHarvestEnabled   = false;
+
+    // Report image overlay
+    private final java.util.Map<String, byte[]> reportImageCache  = new java.util.HashMap<>();
+    private String  reportImagePlayer  = null;
+    private net.minecraft.client.renderer.texture.DynamicTexture reportOverlayTex    = null;
+    private net.minecraft.resources.ResourceLocation              reportOverlayTexLoc = null;
 
     // Zones tab state
     private record ZoneData(int x1, int y1, int z1, int x2, int y2, int z2,
@@ -112,17 +124,20 @@ public class AdminScreen extends Screen {
         }
         String featRaw = payload.features();
         if (!featRaw.isEmpty()) {
-            String[] feats = featRaw.split("\\|");
+            String[] feats = featRaw.split("\\|", -1);
             if (feats.length >= 5) {
                 afkAutoEnabled           = Boolean.parseBoolean(feats[0]);
                 proportionalSleepEnabled = Boolean.parseBoolean(feats[1]);
                 treeCapitatorEnabled     = Boolean.parseBoolean(feats[2]);
                 fastLeafDecayEnabled     = Boolean.parseBoolean(feats[3]);
                 doubleDoorEnabled        = Boolean.parseBoolean(feats[4]);
-                if (feats.length >= 6) try { cdAfk = Integer.parseInt(feats[5]); } catch (NumberFormatException ignored) {}
-                if (feats.length >= 7) rightClickHarvestEnabled = Boolean.parseBoolean(feats[6]);
-                if (feats.length >= 8) dispenserHarvestEnabled  = Boolean.parseBoolean(feats[7]);
-                if (feats.length >= 9) cropTrampleEnabled       = Boolean.parseBoolean(feats[8]);
+                if (feats.length >= 6)  try { cdAfk     = Integer.parseInt(feats[5]); } catch (NumberFormatException ignored) {}
+                if (feats.length >= 7)  rightClickHarvestEnabled = Boolean.parseBoolean(feats[6]);
+                if (feats.length >= 8)  dispenserHarvestEnabled  = Boolean.parseBoolean(feats[7]);
+                if (feats.length >= 9)  cropTrampleEnabled       = Boolean.parseBoolean(feats[8]);
+                if (feats.length >= 10) try { maxHomes  = Integer.parseInt(feats[9]); } catch (NumberFormatException ignored) {}
+                if (feats.length >= 11) webhookReports   = feats[10];
+                if (feats.length >= 12) webhookSanctions = feats[11];
             }
         }
         String grpRaw = payload.groupsSerialized();
@@ -155,6 +170,16 @@ public class AdminScreen extends Screen {
         midY = py + ph / 2;
 
         clearWidgets();
+
+        // ── Report image overlay ─────────────────────────────────────────────────
+        if (reportImagePlayer != null && reportOverlayTexLoc != null) {
+            int closeBtnY = Math.min(height / 2 + 110, height - 30);
+            addRenderableWidget(btn("§cFermer", b -> {
+                reportImagePlayer = null;
+                init();
+            }).bounds(width / 2 - 40, closeBtnY, 80, 20).build());
+            return;
+        }
 
         // ── Confirmation dialogs ─────────────────────────────────────────────────
         if (confirmUnbanPlayer != null) {
@@ -530,24 +555,57 @@ public class AdminScreen extends Screen {
                 send("SET_AFK_DELAY", "", String.valueOf(a));
             } catch (NumberFormatException ignored) {}
         }).bounds(midX - 55, cy + 22, 110, 20).build());
+
+        // ── Max Homes ─────────────────────────────────────────────────────────
+        int hmY = cy + 52;
+        maxHomesBox = new EditBox(font, bx, hmY, 36, 16, Component.empty());
+        maxHomesBox.setMaxLength(2);
+        maxHomesBox.setValue(String.valueOf(maxHomes));
+        addRenderableWidget(maxHomesBox);
+        addRenderableWidget(btn("§aOK", b -> {
+            try {
+                int m = Integer.parseInt(maxHomesBox.getValue().trim());
+                maxHomes = Math.max(1, Math.min(10, m));
+                maxHomesBox.setValue(String.valueOf(maxHomes));
+                send("SET_MAX_HOMES", "", String.valueOf(maxHomes));
+            } catch (NumberFormatException ignored) {}
+        }).bounds(bx + 42, hmY, 30, 16).build());
+
+        // ── Discord Webhooks ──────────────────────────────────────────────────
+        int whY = hmY + 40;
+        webhookReportsBox   = new EditBox(font, bx, whY,      bw, 16, Component.empty());
+        webhookSanctionsBox = new EditBox(font, bx, whY + 22, bw, 16, Component.empty());
+        webhookReportsBox.setMaxLength(300);
+        webhookSanctionsBox.setMaxLength(300);
+        webhookReportsBox.setValue(webhookReports);
+        webhookSanctionsBox.setValue(webhookSanctions);
+        addRenderableWidget(webhookReportsBox);
+        addRenderableWidget(webhookSanctionsBox);
+        addRenderableWidget(btn("§aSAUVEGARDER WEBHOOKS", b -> {
+            webhookReports   = webhookReportsBox.getValue().trim();
+            webhookSanctions = webhookSanctionsBox.getValue().trim();
+            send("SET_WEBHOOKS", webhookReports, webhookSanctions);
+        }).bounds(midX - 70, whY + 44, 140, 18).build());
     }
 
     // ─── REPORTS ─────────────────────────────────────────────────────────────────
 
     private void buildReports() {
-        int bottomY = py + ph - 32;   // where the CLÔTURÉS strip starts
-        int colDiv  = cx + (pw - SIDE_W) / 2;  // vertical divider = midX
-        int rx1 = colDiv - 3;          // right edge of left panel
-        int lx2 = colDiv + 3;          // left edge of right panel
+        int bottomY = py + ph - 32;
+        int colDiv  = cx + (pw - SIDE_W) / 2;
+        int lx1 = cx + 2;
+        int rx1 = colDiv - 3;
+        int lx2 = colDiv + 3;
         int rx2 = px + pw - 4;
 
         // Left panel — EN ATTENTE
         int y = py + 48;
         for (java.util.Map.Entry<String, String> e : new java.util.LinkedHashMap<>(reports).entrySet()) {
-            String pn = e.getKey();
+            String pn  = e.getKey();
+            String msg = e.getValue();
             addRenderableWidget(btn("§aACCEPT", b -> {
-                String msg = reports.remove(pn);
-                if (msg != null) acceptedReports.put(pn, msg);
+                String m = reports.remove(pn);
+                if (m != null) acceptedReports.put(pn, m);
                 send("ACCEPT_REPORT", pn, "");
                 init();
             }).bounds(rx1 - 112, y + 8, 50, 14).build());
@@ -556,28 +614,69 @@ public class AdminScreen extends Screen {
                 send("REFUSE_REPORT", pn, "");
                 init();
             }).bounds(rx1 - 58, y + 8, 50, 14).build());
+            if (msg.length() > 0 && msg.charAt(0) == '') {
+                addRenderableWidget(btn("§b[IMG]", b -> {
+                    if (reportImageCache.containsKey(pn)) showReportOverlay(pn, reportImageCache.get(pn));
+                    else send("FETCH_REPORT_IMAGE", pn, "");
+                    init();
+                }).bounds(lx1 + 4, y + 25, 32, 11).build());
+            }
             y += 44;
         }
 
         // Right panel — EN COURS
         y = py + 48;
         for (java.util.Map.Entry<String, String> e : new java.util.LinkedHashMap<>(acceptedReports).entrySet()) {
-            String pn = e.getKey();
+            String pn  = e.getKey();
+            String msg = e.getValue();
             addRenderableWidget(btn("§eCLÔTURER", b -> {
-                String msg = acceptedReports.remove(pn);
-                if (msg != null) {
+                String m = acceptedReports.remove(pn);
+                if (m != null) {
                     if (closedReports.size() >= 15) closedReports.remove(closedReports.keySet().iterator().next());
-                    closedReports.put(pn, msg);
+                    closedReports.put(pn, m);
                 }
                 send("CLOSE_REPORT", pn, "");
                 init();
             }).bounds(rx2 - 62, y + 8, 58, 14).build());
+            if (msg.length() > 0 && msg.charAt(0) == '') {
+                addRenderableWidget(btn("§b[IMG]", b -> {
+                    if (reportImageCache.containsKey(pn)) showReportOverlay(pn, reportImageCache.get(pn));
+                    else send("FETCH_REPORT_IMAGE", pn, "");
+                    init();
+                }).bounds(lx2 + 4, y + 25, 32, 11).build());
+            }
             y += 44;
         }
     }
 
     private void send(String action, String target, String value) {
         ClientPlayNetworking.send(new AdminActionPayload(action, target, value));
+    }
+
+    public void onReportImageReceived(String playerName, byte[] data) {
+        reportImageCache.put(playerName, data);
+        showReportOverlay(playerName, data);
+        init();
+    }
+
+    private void showReportOverlay(String playerName, byte[] data) {
+        if (reportOverlayTexLoc != null) {
+            Minecraft.getInstance().getTextureManager().release(reportOverlayTexLoc);
+            if (reportOverlayTex != null) reportOverlayTex.close();
+        }
+        try {
+            com.mojang.blaze3d.platform.NativeImage img =
+                com.mojang.blaze3d.platform.NativeImage.read(data);
+            reportOverlayTex    = new net.minecraft.client.renderer.texture.DynamicTexture(
+                () -> "admin_report_img", img);
+            reportOverlayTexLoc = net.minecraft.resources.ResourceLocation
+                .fromNamespaceAndPath("dashboardadmin", "admin_report_img");
+            Minecraft.getInstance().getTextureManager().register(reportOverlayTexLoc, reportOverlayTex);
+            reportImagePlayer = playerName;
+        } catch (Exception ignored) {
+            reportOverlayTex    = null;
+            reportOverlayTexLoc = null;
+        }
     }
 
     // ─── render ──────────────────────────────────────────────────────────────────
@@ -597,9 +696,9 @@ public class AdminScreen extends Screen {
         g.fill(px + 6, py + 29, cx - 6, py + 30, C_ACCENT);
 
         // Sidebar section labels
-        g.drawString(font, "§8SERVEUR",   px + 7, py + 38,      0xFF444444);
-        g.drawString(font, "§8JOUEURS",   px + 7, py + 38 + 86, 0xFF444444);
-        g.drawString(font, "§8CHAT",      px + 7, py + 38 + 172, 0xFF444444);
+        g.drawString(font, "SERVEUR",  px + 7, py + 38,       0xFF666666);
+        g.drawString(font, "JOUEURS",  px + 7, py + 38 + 86,  0xFF666666);
+        g.drawString(font, "CHAT",     px + 7, py + 38 + 172, 0xFF666666);
         // Group dividers
         g.fill(px + 5, py + 36 + 79, cx - 5, py + 36 + 80, 0x33FFFFFF);
         g.fill(px + 5, py + 36 + 165, cx - 5, py + 36 + 166, 0x33FFFFFF);
@@ -651,14 +750,35 @@ public class AdminScreen extends Screen {
             }
         }
 
+        // Report image overlay
+        if (reportImagePlayer != null && reportOverlayTexLoc != null) {
+            int imgW = Math.min(480, width - 40);
+            int imgH = imgW * 9 / 16;
+            int ix   = (width - imgW) / 2;
+            int iy   = (height - imgH) / 2 - 12;
+            g.fill(0, 0, this.width, this.height, 0xAA000000);
+            g.fill(ix - 4, iy - 22, ix + imgW + 4, iy + imgH + 26, 0xFF1A1A1A);
+            g.fill(ix - 4, iy - 22, ix + imgW + 4, iy - 20, 0xFF00E5FF);
+            g.drawCenteredString(font,
+                Component.literal("§bCapture : §f" + reportImagePlayer),
+                ix + imgW / 2, iy - 15, 0xFFFFFFFF);
+            g.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, reportOverlayTexLoc,
+                ix, iy, 0f, 0f, imgW, imgH, imgW, imgH);
+        }
+
+        g.drawString(font, "@LKDM", px + pw - font.width("@LKDM") - 4, py + ph - 10, 0x55AAAAAA, false);
+
         super.render(g, mx, my, delta);
     }
 
     private void renderMonde(GuiGraphics g) {
         int lx = cx + 12;
-        lbl(g, "TEMPS",  lx, py + 42); g.fill(lx, py + 53, lx + 250, py + 54, C_DIV);
-        lbl(g, "MÉTÉO",  lx, py + 89); g.fill(lx, py + 100, lx + 250, py + 101, C_DIV);
-        lbl(g, "OUTILS", lx, py + 154); g.fill(lx, py + 165, lx + 250, py + 166, C_DIV);
+        g.fill(cx, py + 38, px + pw, py + 55, 0x0AFFFFFF);
+        lbl(g, "TEMPS",  lx, py + 43); g.fill(lx, py + 53, px + pw - 12, py + 54, C_DIV);
+        g.fill(cx, py + 85, px + pw, py + 102, 0x0AFFFFFF);
+        lbl(g, "MÉTÉO",  lx, py + 90); g.fill(lx, py + 100, px + pw - 12, py + 101, C_DIV);
+        g.fill(cx, py + 150, px + pw, py + 167, 0x0AFFFFFF);
+        lbl(g, "OUTILS", lx, py + 155); g.fill(lx, py + 165, px + pw - 12, py + 166, C_DIV);
     }
 
     private void renderJoueurs(GuiGraphics g) {
@@ -673,7 +793,7 @@ public class AdminScreen extends Screen {
                 .filter(i -> i.getProfile() != null && (search.isEmpty() || i.getProfile().name().toLowerCase().contains(search.toLowerCase())))
                 .count();
             int banY = py + 48 + searchCount * 16 + 8;
-            g.drawString(font, "§8BANNIS", cx + 6, banY - 2, 0xFF444444);
+            g.drawString(font, "BANNIS", cx + 6, banY - 2, 0xFF888888);
             g.fill(cx + 4, banY + 6, cx + 94, banY + 7, C_DIV);
             for (int i = 0; i < bannedPlayers.size(); i++) {
                 String bname  = bannedPlayers.get(i)[0];
@@ -687,7 +807,7 @@ public class AdminScreen extends Screen {
         }
 
         if (selPlayer == null) {
-            g.drawCenteredString(font, "", cx + 49, py + ph / 2, 0xFF555555);
+            g.drawCenteredString(font, "§8← Sélectionnez", cx + 49, py + ph / 2, 0xFF555555);
             return;
         }
 
@@ -753,9 +873,27 @@ public class AdminScreen extends Screen {
         int contentW = pw - SIDE_W;
         int bx  = cx + 8;
         int bw  = contentW - 16;
+        int hw  = (bw - 4) / 2;
         int boxW = 40, boxGap = (bw - 4 * boxW) / 3;
         int fy  = py + 34;
         int cy  = fy + 122;
+
+        // Feature state tints (behind buttons)
+        boolean[][] states = {
+            { cropTrampleEnabled,       afkAutoEnabled          },
+            { proportionalSleepEnabled, treeCapitatorEnabled    },
+            { fastLeafDecayEnabled,     doubleDoorEnabled       },
+            { rightClickHarvestEnabled, dispenserHarvestEnabled }
+        };
+        for (int row = 0; row < 4; row++) {
+            for (int col = 0; col < 2; col++) {
+                int bxc = bx + col * (hw + 4);
+                int byc = fy + row * 24;
+                boolean on = states[row][col];
+                g.fill(bxc, byc, bxc + hw, byc + 20, on ? 0x5500CC44 : 0x55CC3300);
+                g.fill(bxc, byc, bxc + 3, byc + 20, on ? 0xFF00CC44 : 0xFFAA3300);
+            }
+        }
 
         // Section divider
         g.fill(bx, fy + 100, bx + bw, fy + 101, C_DIV);
@@ -763,9 +901,21 @@ public class AdminScreen extends Screen {
 
         // Box labels
         int[] xs = { bx, bx + boxW + boxGap, bx + (boxW + boxGap) * 2, bx + (boxW + boxGap) * 3 };
-        String[] fLbls = { "§8/home(s)", "§8/back(s)", "§8/tpa(s)", "§8afk(min)" };
+        String[] fLbls = { "/home(s)", "/back(s)", "/tpa(s)", "afk(min)" };
         for (int i = 0; i < 4; i++)
-            g.drawString(font, fLbls[i], xs[i], cy - 9, 0xFF555555);
+            g.drawString(font, fLbls[i], xs[i], cy - 9, 0xFF666666);
+
+        // Max Homes section
+        int hmY = cy + 52;
+        g.fill(bx, hmY - 10, bx + bw, hmY - 9, C_DIV);
+        lbl(g, "MAX HOMES PAR JOUEUR  (1-10)", bx, hmY - 7);
+
+        // Discord Webhooks section
+        int whY = hmY + 40;
+        g.fill(bx, whY - 12, bx + bw, whY - 11, C_DIV);
+        lbl(g, "DISCORD WEBHOOKS", bx, whY - 8);
+        g.drawString(font, "§8Reports :", bx, whY - 1, 0xFF666666);
+        g.drawString(font, "§8Sanctions (ban/kick/mute) :", bx, whY + 21, 0xFF666666);
     }
 
     private void renderReports(GuiGraphics g) {
@@ -792,9 +942,12 @@ public class AdminScreen extends Screen {
             for (java.util.Map.Entry<String, String> e : reports.entrySet()) {
                 g.fill(lx1 + 3, y - 2, rx1 - 2, y + 37, C_ROW);
                 g.fill(lx1 + 3, y - 2, lx1 + 4, y + 37, 0xFFFF4444);
-                String msg = truncate(e.getValue(), 22);
+                String rawMsg = e.getValue();
+                boolean hasImg = rawMsg.length() > 0 && rawMsg.charAt(0) == '';
+                String msg = truncate(hasImg ? rawMsg.substring(1) : rawMsg, 22);
                 g.drawString(font, "§e" + e.getKey(), lx1 + 8, y + 3,  0xFFFFFFFF);
                 g.drawString(font, "§7» " + msg,      lx1 + 8, y + 15, 0xFFAAAAAA);
+                if (hasImg) g.drawString(font, "§b[capture jointe]", lx1 + 8, y + 27, 0xFF4499FF);
                 y += 44;
             }
         }
@@ -807,9 +960,12 @@ public class AdminScreen extends Screen {
             for (java.util.Map.Entry<String, String> e : acceptedReports.entrySet()) {
                 g.fill(lx2 + 3, y - 2, rx2 - 2, y + 37, C_ROW);
                 g.fill(lx2 + 3, y - 2, lx2 + 4, y + 37, 0xFFFFAA00);
-                String msg = truncate(e.getValue(), 22);
+                String rawMsg = e.getValue();
+                boolean hasImg = rawMsg.length() > 0 && rawMsg.charAt(0) == '';
+                String msg = truncate(hasImg ? rawMsg.substring(1) : rawMsg, 22);
                 g.drawString(font, "§e" + e.getKey(), lx2 + 8, y + 3,  0xFFFFFFFF);
                 g.drawString(font, "§7» " + msg,      lx2 + 8, y + 15, 0xFFAAAAAA);
+                if (hasImg) g.drawString(font, "§b📷", lx2 + 8, y + 27, 0xFFFFFFFF);
                 y += 44;
             }
         }
@@ -859,7 +1015,7 @@ public class AdminScreen extends Screen {
         g.fill(divX, py + 26, divX + 1, py + ph - 5, C_DIV);
 
         if (selPlayer == null) {
-            g.drawCenteredString(font, "", cx + 49, py + ph / 2, 0xFF555555);
+            g.drawCenteredString(font, "§8← Sélectionnez un joueur", cx + 49, py + ph / 2, 0xFF555555);
             return;
         }
 
@@ -869,7 +1025,7 @@ public class AdminScreen extends Screen {
         g.fill(divX + 1, py + 45, px + pw, py + 46, C_DIV);
 
         if (logsPlayer == null) {
-            g.drawCenteredString(font, "§8Chargement…", (divX + px + pw) / 2, py + ph / 2, 0xFF444444);
+            g.drawCenteredString(font, "§8Chargement des logs...", (divX + px + pw) / 2, py + ph / 2, 0xFF666666);
             return;
         }
 
@@ -1028,7 +1184,7 @@ public class AdminScreen extends Screen {
     }
 
     private void lbl(GuiGraphics g, String text, int x, int y) {
-        g.drawString(font, text, x, y, 0xFF555555);
+        g.drawString(font, text, x, y, 0xFF888888);
     }
 
     // ─── ZONES ───────────────────────────────────────────────────────────────────
@@ -1184,7 +1340,7 @@ public class AdminScreen extends Screen {
         g.fill(cx + ZONE_LIST_W, py + 26, cx + ZONE_LIST_W + 1, py + ph - 5, C_ACCENT);
 
         // List header + baguette separator
-        g.drawString(font, "§8ZONES", cx + 4, py + 28, 0xFF444444);
+        g.drawString(font, "ZONES", cx + 4, py + 28, 0xFF888888);
         g.fill(cx + 2, py + ph - 28, cx + ZONE_LIST_W - 2, py + ph - 27, C_DIV);
 
         if (zoneMap.isEmpty()) {
@@ -1247,8 +1403,8 @@ public class AdminScreen extends Screen {
 
         g.fill(detX + halfW, top, detX + halfW + 1, bot, C_DIV);
         g.fill(detX, top + 12, px + pw, top + 13, C_DIV);
-        g.drawString(font, "§8MEMBRES §7(" + z.members().size() + ")", detX + 4, top + 2, 0xFF555555);
-        g.drawString(font, "§8JOUEURS EN LIGNE", rightX + 4, top + 2, 0xFF555555);
+        g.drawString(font, "MEMBRES §7(" + z.members().size() + ")", detX + 4, top + 2, 0xFF888888);
+        g.drawString(font, "JOUEURS EN LIGNE", rightX + 4, top + 2, 0xFF888888);
 
         if (z.members().isEmpty()) {
             g.drawString(font, "§8Ouvert — tous autorisés", detX + 6, entryY + 3, 0xFF3A3A3A);

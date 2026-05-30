@@ -59,6 +59,12 @@ public class Test implements ModInitializer {
     private static final java.util.Map<String, String> pendingReports  = new java.util.LinkedHashMap<>();
     private static final java.util.Map<String, String> acceptedReports = new java.util.LinkedHashMap<>();
     private static final java.util.Map<String, String> closedReports   = new java.util.LinkedHashMap<>();
+    private static final java.util.Map<String, byte[]> reportImages         = new java.util.LinkedHashMap<>();
+    private static final java.util.Map<String, byte[]> acceptedReportImages = new java.util.LinkedHashMap<>();
+    private static final java.util.Map<String, byte[]> closedReportImages   = new java.util.LinkedHashMap<>();
+    private static volatile int    maxHomes         = 3;
+    private static volatile String webhookReports   = "";
+    private static volatile String webhookSanctions = "";
     private static final java.util.Map<java.util.UUID, Integer>        hostileMobKills = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, PlayerSettings> playerSettings  = new java.util.HashMap<>();
 
@@ -80,7 +86,7 @@ public class Test implements ModInitializer {
         new String[]{"/tpa",       "Demander une téléportation vers un joueur"},
         new String[]{"/tpaccept",  "Accepter une demande de téléportation"},
         new String[]{"/tpdeny",    "Refuser une demande de téléportation"},
-        new String[]{"/sethome",   "Enregistrer un point de retour (max 3)"},
+        new String[]{"/sethome",   "Enregistrer un home (Overworld uniquement)"},
         new String[]{"/home",      "Se téléporter à un home enregistré"},
         new String[]{"/back",      "Retourner à la position précédente"},
         new String[]{"/lock",      "Verrouiller/déverrouiller un bloc regardé"},
@@ -136,12 +142,19 @@ public class Test implements ModInitializer {
     public static boolean isDispenserHarvestEnabled()        { return dispenserHarvestEnabled; }
     public static void setRightClickHarvestEnabled(boolean v){ rightClickHarvestEnabled = v; }
     public static void setDispenserHarvestEnabled(boolean v) { dispenserHarvestEnabled = v; }
+    public static int    getMaxHomes()                 { return maxHomes; }
+    public static void   setMaxHomes(int v)            { maxHomes = Math.max(1, Math.min(10, v)); }
+    public static String getWebhookReports()           { return webhookReports; }
+    public static void   setWebhookReports(String v)   { webhookReports   = v == null ? "" : v; }
+    public static String getWebhookSanctions()         { return webhookSanctions; }
+    public static void   setWebhookSanctions(String v) { webhookSanctions = v == null ? "" : v; }
 
     public static String getFeaturesSerialized() {
         return afkAutoEnabled + "|" + proportionalSleepEnabled + "|" + treeCapitatorEnabled
              + "|" + fastLeafDecayEnabled + "|" + doubleDoorEnabled + "|" + getAfkDelayMinutes()
              + "|" + rightClickHarvestEnabled + "|" + dispenserHarvestEnabled
-             + "|" + cropTrampleEnabled;
+             + "|" + cropTrampleEnabled + "|" + maxHomes
+             + "|" + webhookReports + "|" + webhookSanctions;
     }
 
     private static void scheduleNearbyLeaves(net.minecraft.world.level.LevelAccessor world, net.minecraft.core.BlockPos pos) {
@@ -680,6 +693,9 @@ public class Test implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(Fabric.test.networking.GroupUpdatePayload.TYPE, Fabric.test.networking.GroupUpdatePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(Fabric.test.networking.NotifPayload.TYPE, Fabric.test.networking.NotifPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(Fabric.test.networking.OpenSanctionsPayload.TYPE, Fabric.test.networking.OpenSanctionsPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(Fabric.test.networking.OpenReportPayload.TYPE,    Fabric.test.networking.OpenReportPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(Fabric.test.networking.ReportSubmitPayload.TYPE,  Fabric.test.networking.ReportSubmitPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(Fabric.test.networking.ReportImagePayload.TYPE,   Fabric.test.networking.ReportImagePayload.CODEC);
         Fabric.test.command.ZoneCommand.registerEvents();
 
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
@@ -817,15 +833,19 @@ public class Test implements ModInitializer {
                 .then(Commands.argument("name", com.mojang.brigadier.arguments.StringArgumentType.string())
                 .executes(context -> {
                     ServerPlayer player = context.getSource().getPlayerOrException();
+                    if (!player.level().dimension().equals(net.minecraft.world.level.Level.OVERWORLD)) {
+                        player.sendSystemMessage(Component.literal("§c/sethome n'est disponible que dans l'Overworld."));
+                        return 0;
+                    }
                     String name = com.mojang.brigadier.arguments.StringArgumentType.getString(context, "name");
                     var homes = getPlayerHomes(player.getUUID());
-                    if (homes.size() >= 3 && !homes.containsKey(name)) {
-                        player.sendSystemMessage(Component.literal("§cLimite de 3 homes atteinte."));
+                    if (homes.size() >= maxHomes && !homes.containsKey(name)) {
+                        player.sendSystemMessage(Component.literal("§cLimite de §e" + maxHomes + " §chomes atteinte."));
                         return 0;
                     }
                     homes.put(name, player.blockPosition());
                     getPlayerHomesDim(player.getUUID()).put(name, player.level().dimension().location().toString());
-                    player.sendSystemMessage(Component.literal("§aHome '" + name + "' enregistré !"));
+                    player.sendSystemMessage(Component.literal("§aHome §e'" + name + "' §aenregistré ! (§e" + homes.size() + "§a/§e" + maxHomes + "§a)"));
                     return 1;
                 })));
 
@@ -920,6 +940,11 @@ public class Test implements ModInitializer {
                     return 1;
                 }));
             dispatcher.register(Commands.literal("report")
+                .executes(context -> {
+                    ServerPlayer player = context.getSource().getPlayerOrException();
+                    ServerPlayNetworking.send(player, new Fabric.test.networking.OpenReportPayload());
+                    return 1;
+                })
                 .then(Commands.argument("message", com.mojang.brigadier.arguments.StringArgumentType.greedyString())
                 .executes(context -> {
                     ServerPlayer player = context.getSource().getPlayerOrException();
@@ -934,7 +959,7 @@ public class Test implements ModInitializer {
                     for (ServerPlayer op : context.getSource().getServer().getPlayerList().getPlayers()) {
                         if (op.hasPermissions(2)) {
                             op.sendSystemMessage(notif);
-                            net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(op, new Fabric.test.networking.NotifPayload("REPORT", "§c⚑ Report de §f" + name));
+                            ServerPlayNetworking.send(op, new Fabric.test.networking.NotifPayload("REPORT", "§c⚑ Report de §f" + name));
                         }
                     }
                     return 1;
@@ -1489,6 +1514,7 @@ public class Test implements ModInitializer {
                                 target.sendSystemMessage(Component.literal("§eVous n'êtes plus muet."));
                             } else {
                                 mutedPlayers.add(target.getUUID());
+                                DiscordWebhook.sendSanction(webhookSanctions, admin.getName().getString(), target.getName().getString(), "MUTE", "");
                                 addLog(target.getUUID(), "Muted par " + admin.getName().getString());
                                 addSanction("MUTE", target.getName().getString(), admin.getName().getString(), "");
                                 admin.sendSystemMessage(Component.literal("§e" + target.getName().getString() + " est maintenant muet."));
@@ -1532,7 +1558,7 @@ public class Test implements ModInitializer {
                             if (tgtPlayer != null) tgtPlayer.sendSystemMessage(announcement);
                         }
                     }
-                    case "KICK" -> { if (target != null) { addLog(target.getUUID(), "Kicked par " + admin.getName().getString()); addSanction("KICK", target.getName().getString(), admin.getName().getString(), ""); target.connection.disconnect(Component.literal("Expulsé par un admin.")); } }
+                    case "KICK" -> { if (target != null) { addLog(target.getUUID(), "Kicked par " + admin.getName().getString()); addSanction("KICK", target.getName().getString(), admin.getName().getString(), ""); DiscordWebhook.sendSanction(webhookSanctions, admin.getName().getString(), target.getName().getString(), "KICK", ""); target.connection.disconnect(Component.literal("Expulsé par un admin.")); } }
                     case "TELEPORT_TO" -> { if (target != null) { addLog(target.getUUID(), "TP vers par " + admin.getName().getString()); admin.teleportTo((ServerLevel)target.level(), target.getX(), target.getY(), target.getZ(), Set.of(), admin.getYRot(), admin.getXRot(), true); } }
                     case "OPEN_INV" -> {
                         if (target != null) {
@@ -1566,6 +1592,8 @@ public class Test implements ModInitializer {
                         if (!pendingReports.containsKey(rName)) { admin.sendSystemMessage(Component.literal("§cAucun rapport en attente de §e" + rName + "§c.")); }
                         else {
                             acceptedReports.put(rName, pendingReports.remove(rName));
+                            byte[] img = reportImages.remove(rName);
+                            if (img != null) acceptedReportImages.put(rName, img);
                             ServerPlayer reporter = context.server().getPlayerList().getPlayerByName(rName);
                             if (reporter != null) reporter.sendSystemMessage(Component.literal("§aVotre signalement a été pris en charge. Un administrateur arrive au plus vite !"));
                             admin.sendSystemMessage(Component.literal("§aRapport de §e" + rName + " §apris en charge."));
@@ -1575,8 +1603,14 @@ public class Test implements ModInitializer {
                         String rName = payload.target();
                         String rMsg = acceptedReports.remove(rName);
                         if (rMsg != null) {
-                            if (closedReports.size() >= 15) closedReports.remove(closedReports.keySet().iterator().next());
+                            if (closedReports.size() >= 15) {
+                                String oldest = closedReports.keySet().iterator().next();
+                                closedReports.remove(oldest);
+                                closedReportImages.remove(oldest);
+                            }
                             closedReports.put(rName, rMsg);
+                            byte[] img = acceptedReportImages.remove(rName);
+                            if (img != null) closedReportImages.put(rName, img);
                             ServerPlayer reporter = context.server().getPlayerList().getPlayerByName(rName);
                             if (reporter != null) reporter.sendSystemMessage(Component.literal("§aVotre signalement a été résolu. Merci de nous avoir contacté !"));
                             admin.sendSystemMessage(Component.literal("§aSignalement de §e" + rName + " §aclôturé."));
@@ -1586,8 +1620,32 @@ public class Test implements ModInitializer {
                     }
                     case "REFUSE_REPORT" -> {
                         String rName = payload.target();
-                        if (pendingReports.remove(rName) != null) admin.sendSystemMessage(Component.literal("§cRapport de §e" + rName + " §crefusé."));
-                        else admin.sendSystemMessage(Component.literal("§cAucun rapport de §e" + rName + "§c."));
+                        if (pendingReports.remove(rName) != null) {
+                            reportImages.remove(rName);
+                            admin.sendSystemMessage(Component.literal("§cRapport de §e" + rName + " §crefusé."));
+                        } else admin.sendSystemMessage(Component.literal("§cAucun rapport de §e" + rName + "§c."));
+                    }
+                    case "FETCH_REPORT_IMAGE" -> {
+                        String rName = payload.target();
+                        byte[] img = reportImages.containsKey(rName) ? reportImages.get(rName)
+                            : acceptedReportImages.containsKey(rName) ? acceptedReportImages.get(rName)
+                            : closedReportImages.get(rName);
+                        if (img != null)
+                            ServerPlayNetworking.send(admin, new Fabric.test.networking.ReportImagePayload(rName, img));
+                    }
+                    case "SET_MAX_HOMES" -> {
+                        try {
+                            int m = Integer.parseInt(payload.value());
+                            setMaxHomes(m);
+                            ServerConfig.save();
+                            admin.sendSystemMessage(Component.literal("§aMax homes fixé à §e" + getMaxHomes() + "§a."));
+                        } catch (NumberFormatException ignored) {}
+                    }
+                    case "SET_WEBHOOKS" -> {
+                        setWebhookReports(payload.target());
+                        setWebhookSanctions(payload.value());
+                        ServerConfig.save();
+                        admin.sendSystemMessage(Component.literal("§aWebhooks Discord mis à jour."));
                     }
                     case "GET_LOGS" -> {
                         if (target != null) {
@@ -1610,6 +1668,7 @@ public class Test implements ModInitializer {
                             String sanctionReason = (banDays > 0 ? "(" + banDays + "j) " : "") + reason;
                             addLog(target.getUUID(), "Banned par " + admin.getName().getString() + " (" + sanctionReason + ")");
                             addSanction("BAN", target.getName().getString(), admin.getName().getString(), sanctionReason);
+                            DiscordWebhook.sendSanction(webhookSanctions, admin.getName().getString(), target.getName().getString(), "BAN", sanctionReason);
                             context.server().getPlayerList().getBans().add(new net.minecraft.server.players.UserBanListEntry(new net.minecraft.server.players.NameAndId(target.getGameProfile()), null, "admin", expires, reason));
                             target.connection.disconnect(Component.literal(reason));
                         }
@@ -1812,6 +1871,32 @@ public class Test implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(Fabric.test.networking.GroupActionPayload.TYPE, (payload, context) ->
             context.server().execute(() ->
                 GroupManager.handleAction(payload, context.player(), context.server())));
+
+        ServerPlayNetworking.registerGlobalReceiver(Fabric.test.networking.ReportSubmitPayload.TYPE, (payload, context) ->
+            context.server().execute(() -> {
+                ServerPlayer player = context.player();
+                String name    = player.getName().getString();
+                String message = payload.message();
+                byte[] img     = payload.imageData();
+                boolean hasImg = img != null && img.length > 0;
+                pendingReports.put(name, (hasImg ? "" : "") + message);
+                if (hasImg) reportImages.put(name, img);
+                player.sendSystemMessage(Component.literal("§aVotre rapport a été envoyé aux administrateurs."));
+                Component notif = Component.literal("§c§l[REPORT] §r§e" + name + " §7» §f" + message + "  ")
+                    .append(Component.literal("[ACCEPTER]").withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GREEN)
+                        .withClickEvent(new net.minecraft.network.chat.ClickEvent.RunCommand("/reportaccept " + name))))
+                    .append(Component.literal("  "))
+                    .append(Component.literal("[REFUSER]").withStyle(s -> s.withColor(net.minecraft.ChatFormatting.RED)
+                        .withClickEvent(new net.minecraft.network.chat.ClickEvent.RunCommand("/reportdeny " + name))));
+                for (ServerPlayer op : context.server().getPlayerList().getPlayers()) {
+                    if (op.hasPermissions(2)) {
+                        op.sendSystemMessage(notif);
+                        ServerPlayNetworking.send(op, new Fabric.test.networking.NotifPayload(
+                            "REPORT", "§c⚑ Report de §f" + name + (hasImg ? " §8[IMG]" : "")));
+                    }
+                }
+                DiscordWebhook.sendReport(webhookReports, name, message, img);
+            }));
 
         ServerPlayNetworking.registerGlobalReceiver(DealActionPayload.TYPE, (payload, context) ->
             context.server().execute(() -> {

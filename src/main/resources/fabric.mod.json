@@ -3,8 +3,9 @@
   "id": "dashboardadmin",
   "version": "${version}",
   "name": "DashBoardAdmin",
-  "description": "Mod d'administration complet pour serveur SMP",
+  "description": "DashBoardAdmin est un mod Fabric tout-en-un pour serveurs SMP. Il offre un panneau d'administration graphique complet (gestion des joueurs, zones, sanctions, broadcasts), un menu joueur (/menu) avec homes, verrous, groupes, échanges et statistiques, ainsi qu'un ensemble de fonctionnalités serveur configurables (arbre capitateur, sommeil proportionnel, récolte clic-droit, etc.).",
   "authors": ["LKDM"],
+  "icon": "assets/dashboardadmin/icon.png",
   "contact": {},
   "license": "All-Rights-Reserved",
   "environment": "*",
@@ -19,7 +20,10 @@
       "Fabric.test.client.TestDataGenerator"
     ]
   },
-  "mixins": ["dashboardadmin.mixins.json", "test.client.mixins.json"],
+  "mixins": [
+    "dashboardadmin.mixins.json",
+    {"config": "test.client.mixins.json", "environment": "client"}
+  ],
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric-api": "*",

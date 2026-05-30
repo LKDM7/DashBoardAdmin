@@ -152,6 +152,16 @@ public class TestClient implements ClientModInitializer {
                 if (current instanceof AdminScreen as) as.onSanctionsReceived(payload.data());
             }));
 
+        ClientPlayNetworking.registerGlobalReceiver(Fabric.test.networking.OpenReportPayload.TYPE, (payload, context) ->
+            context.client().execute(() -> Minecraft.getInstance().setScreen(new ReportScreen())));
+
+        ClientPlayNetworking.registerGlobalReceiver(Fabric.test.networking.ReportImagePayload.TYPE, (payload, context) ->
+            context.client().execute(() -> {
+                net.minecraft.client.gui.screens.Screen current = Minecraft.getInstance().screen;
+                if (current instanceof AdminScreen as)
+                    as.onReportImageReceived(payload.playerName(), payload.imageData());
+            }));
+
         GroupHud.register();
         NotifHud.register();
     }

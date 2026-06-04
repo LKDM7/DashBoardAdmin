@@ -2,38 +2,38 @@ package Fabric.test.command;
 
 import Fabric.test.networking.ModMessages;
 import com.mojang.brigadier.CommandDispatcher;
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 public class AdminCommand {
+
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("admin")
-                .requires(source -> source.hasPermission(2))
-                .executes(context -> {
-                    ServerPlayer player = context.getSource().getPlayerOrException();
-                    net.minecraft.server.MinecraftServer server = context.getSource().getServer();
-                    ServerPlayNetworking.send(player, new OpenAdminGuiPayload(
-                        Fabric.test.Test.isPvpEnabled(),
-                        Fabric.test.Test.getMutedPlayerNames(server),
-                        Fabric.test.Test.getFrozenPlayerNames(server),
-                        Fabric.test.Test.getReportsSerialized(),
-                        Fabric.test.Test.getKeepInventoryPlayerNames(server),
-                        Fabric.test.Test.getAcceptedReportsSerialized(),
-                        Fabric.test.Test.getClosedReportsSerialized(),
-                        Fabric.test.Test.getScheduledBroadcastsSerialized(),
-                        Fabric.test.Test.getCooldownsSerialized(),
-                        Fabric.test.Test.getFeaturesSerialized(),
-                        Fabric.test.Test.getBannedPlayersSerialized(server),
-                        Fabric.test.GroupManager.getGroupsSerialized(server)
-                    ));
-                    return 1;
-                })
-        );
+            .requires(source -> source.hasPermission(2))
+            .executes(context -> {
+                ServerPlayer player = context.getSource().getPlayerOrException();
+                net.minecraft.server.MinecraftServer server = context.getSource().getServer();
+                PacketDistributor.sendToPlayer(player, new OpenAdminGuiPayload(
+                    Fabric.test.Test.isPvpEnabled(),
+                    Fabric.test.Test.getMutedPlayerNames(server),
+                    Fabric.test.Test.getFrozenPlayerNames(server),
+                    Fabric.test.Test.getReportsSerialized(),
+                    Fabric.test.Test.getKeepInventoryPlayerNames(server),
+                    Fabric.test.Test.getAcceptedReportsSerialized(),
+                    Fabric.test.Test.getClosedReportsSerialized(),
+                    Fabric.test.Test.getScheduledBroadcastsSerialized(),
+                    Fabric.test.Test.getCooldownsSerialized(),
+                    Fabric.test.Test.getFeaturesSerialized(),
+                    Fabric.test.Test.getBannedPlayersSerialized(server),
+                    Fabric.test.GroupManager.getGroupsSerialized(server)
+                ));
+                return 1;
+            }));
     }
 
     public record OpenAdminGuiPayload(
@@ -48,7 +48,7 @@ public class AdminCommand {
         String cooldowns,
         String features,
         String bannedPlayers,
-        String groupsSerialized  // "leaderName:groupName:count|..."
+        String groupsSerialized
     ) implements CustomPacketPayload {
         public static final Type<OpenAdminGuiPayload> TYPE = new Type<>(ModMessages.OPEN_ADMIN_GUI);
         public static final StreamCodec<FriendlyByteBuf, OpenAdminGuiPayload> CODEC = StreamCodec.of(
@@ -67,13 +67,11 @@ public class AdminCommand {
                 buf.writeUtf(p.groupsSerialized);
             },
             buf -> new OpenAdminGuiPayload(
-                buf.readBoolean(), buf.readUtf(), buf.readUtf(),
+                buf.readBoolean(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
                 buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
-                buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
-                buf.readUtf()
+                buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf()
             )
         );
-
         @Override
         public Type<? extends CustomPacketPayload> type() { return TYPE; }
     }

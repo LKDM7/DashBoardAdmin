@@ -13,3 +13,15 @@
 # OS files
 .DS_Store
 Thumbs.db
+
+# Claude / AI tooling artifacts
+/.claude/
+/.claude-flow/
+/.agents/
+/.swarm/
+/.codex/
+/.mcp.json
+/scripts/
+/plugins/
+/logs/
+ruvector.db

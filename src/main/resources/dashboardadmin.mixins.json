@@ -1,0 +1,12 @@
+{
+    "required": true,
+    "package": "Fabric.test.mixin",
+    "compatibilityLevel": "JAVA_21",
+    "mixins": [
+        "FarmBlockMixin"
+    ],
+    "client": [],
+    "injectors": {
+        "defaultRequire": 1
+    }
+}

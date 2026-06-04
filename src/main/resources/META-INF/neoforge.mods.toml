@@ -1,0 +1,32 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="All-Rights-Reserved"
+
+[[mods]]
+modId="dashboardadmin"
+version="${file.jarVersion}"
+displayName="DashBoardAdmin"
+description='''
+DashBoardAdmin est un mod NeoForge tout-en-un pour serveurs SMP.
+Il offre un panneau d'administration graphique complet (gestion des joueurs, zones,
+sanctions, broadcasts), un menu joueur (/menu) avec homes, verrous, groupes,
+échanges et statistiques, ainsi qu'un ensemble de fonctionnalités serveur
+configurables (arbre capitateur, sommeil proportionnel, récolte clic-droit, etc.).
+'''
+
+[[dependencies.dashboardadmin]]
+modId="neoforge"
+type="required"
+versionRange="[21.1,)"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.dashboardadmin]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1,1.22)"
+ordering="NONE"
+side="BOTH"
+
+[[mixins]]
+config="dashboardadmin.mixins.json"

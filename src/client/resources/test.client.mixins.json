@@ -3,9 +3,7 @@
   "minVersion": "0.8",
   "package": "Fabric.test.mixin.client",
   "compatibilityLevel": "JAVA_21",
-  "client": [
-    "AbstractContainerScreenAccessor"
-  ],
+  "client": [],
   "injectors": {
     "defaultRequire": 1
   },

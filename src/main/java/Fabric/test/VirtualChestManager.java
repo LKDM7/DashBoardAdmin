@@ -3,7 +3,9 @@ package Fabric.test;
 import com.google.gson.*;
 import net.minecraft.core.NonNullList;
 import net.minecraft.world.item.ItemStack;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 
@@ -48,7 +50,7 @@ public class VirtualChestManager {
                 JsonArray items = entry.getValue().getAsJsonArray();
                 for (int i = 0; i < items.size() && i < 9; i++) {
                     JsonObject item = items.get(i).getAsJsonObject();
-                    var it = BuiltInRegistries.ITEM.getValue(ResourceLocation.parse(item.get("id").getAsString()));
+                    var it = BuiltInRegistries.ITEM.get(ResourceLocation.parse(item.get("id").getAsString()));
                     if (it != null) list.set(i, new ItemStack(it, item.get("count").getAsInt()));
                 }
                 playerChests.put(uuid, list);
@@ -57,7 +59,8 @@ public class VirtualChestManager {
     }
 
     public static void register() {
-        ServerLifecycleEvents.SERVER_STARTING.register(server -> load());
-        ServerLifecycleEvents.SERVER_STOPPING.register(server -> save());
+        NeoForge.EVENT_BUS.addListener((ServerStartingEvent e) -> load());
+        NeoForge.EVENT_BUS.addListener((ServerStoppingEvent e) -> save());
     }
 }
+

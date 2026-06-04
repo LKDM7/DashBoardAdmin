@@ -20,8 +20,6 @@ public class TestClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        Fabric.test.invsort.client.InvSortClient.init();
-
         adminKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "Dashboard",
                 InputConstants.Type.KEYSYM, 

@@ -3,7 +3,9 @@ package Fabric.test;
 import com.google.gson.*;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 
 import java.io.*;
 import java.nio.file.*;
@@ -60,7 +62,8 @@ public class HomePersistence {
     }
 
     public static void register() {
-        ServerLifecycleEvents.SERVER_STARTING.register(server -> load());
-        ServerLifecycleEvents.SERVER_STOPPING.register(server -> save());
+        NeoForge.EVENT_BUS.addListener((ServerStartingEvent e) -> load());
+        NeoForge.EVENT_BUS.addListener((ServerStoppingEvent e) -> save());
     }
 }
+

@@ -1,32 +1,39 @@
 package Fabric.test;
 
 import com.google.gson.*;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 
 import java.io.*;
 import java.nio.file.*;
-import java.util.UUID;
+import java.util.*;
 
 public class SettingsPersistence {
     private static final Path PATH = Paths.get("run/data/player_settings.json");
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public static void save() {
-        java.util.Map<String, java.util.Map<String, Boolean>> data = new java.util.HashMap<>();
+        JsonObject root = new JsonObject();
         for (var entry : Test.getAllSettings().entrySet()) {
             PlayerSettings s = entry.getValue();
-            java.util.Map<String, Boolean> map = new java.util.HashMap<>();
-            map.put("allowPrivateMessages",  s.allowPrivateMessages);
-            map.put("allowTpaRequests",       s.allowTpaRequests);
-            map.put("allowTrades",            s.allowTrades);
-            map.put("showChatNotifications",  s.showChatNotifications);
-            map.put("showConnectionAlerts",   s.showConnectionAlerts);
-            map.put("keepInventory",          s.keepInventory);
-            data.put(entry.getKey().toString(), map);
+            JsonObject obj = new JsonObject();
+            obj.addProperty("allowPrivateMessages",  s.allowPrivateMessages);
+            obj.addProperty("allowTpaRequests",       s.allowTpaRequests);
+            obj.addProperty("allowTrades",            s.allowTrades);
+            obj.addProperty("showChatNotifications",  s.showChatNotifications);
+            obj.addProperty("showConnectionAlerts",   s.showConnectionAlerts);
+            obj.addProperty("keepInventory",          s.keepInventory);
+            if (!s.ignoredPlayers.isEmpty()) {
+                JsonArray ignored = new JsonArray();
+                for (UUID u : s.ignoredPlayers) ignored.add(u.toString());
+                obj.add("ignoredPlayers", ignored);
+            }
+            root.add(entry.getKey().toString(), obj);
         }
         try {
             Files.createDirectories(PATH.getParent());
-            Files.writeString(PATH, GSON.toJson(data));
+            Files.writeString(PATH, GSON.toJson(root));
         } catch (IOException e) { e.printStackTrace(); }
     }
 
@@ -44,12 +51,16 @@ public class SettingsPersistence {
                 if (m.has("showChatNotifications"))  s.showChatNotifications  = m.get("showChatNotifications").getAsBoolean();
                 if (m.has("showConnectionAlerts"))   s.showConnectionAlerts   = m.get("showConnectionAlerts").getAsBoolean();
                 if (m.has("keepInventory"))          s.keepInventory          = m.get("keepInventory").getAsBoolean();
+                if (m.has("ignoredPlayers"))
+                    for (JsonElement el : m.getAsJsonArray("ignoredPlayers"))
+                        s.ignoredPlayers.add(UUID.fromString(el.getAsString()));
             }
         } catch (IOException e) { e.printStackTrace(); }
     }
 
     public static void register() {
-        ServerLifecycleEvents.SERVER_STARTING.register(server -> load());
-        ServerLifecycleEvents.SERVER_STOPPING.register(server -> save());
+        NeoForge.EVENT_BUS.addListener((ServerStartingEvent e) -> load());
+        NeoForge.EVENT_BUS.addListener((ServerStoppingEvent e) -> save());
     }
 }
+

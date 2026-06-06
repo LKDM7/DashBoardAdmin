@@ -560,7 +560,7 @@ public class DashGameEvents {
             int size = inv.getContainerSize();
             NonNullList<ItemStack> copy = NonNullList.withSize(size, ItemStack.EMPTY);
             for (int i = 0; i < size; i++) { copy.set(i, inv.getItem(i).copy()); inv.setItem(i, ItemStack.EMPTY); }
-            keepInvSavedStates.put(sp.getUUID(), new SavedState(copy, sp.experienceLevel, sp.experienceProgress, sp.totalExperience));
+            keepInvSavedStates.put(sp.getUUID(), new SavedState(copy, sp.experienceLevel, sp.experienceProgress, sp.totalExperience, AccessoriesCompat.saveAndClear(sp)));
         }
         // Mob kill tracking (runs before entity is actually removed — fine for counting)
         if (event.getEntity() instanceof net.minecraft.world.entity.monster.Monster
@@ -577,7 +577,8 @@ public class DashGameEvents {
     // Saved state for keep-inventory (package-private, accessed by onPlayerClone)
     static final java.util.Map<java.util.UUID, SavedState> keepInvSavedStates = new java.util.HashMap<>();
 
-    record SavedState(NonNullList<ItemStack> items, int xpLevel, float xpProgress, int totalXp) {}
+    record SavedState(NonNullList<ItemStack> items, int xpLevel, float xpProgress, int totalXp,
+                      java.util.Map<String, NonNullList<ItemStack>> accessories) {}
 
     @SubscribeEvent
     public static void onPlayerClone(PlayerEvent.Clone event) {
@@ -591,6 +592,7 @@ public class DashGameEvents {
         newPlayer.experienceLevel    = saved.xpLevel();
         newPlayer.experienceProgress = saved.xpProgress();
         newPlayer.totalExperience    = saved.totalXp();
+        AccessoriesCompat.restore(newPlayer, saved.accessories());
     }
 
     @SubscribeEvent

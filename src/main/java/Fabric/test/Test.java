@@ -82,6 +82,7 @@ public class Test {
     private static final java.util.Map<java.util.UUID, java.util.Set<java.util.UUID>> trustedPlayers = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, String>  playerNameCache = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, net.minecraft.world.phys.Vec3> lastPositions  = new java.util.HashMap<>();
+    private static final java.util.Map<java.util.UUID, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> lastPositionDims = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, java.util.UUID>  pendingDeals = new java.util.HashMap<>();
     private static final java.util.Map<String, net.minecraft.core.BlockPos> warps    = new java.util.LinkedHashMap<>();
     private static final java.util.Map<String, String>                      warpsDim = new java.util.LinkedHashMap<>();
@@ -309,8 +310,9 @@ public class Test {
         sanctionsLog.add(new String[]{ ts, type, player, admin, reason.isEmpty() ? "—" : reason });
         SanctionsPersistence.save();
     }
-    static void savePosition(ServerPlayer player)       { lastPositions.put(player.getUUID(), player.position()); }
+    static void savePosition(ServerPlayer player)       { lastPositions.put(player.getUUID(), player.position()); lastPositionDims.put(player.getUUID(), player.level().dimension()); }
     static java.util.Map<java.util.UUID, net.minecraft.world.phys.Vec3> getLastPositions() { return lastPositions; }
+    static java.util.Map<java.util.UUID, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> getLastPositionDims() { return lastPositionDims; }
     static java.util.Map<java.util.UUID, Long> getLastActivityTime()       { return lastActivityTime; }
     static java.util.Map<java.util.UUID, Long> getLastHomeUse()             { return lastHomeUse; }
     static java.util.Map<java.util.UUID, Long> getLastBackUse()             { return lastBackUse; }

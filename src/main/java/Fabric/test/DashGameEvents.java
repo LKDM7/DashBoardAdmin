@@ -173,8 +173,11 @@ public class DashGameEvents {
             if (!Test.checkCooldown(Test.getLastBackUse(), player.getUUID(), Test.getCooldownBack(), player, "/back")) return 0;
             net.minecraft.world.phys.Vec3 pos = Test.getLastPositions().get(player.getUUID());
             if (pos == null) { player.sendSystemMessage(Component.literal("§cAucune position de retour trouvée.")); return 0; }
+            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dim = Test.getLastPositionDims().get(player.getUUID());
+            ServerLevel targetLevel = dim != null ? ctx.getSource().getServer().getLevel(dim) : null;
+            if (targetLevel == null) targetLevel = (ServerLevel) player.level();
             Test.savePosition(player);
-            player.teleportTo((ServerLevel)player.level(), pos.x, pos.y, pos.z, Set.of(), player.getYRot(), player.getXRot());
+            player.teleportTo(targetLevel, pos.x, pos.y, pos.z, Set.of(), player.getYRot(), player.getXRot());
             player.sendSystemMessage(Component.literal("§aRetour à la position précédente."));
             return 1;
         }));
@@ -549,13 +552,14 @@ public class DashGameEvents {
     // ─── Living events ────────────────────────────────────────────────────────
     @SubscribeEvent
     public static void onLivingDeath(LivingDeathEvent event) {
+        // Save death position for /back
+        if (event.getEntity() instanceof ServerPlayer sp) Test.savePosition(sp);
         // Keep-inventory: save state before death
         if (event.getEntity() instanceof ServerPlayer sp && Test.getPlayerSettings(sp.getUUID()).keepInventory) {
             net.minecraft.world.entity.player.Inventory inv = sp.getInventory();
             int size = inv.getContainerSize();
             NonNullList<ItemStack> copy = NonNullList.withSize(size, ItemStack.EMPTY);
-            for (int i = 0; i < size; i++) copy.set(i, inv.getItem(i).copy());
-            // Store via static package-private map in Test
+            for (int i = 0; i < size; i++) { copy.set(i, inv.getItem(i).copy()); inv.setItem(i, ItemStack.EMPTY); }
             keepInvSavedStates.put(sp.getUUID(), new SavedState(copy, sp.experienceLevel, sp.experienceProgress, sp.totalExperience));
         }
         // Mob kill tracking (runs before entity is actually removed — fine for counting)

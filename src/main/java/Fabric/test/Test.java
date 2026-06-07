@@ -521,18 +521,27 @@ public class Test {
             ServerPlayer target = context.getSource().getPlayerOrException();
             java.util.UUID senderUUID = tpaRequests.remove(target.getUUID());
             pendingTpaTimestamps.remove(target.getUUID());
-            if (senderUUID == null) { target.sendSystemMessage(Component.literal("§cAucune demande.")); return 0; }
+            if (senderUUID == null) { target.sendSystemMessage(Component.literal("§cAucune demande en attente.")); return 0; }
+            String senderName = playerNameCache.getOrDefault(senderUUID, "?");
             ServerPlayer sender = context.getSource().getServer().getPlayerList().getPlayer(senderUUID);
-            if (sender != null) {
-                sender.teleportTo((ServerLevel)target.level(), target.getX(), target.getY(), target.getZ(), Set.of(), sender.getYRot(), sender.getXRot());
-                sender.sendSystemMessage(Component.literal("§aTéléporté !"));
+            if (sender == null) {
+                target.sendSystemMessage(Component.literal("§c" + senderName + " n'est plus connecté."));
+                return 0;
             }
+            sender.teleportTo((ServerLevel)target.level(), target.getX(), target.getY(), target.getZ(), Set.of(), sender.getYRot(), sender.getXRot());
+            target.sendSystemMessage(Component.literal("§a✔ Vous avez accepté la demande de §e" + sender.getName().getString() + "§a."));
+            sender.sendSystemMessage(Component.literal("§a✔ §e" + target.getName().getString() + "§a a accepté — téléporté !"));
             return 1;
         }));
         dispatcher.register(Commands.literal("tpdeny").executes(context -> {
             ServerPlayer target = context.getSource().getPlayerOrException();
             pendingTpaTimestamps.remove(target.getUUID());
-            if (tpaRequests.remove(target.getUUID()) != null) target.sendSystemMessage(Component.literal("§cRequête refusée."));
+            java.util.UUID senderUUID = tpaRequests.remove(target.getUUID());
+            if (senderUUID == null) { target.sendSystemMessage(Component.literal("§cAucune demande en attente.")); return 0; }
+            String senderName = playerNameCache.getOrDefault(senderUUID, "?");
+            ServerPlayer sender = context.getSource().getServer().getPlayerList().getPlayer(senderUUID);
+            target.sendSystemMessage(Component.literal("§c✘ Vous avez refusé la demande de §e" + senderName + "§c."));
+            if (sender != null) sender.sendSystemMessage(Component.literal("§c✘ §e" + target.getName().getString() + "§c a refusé votre demande de téléportation."));
             return 1;
         }));
     }

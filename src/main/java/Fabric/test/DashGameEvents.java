@@ -576,6 +576,8 @@ public class DashGameEvents {
 
     // Saved state for keep-inventory (package-private, accessed by onPlayerClone)
     static final java.util.Map<java.util.UUID, SavedState> keepInvSavedStates = new java.util.HashMap<>();
+    // Accessories restore is deferred one tick so the capability is fully attached on the new player
+    static final java.util.Map<java.util.UUID, java.util.Map<String, NonNullList<ItemStack>>> pendingAccessoriesRestore = new java.util.HashMap<>();
 
     record SavedState(NonNullList<ItemStack> items, int xpLevel, float xpProgress, int totalXp,
                       java.util.Map<String, NonNullList<ItemStack>> accessories) {}
@@ -592,7 +594,8 @@ public class DashGameEvents {
         newPlayer.experienceLevel    = saved.xpLevel();
         newPlayer.experienceProgress = saved.xpProgress();
         newPlayer.totalExperience    = saved.totalXp();
-        AccessoriesCompat.restore(newPlayer, saved.accessories());
+        if (!saved.accessories().isEmpty())
+            pendingAccessoriesRestore.put(newPlayer.getUUID(), saved.accessories());
     }
 
     @SubscribeEvent
@@ -804,6 +807,16 @@ public class DashGameEvents {
         MinecraftServer server = event.getServer();
         Fabric.test.command.ZoneCommand.onTick(server);
         GroupManager.onTick(server);
+
+        // Deferred accessories restore (one tick after respawn so the capability is ready)
+        if (!pendingAccessoriesRestore.isEmpty()) {
+            java.util.Iterator<java.util.Map.Entry<java.util.UUID, java.util.Map<String, NonNullList<ItemStack>>>> accIt = pendingAccessoriesRestore.entrySet().iterator();
+            while (accIt.hasNext()) {
+                java.util.Map.Entry<java.util.UUID, java.util.Map<String, NonNullList<ItemStack>>> entry = accIt.next();
+                ServerPlayer p = server.getPlayerList().getPlayer(entry.getKey());
+                if (p != null) { AccessoriesCompat.restore(p, entry.getValue()); accIt.remove(); }
+            }
+        }
 
         long nowMs = System.currentTimeMillis();
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {

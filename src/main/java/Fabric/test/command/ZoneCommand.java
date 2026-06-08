@@ -5,14 +5,23 @@ import Fabric.test.networking.OpenZonePayload;
 import Fabric.test.networking.ZoneActionPayload;
 import com.mojang.brigadier.CommandDispatcher;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.HolderLookup;
 import net.minecraft.core.NonNullList;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.NbtAccounter;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.Tag;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.core.particles.SimpleParticleType;
 import net.minecraft.network.chat.Component;
@@ -30,6 +39,10 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.phys.Vec3;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -47,6 +60,10 @@ public class ZoneCommand {
         Vec3 entryPos
     ) {}
     private static final Map<UUID, BuildSavedState> buildSavedState = new HashMap<>();
+
+    // UUIDs whose build state was reloaded from disk after a reboot — restored on login.
+    private static final Set<UUID> pendingRestore = new HashSet<>();
+    private static final Path BUILD_STATE_PATH = Paths.get("run/data/build_state.dat");
 
     public static Map<String, Zone> getZones() { return zones; }
 
@@ -191,6 +208,20 @@ public class ZoneCommand {
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onEntityInteract);
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onBlockBreak);
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onBlockPlace);
+        NeoForge.EVENT_BUS.addListener(ZoneCommand::onPlayerLogin);
+        NeoForge.EVENT_BUS.addListener((ServerStartingEvent e) -> loadBuildState(e.getServer()));
+        NeoForge.EVENT_BUS.addListener((ServerStoppingEvent e) -> saveBuildState(e.getServer()));
+    }
+
+    // Restore players whose build state survived a reboot (loaded from disk).
+    private static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer sp)) return;
+        UUID uuid = sp.getUUID();
+        if (!pendingRestore.remove(uuid)) return;          // only states reloaded from disk
+        if (!buildSavedState.containsKey(uuid)) { buildZone.remove(uuid); return; }
+        exitBuildMode(sp);                                 // restores inventory/xp/effects + saves
+        sp.sendSystemMessage(Component.literal(
+            "§e⚠ Le serveur a redémarré pendant votre mode construction §7— §ainventaire restauré."));
     }
 
     private static void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
@@ -225,6 +256,18 @@ public class ZoneCommand {
         // Build mode anti-glitch
         if (buildZone.containsKey(sp.getUUID())) {
             BlockPos pos = event.getHitVec().getBlockPos();
+
+            // Tom's Storage : empêche d'ouvrir les interfaces du mod (terminal, connecteur, etc.)
+            // tout en laissant poser les blocs (on refuse l'usage du bloc, pas celui de l'item).
+            if (net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                    .getKey(event.getLevel().getBlockState(pos).getBlock())
+                    .getNamespace().equals("toms_storage")) {
+                sp.sendSystemMessage(Component.literal(
+                    "§cInteraction avec Tom's Storage interdite en mode construction."), true);
+                event.setUseBlock(net.neoforged.neoforge.common.util.TriState.FALSE);
+                return;
+            }
+
             if (event.getLevel().getBlockEntity(pos) instanceof net.minecraft.world.level.block.entity.BaseContainerBlockEntity
                 || event.getLevel().getBlockEntity(pos) instanceof net.minecraft.world.level.block.entity.EnderChestBlockEntity) {
                 sp.sendSystemMessage(Component.literal("§cAccès aux conteneurs interdit en mode construction."), true);
@@ -429,6 +472,7 @@ public class ZoneCommand {
         inv.clearContent();
         player.removeAllEffects();
         player.setGameMode(GameType.CREATIVE);
+        saveBuildState(player.getServer());
     }
 
     private static void exitBuildMode(ServerPlayer player) {
@@ -455,6 +499,8 @@ public class ZoneCommand {
                 saved.entryPos().x, saved.entryPos().y, saved.entryPos().z,
                 Set.of(), player.getYRot(), player.getXRot());
         }
+        pendingRestore.remove(player.getUUID());
+        saveBuildState(player.getServer());
     }
 
     public static void deleteZone(String name, MinecraftServer server) {
@@ -485,8 +531,90 @@ public class ZoneCommand {
                 player.sendSystemMessage(Component.literal(
                     "§c⚠ La zone §e" + name + " §ca été supprimée. Inventaire restauré."));
             }
+            buildSavedState.remove(e.getKey());
+            pendingRestore.remove(e.getKey());
             it.remove();
         }
+        saveBuildState(server);
+    }
+
+    // ─── Persistence (reboot/crash-safe build state) ──────────────────────────
+
+    // Serializes the live build state (inventory + xp + effects + entry pos) to disk so a
+    // server reboot mid-/build never destroys the player's real inventory. Without this the
+    // in-memory maps are lost on shutdown and the builder is left stuck with the empty
+    // creative inventory of build mode.
+    public static void saveBuildState(MinecraftServer server) {
+        if (server == null) return;
+        HolderLookup.Provider reg = server.registryAccess();
+        CompoundTag root = new CompoundTag();
+        ListTag players = new ListTag();
+        for (Map.Entry<UUID, String> entry : buildZone.entrySet()) {
+            BuildSavedState st = buildSavedState.get(entry.getKey());
+            if (st == null) continue;
+            CompoundTag p = new CompoundTag();
+            p.putUUID("uuid", entry.getKey());
+            p.putString("zone", entry.getValue());
+            p.putInt("xpLevel", st.xpLevel());
+            p.putFloat("xpProgress", st.xpProgress());
+            p.putInt("totalXp", st.totalXp());
+            p.putDouble("x", st.entryPos().x);
+            p.putDouble("y", st.entryPos().y);
+            p.putDouble("z", st.entryPos().z);
+            p.putInt("size", st.items().size());
+            ListTag items = new ListTag();
+            for (int i = 0; i < st.items().size(); i++) {
+                ItemStack s = st.items().get(i);
+                if (s.isEmpty()) continue;
+                CompoundTag it = new CompoundTag();
+                it.putInt("Slot", i);
+                s.save(reg, it);
+                items.add(it);
+            }
+            p.put("items", items);
+            ListTag effects = new ListTag();
+            for (MobEffectInstance eff : st.effects()) effects.add(eff.save());
+            p.put("effects", effects);
+            players.add(p);
+        }
+        root.put("players", players);
+        try {
+            Files.createDirectories(BUILD_STATE_PATH.getParent());
+            NbtIo.writeCompressed(root, BUILD_STATE_PATH);
+        } catch (IOException ex) { ex.printStackTrace(); }
+    }
+
+    public static void loadBuildState(MinecraftServer server) {
+        if (server == null || !Files.exists(BUILD_STATE_PATH)) return;
+        HolderLookup.Provider reg = server.registryAccess();
+        try {
+            CompoundTag root = NbtIo.readCompressed(BUILD_STATE_PATH, NbtAccounter.unlimitedHeap());
+            ListTag players = root.getList("players", Tag.TAG_COMPOUND);
+            for (int i = 0; i < players.size(); i++) {
+                CompoundTag p = players.getCompound(i);
+                UUID uuid = p.getUUID("uuid");
+                int size = p.getInt("size");
+                if (size <= 0) size = 41;
+                NonNullList<ItemStack> list = NonNullList.withSize(size, ItemStack.EMPTY);
+                ListTag items = p.getList("items", Tag.TAG_COMPOUND);
+                for (int j = 0; j < items.size(); j++) {
+                    CompoundTag it = items.getCompound(j);
+                    int slot = it.getInt("Slot");
+                    if (slot >= 0 && slot < size) list.set(slot, ItemStack.parseOptional(reg, it));
+                }
+                List<MobEffectInstance> effects = new ArrayList<>();
+                ListTag effTag = p.getList("effects", Tag.TAG_COMPOUND);
+                for (int j = 0; j < effTag.size(); j++) {
+                    MobEffectInstance eff = MobEffectInstance.load(effTag.getCompound(j));
+                    if (eff != null) effects.add(eff);
+                }
+                Vec3 pos = new Vec3(p.getDouble("x"), p.getDouble("y"), p.getDouble("z"));
+                buildSavedState.put(uuid, new BuildSavedState(
+                    list, p.getInt("xpLevel"), p.getFloat("xpProgress"), p.getInt("totalXp"), effects, pos));
+                buildZone.put(uuid, p.getString("zone"));
+                pendingRestore.add(uuid);
+            }
+        } catch (IOException ex) { ex.printStackTrace(); }
     }
 
     // ─── GUI ──────────────────────────────────────────────────────────────────────

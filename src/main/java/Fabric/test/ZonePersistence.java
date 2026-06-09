@@ -27,6 +27,7 @@ public class ZonePersistence {
             obj.addProperty("maxY", z.max.getY());
             obj.addProperty("maxZ", z.max.getZ());
             obj.addProperty("nightVision", z.nightVision);
+            obj.addProperty("enabled", z.enabled);
             JsonObject flags = new JsonObject();
             for (ZoneFlag f : ZoneFlag.values()) flags.addProperty(f.name(), z.flag(f));
             obj.add("flags", flags);
@@ -55,6 +56,7 @@ public class ZonePersistence {
                     obj.get("maxX").getAsInt(), obj.get("maxY").getAsInt(), obj.get("maxZ").getAsInt());
                 Zone z = new Zone(e.getKey(), min, max);
                 z.nightVision = obj.has("nightVision") && obj.get("nightVision").getAsBoolean();
+                z.enabled = !obj.has("enabled") || obj.get("enabled").getAsBoolean(); // défaut : activée
                 if (obj.has("flags")) {
                     JsonObject flags = obj.getAsJsonObject("flags");
                     for (ZoneFlag f : ZoneFlag.values())

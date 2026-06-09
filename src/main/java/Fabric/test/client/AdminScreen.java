@@ -82,7 +82,7 @@ public class AdminScreen extends Screen {
     // Zones tab state
     private record ZoneData(int x1, int y1, int z1, int x2, int y2, int z2,
                              java.util.List<String[]> members, boolean nightVision,
-                             java.util.Map<Fabric.test.ZoneFlag, Boolean> flags) {}
+                             java.util.Map<Fabric.test.ZoneFlag, Boolean> flags, boolean enabled) {}
     private final java.util.Map<String, ZoneData> zoneMap      = new java.util.LinkedHashMap<>();
     private final java.util.List<String>          zoneOnline   = new java.util.ArrayList<>();
     private String  selectedZone   = null;
@@ -1247,10 +1247,11 @@ public class AdminScreen extends Screen {
                                 if (fl != null) flags.put(fl, kv[1].equals("1"));
                             }
                         }
+                    boolean enabled = f.length <= 7 || !"false".equals(f[7]); // défaut : activée
                     zoneMap.put(f[0], new ZoneData(
                         Integer.parseInt(mn[0]), Integer.parseInt(mn[1]), Integer.parseInt(mn[2]),
                         Integer.parseInt(mx[0]), Integer.parseInt(mx[1]), Integer.parseInt(mx[2]),
-                        members, Boolean.parseBoolean(f[4]), flags));
+                        members, Boolean.parseBoolean(f[4]), flags, enabled));
                 } catch (Exception ignored) {}
             }
         }
@@ -1367,10 +1368,14 @@ public class AdminScreen extends Screen {
     private void buildZoneOptions(ZoneData z, int detX, int detW, int top, int bot) {
         int w = detW - 8, lx = detX + 4;
         // Row height derived from available height so the list fits at any GUI scale.
-        int rows = 3 + Fabric.test.ZoneFlag.values().length;
+        int rows = 4 + Fabric.test.ZoneFlag.values().length;
         int rowH = Math.max(13, Math.min(20, (bot - top) / rows));
         int bh   = Math.max(12, rowH - 2);
         int y = top;
+
+        addRenderableWidget(btn("État de la zone : " + (z.enabled() ? "§aACTIVÉE" : "§cDÉSACTIVÉE"),
+            b -> sendZone("TOGGLE_ENABLED", selectedZone, "")).bounds(lx, y, w, bh).build());
+        y += rowH;
 
         addRenderableWidget(btn("Vision nocturne : " + (z.nightVision() ? "§aON" : "§cOFF"),
             b -> sendZone("TOGGLE_NIGHT_VISION", selectedZone, "")).bounds(lx, y, w, bh).build());

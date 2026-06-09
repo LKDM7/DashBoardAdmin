@@ -34,7 +34,6 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
@@ -70,14 +69,6 @@ public class ZoneCommand {
 
     public static boolean isInBuildMode(UUID uuid) {
         return buildZone.containsKey(uuid);
-    }
-
-    public static boolean isActivelyUsedZone(double x, double y, double z) {
-        for (Map.Entry<UUID, String> e : buildZone.entrySet()) {
-            Zone zone = zones.get(e.getValue());
-            if (zone != null && zone.contains(x, y, z)) return true;
-        }
-        return false;
     }
 
     private static boolean isWand(ItemStack stack) {
@@ -291,7 +282,7 @@ public class ZoneCommand {
             BlockPos hit = event.getHitVec().getBlockPos();
             double cx = hit.getX() + 0.5, cy = hit.getY() + 0.5, cz = hit.getZ() + 0.5;
             for (Zone z : zones.values())
-                if (!z.flag(ZoneFlag.INTERACT) && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
+                if (z.enabled && !z.flag(ZoneFlag.INTERACT) && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
                     sp.sendSystemMessage(Component.literal("§cInteraction interdite dans cette zone."), true);
                     event.setCanceled(true);
                     return;
@@ -328,16 +319,11 @@ public class ZoneCommand {
 
     private static void onEntityInteract(PlayerInteractEvent.EntityInteract event) {
         if (!(event.getEntity() instanceof ServerPlayer sp)) return;
-        if (buildZone.containsKey(sp.getUUID())) {
-            if (isBlockedEntity(event.getTarget())) {
-                sp.sendSystemMessage(Component.literal("§cInteraction interdite en mode construction."), true);
-                event.setCanceled(true);
-            }
-        } else {
-            if (isActivelyUsedZone(event.getTarget().getX(), event.getTarget().getY(), event.getTarget().getZ())) {
-                sp.sendSystemMessage(Component.literal("§cZone protégée — construction en cours."), true);
-                event.setCanceled(true);
-            }
+        // Seul le constructeur lui-même est restreint en /build ; les autres joueurs ne sont
+        // régis que par les flags de la zone (le /build n'ajoute aucune restriction pour eux).
+        if (buildZone.containsKey(sp.getUUID()) && isBlockedEntity(event.getTarget())) {
+            sp.sendSystemMessage(Component.literal("§cInteraction interdite en mode construction."), true);
+            event.setCanceled(true);
         }
     }
 
@@ -348,15 +334,11 @@ public class ZoneCommand {
         BlockPos pos = event.getPos();
         double cx = pos.getX() + 0.5, cy = pos.getY() + 0.5, cz = pos.getZ() + 0.5;
         for (Zone z : zones.values()) {
-            if (!z.flag(ZoneFlag.BUILD) && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
+            if (z.enabled && !z.flag(ZoneFlag.BUILD) && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
                 sp.sendSystemMessage(Component.literal("§cZone protégée."), true);
                 event.setCanceled(true);
                 return;
             }
-        }
-        if (isActivelyUsedZone(cx, cy, cz)) {
-            sp.sendSystemMessage(Component.literal("§cZone protégée — construction en cours."), true);
-            event.setCanceled(true);
         }
     }
 
@@ -368,7 +350,7 @@ public class ZoneCommand {
         BlockPos pos = event.getPos();
         double cx = pos.getX() + 0.5, cy = pos.getY() + 0.5, cz = pos.getZ() + 0.5;
         for (Zone z : zones.values()) {
-            if (!z.flag(ZoneFlag.BUILD) && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
+            if (z.enabled && !z.flag(ZoneFlag.BUILD) && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
                 sp.sendSystemMessage(Component.literal("§cZone protégée."), true);
                 event.setCanceled(true);
                 return;
@@ -382,7 +364,7 @@ public class ZoneCommand {
         if (!(event.getEntity() instanceof ServerPlayer target)) return;
         if (!(event.getSource().getEntity() instanceof ServerPlayer)) return;
         for (Zone z : zones.values())
-            if (!z.flag(ZoneFlag.PVP) && z.contains(target.getX(), target.getY(), target.getZ())) {
+            if (z.enabled && !z.flag(ZoneFlag.PVP) && z.contains(target.getX(), target.getY(), target.getZ())) {
                 event.setCanceled(true);
                 return;
             }
@@ -391,7 +373,7 @@ public class ZoneCommand {
     private static void onZoneMobSpawn(net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent event) {
         if (!(event.getEntity() instanceof net.minecraft.world.entity.monster.Monster mob)) return;
         for (Zone z : zones.values())
-            if (!z.flag(ZoneFlag.MOB_SPAWN) && z.contains(mob.getX(), mob.getY(), mob.getZ())) {
+            if (z.enabled && !z.flag(ZoneFlag.MOB_SPAWN) && z.contains(mob.getX(), mob.getY(), mob.getZ())) {
                 event.setSpawnCancelled(true);
                 return;
             }
@@ -402,7 +384,7 @@ public class ZoneCommand {
         event.getAffectedBlocks().removeIf(pos -> {
             double cx = pos.getX() + 0.5, cy = pos.getY() + 0.5, cz = pos.getZ() + 0.5;
             for (Zone z : zones.values())
-                if (!z.flag(ZoneFlag.EXPLOSIONS) && z.contains(cx, cy, cz)) return true;
+                if (z.enabled && !z.flag(ZoneFlag.EXPLOSIONS) && z.contains(cx, cy, cz)) return true;
             return false;
         });
     }
@@ -435,7 +417,7 @@ public class ZoneCommand {
         if (tick % 40 == 0) {
             for (ServerPlayer player : server.getPlayerList().getPlayers()) {
                 for (Zone z : zones.values()) {
-                    if (z.nightVision && z.contains(player.getX(), player.getY(), player.getZ())) {
+                    if (z.enabled && z.nightVision && z.contains(player.getX(), player.getY(), player.getZ())) {
                         player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 80, 0, false, false));
                         break;
                     }
@@ -466,22 +448,6 @@ public class ZoneCommand {
             }
         }
 
-        // Item drop prevention: return any item entities inside active build zones to the builder
-        if (!buildZone.isEmpty()) {
-            for (ServerLevel level : server.getAllLevels()) {
-                for (Entity e : level.getAllEntities()) {
-                    if (!(e instanceof ItemEntity ie)) continue;
-                    for (Map.Entry<UUID, String> bEntry : buildZone.entrySet()) {
-                        Zone bz = zones.get(bEntry.getValue());
-                        if (bz == null || !bz.contains(ie.getX(), ie.getY(), ie.getZ())) continue;
-                        ServerPlayer bp = server.getPlayerList().getPlayer(bEntry.getKey());
-                        if (bp != null && bp.level() == level) bp.getInventory().add(ie.getItem().copy());
-                        ie.discard();
-                        break;
-                    }
-                }
-            }
-        }
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -516,9 +482,39 @@ public class ZoneCommand {
         }
     }
 
+    /** Première zone contenant le joueur (peu importe l'autorisation), ou null. */
+    private static Zone getZoneAtAny(ServerPlayer player) {
+        for (Zone z : zones.values())
+            if (z.contains(player.getX(), player.getY(), player.getZ()))
+                return z;
+        return null;
+    }
+
+    /**
+     * Info de build pour le menu joueur. Sérialise la zone où est le joueur (celle où il
+     * construit s'il est en /build, sinon celle où il se tient physiquement).
+     * Format : inBuild|nom|dx|dy|dz|minX,minY,minZ|maxX,maxY,maxZ|autorisé|active|FLAG:0/1;...
+     * Chaîne vide si le joueur n'est dans aucune zone.
+     */
+    public static String getBuildInfoFor(ServerPlayer player) {
+        UUID uuid = player.getUUID();
+        boolean inBuild = buildZone.containsKey(uuid);
+        Zone z = inBuild ? zones.get(buildZone.get(uuid)) : getZoneAtAny(player);
+        if (z == null) return "";
+        int dx = z.max.getX() - z.min.getX() + 1;
+        int dy = z.max.getY() - z.min.getY() + 1;
+        int dz = z.max.getZ() - z.min.getZ() + 1;
+        StringJoiner flags = new StringJoiner(";");
+        for (ZoneFlag f : ZoneFlag.values()) flags.add(f.name() + ":" + (z.flag(f) ? "1" : "0"));
+        return (inBuild ? "1" : "0") + "|" + z.name + "|" + dx + "|" + dy + "|" + dz + "|"
+            + z.min.getX() + "," + z.min.getY() + "," + z.min.getZ() + "|"
+            + z.max.getX() + "," + z.max.getY() + "," + z.max.getZ() + "|"
+            + (z.isAuthorized(uuid) ? "1" : "0") + "|" + (z.enabled ? "1" : "0") + "|" + flags;
+    }
+
     private static Zone getAuthorizedZoneAt(ServerPlayer player) {
         for (Zone z : zones.values())
-            if (z.contains(player.getX(), player.getY(), player.getZ()) && z.isAuthorized(player.getUUID()))
+            if (z.enabled && z.contains(player.getX(), player.getY(), player.getZ()) && z.isAuthorized(player.getUUID()))
                 return z;
         return null;
     }
@@ -714,6 +710,8 @@ public class ZoneCommand {
             StringJoiner flagJoiner = new StringJoiner(";");
             for (ZoneFlag f : ZoneFlag.values()) flagJoiner.add(f.name() + ":" + (z.flag(f) ? "1" : "0"));
             sb.append(flagJoiner);
+            // Field 7 = enabled (zone active / désactivée).
+            sb.append("|").append(z.enabled);
         }
         String online = server.getPlayerList().getPlayers().stream()
             .map(p -> p.getName().getString())
@@ -773,6 +771,15 @@ public class ZoneCommand {
                         Fabric.test.ZonePersistence.save();
                         sendZoneScreen(admin, server);
                     }
+                }
+            }
+            case "TOGGLE_ENABLED" -> { // active / désactive la zone sans la supprimer
+                if (z != null) {
+                    z.enabled = !z.enabled;
+                    Fabric.test.ZonePersistence.save();
+                    admin.sendSystemMessage(Component.literal("§eZone §6" + z.name + " §e→ "
+                        + (z.enabled ? "§aactivée" : "§cdésactivée") + "§e."));
+                    sendZoneScreen(admin, server);
                 }
             }
             case "TOGGLE_PROTECTED" -> { // legacy alias → toggles the BUILD flag

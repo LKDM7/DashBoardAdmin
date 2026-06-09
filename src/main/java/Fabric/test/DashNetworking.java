@@ -276,7 +276,7 @@ public class DashNetworking {
                 long rb = (player.getStats().getValue(net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.WALK_ONE_CM)) + player.getStats().getValue(net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.SPRINT_ONE_CM))) / 100L;
                 String stats = rh + "|" + rm + "|" + rd + "|" + rk + "|" + rm2 + "|" + rb + "|" + player.totalExperience;
                 PlayerSettings rs = Test.getPlayerSettings(player.getUUID());
-                PacketDistributor.sendToPlayer(player, new OpenSettingsPayload(rs.allowPrivateMessages, rs.allowTpaRequests, rs.allowTrades, rs.showChatNotifications, rs.showConnectionAlerts, "", "", "", "", stats));
+                PacketDistributor.sendToPlayer(player, new OpenSettingsPayload(rs.allowPrivateMessages, rs.allowTpaRequests, rs.allowTrades, rs.showChatNotifications, rs.showConnectionAlerts, "", "", "", "", stats, Fabric.test.command.ZoneCommand.getBuildInfoFor(player)));
             }
         }
     }

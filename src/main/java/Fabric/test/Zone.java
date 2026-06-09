@@ -8,6 +8,8 @@ public class Zone {
     public BlockPos min, max;
     public final Set<UUID> members = new LinkedHashSet<>();
     public boolean nightVision = false;
+    /** When false the zone is inert: no protection, no flags, no night vision (but not deleted). */
+    public boolean enabled = true;
     /** Per-flag overrides. Absent flag = its {@link ZoneFlag#defaultAllowed}. */
     public final EnumMap<ZoneFlag, Boolean> flags = new EnumMap<>(ZoneFlag.class);
 

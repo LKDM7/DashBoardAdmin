@@ -300,7 +300,7 @@ public class DashGameEvents {
             int mKills = Test.getAllHostileMobKills().getOrDefault(player.getUUID(), 0);
             long blocks = (player.getStats().getValue(net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.WALK_ONE_CM)) + player.getStats().getValue(net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.SPRINT_ONE_CM))) / 100L;
             String statsSerialized = ph + "|" + pm + "|" + deaths + "|" + pKills + "|" + mKills + "|" + blocks + "|" + player.totalExperience;
-            PacketDistributor.sendToPlayer(player, new OpenSettingsPayload(s.allowPrivateMessages, s.allowTpaRequests, s.allowTrades, s.showChatNotifications, s.showConnectionAlerts, Test.getCommandsSerialized(), homesSerialized, locksSerialized, trustSerialized, statsSerialized));
+            PacketDistributor.sendToPlayer(player, new OpenSettingsPayload(s.allowPrivateMessages, s.allowTpaRequests, s.allowTrades, s.showChatNotifications, s.showConnectionAlerts, Test.getCommandsSerialized(), homesSerialized, locksSerialized, trustSerialized, statsSerialized, Fabric.test.command.ZoneCommand.getBuildInfoFor(player)));
             PacketDistributor.sendToPlayer(player, GroupManager.buildGroupPayload(player, ctx.getSource().getServer()));
             return 1;
         }));

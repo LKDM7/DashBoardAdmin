@@ -81,15 +81,22 @@ public class SettingsScreen extends Screen {
     private long statHours, statMinutes, statBlocks;
     private int  statDeaths, statPlayerKills, statMobKills, statXp;
 
+    // Tab 6 — Build (info de la zone où se trouve le joueur)
+    private boolean buildHasZone, buildInMode, buildAuthorized, buildZoneActive;
+    private String  buildZoneName = "", buildMinStr = "", buildMaxStr = "";
+    private final int[] buildDims = {0, 0, 0};
+    private final List<String[]> buildFlags = new ArrayList<>(); // [flagName, "1"/"0"]
+
     // Confirmation suppression home
     private String confirmDeleteHome = null;
 
     private int currentTab = 0;
 
-    private static final String[] TAB_NAMES  = { "PARAMS", "CMDS", "HOMES", "VERROUS", "GROUPE", "STATS" };
+    private static final String[] TAB_NAMES  = { "PARAMS", "CMDS", "HOMES", "VERROUS", "GROUPE", "STATS", "BUILD" };
     private static final String[] TAB_TITLES = {
-        "PARAMÈTRES", "COMMANDES", "HOMES", "VERROUS & CONFIANCE", "GROUPE", "STATISTIQUES"
+        "PARAMÈTRES", "COMMANDES", "HOMES", "VERROUS & CONFIANCE", "GROUPE", "STATISTIQUES", "MODE CONSTRUCTION"
     };
+    private int tabPitch = 22, tabBtnH = 20; // espacement/hauteur des onglets, calculés en init
 
     public SettingsScreen(OpenSettingsPayload payload) {
         super(Component.literal("MENU"));
@@ -148,6 +155,7 @@ public class SettingsScreen extends Screen {
                 statXp          = Integer.parseInt(sf[6]);
             } catch (NumberFormatException ignored) {}
         }
+        parseBuildInfo(payload.buildInfo());
     }
 
     public void onStatsRefresh(OpenSettingsPayload p) {
@@ -163,7 +171,33 @@ public class SettingsScreen extends Screen {
                 statXp          = Integer.parseInt(sf[6]);
             } catch (NumberFormatException ignored) {}
         }
+        parseBuildInfo(p.buildInfo());
         if (this.minecraft != null && this.minecraft.screen == this) init();
+    }
+
+    private void parseBuildInfo(String s) {
+        buildHasZone = false;
+        buildFlags.clear();
+        if (s == null || s.isEmpty()) return;
+        String[] f = s.split("\\|");
+        if (f.length < 9) return;
+        try {
+            buildInMode     = "1".equals(f[0]);
+            buildZoneName   = f[1];
+            buildDims[0]    = Integer.parseInt(f[2]);
+            buildDims[1]    = Integer.parseInt(f[3]);
+            buildDims[2]    = Integer.parseInt(f[4]);
+            buildMinStr     = f[5];
+            buildMaxStr     = f[6];
+            buildAuthorized = "1".equals(f[7]);
+            buildZoneActive = "1".equals(f[8]);
+            if (f.length > 9 && !f[9].isEmpty())
+                for (String pair : f[9].split(";")) {
+                    String[] kv = pair.split(":");
+                    if (kv.length == 2) buildFlags.add(kv);
+                }
+            buildHasZone = true;
+        } catch (Exception ignored) { buildHasZone = false; }
     }
 
     public void onGroupUpdate(OpenGroupPayload p) {
@@ -206,7 +240,7 @@ public class SettingsScreen extends Screen {
         // Ratio of the screen, but with a minimum size so the fixed-offset content (sidebar tabs,
         // FERMER button) never clips at high GUI scales (x3/x4) where the screen is small.
         pw = Math.max((int)(this.width  * 0.70), Math.min(this.width  - 20, 360));
-        ph = Math.max((int)(this.height * 0.70), Math.min(this.height - 20, 215));
+        ph = Math.max((int)(this.height * 0.70), Math.min(this.height - 20, 235));
         px = (this.width  - pw) / 2;
         py = (this.height - ph) / 2;
         cx = px + SIDE_W;
@@ -215,7 +249,12 @@ public class SettingsScreen extends Screen {
 
         clearWidgets();
 
-        // Sidebar tabs
+        // Sidebar tabs — pitch adaptatif pour que les 7 onglets tiennent au-dessus de FERMER
+        // quelle que soit l'échelle GUI.
+        int navTop    = py + 42;
+        int navBottom = py + ph - 28; // au-dessus de FERMER (py+ph-25, haut 20)
+        tabPitch = Math.max(16, Math.min(22, (navBottom - navTop) / TAB_NAMES.length));
+        tabBtnH  = Math.min(20, tabPitch - 2);
         for (int i = 0; i < TAB_NAMES.length; i++) {
             final int id = i;
             boolean active = currentTab == i;
@@ -224,9 +263,9 @@ public class SettingsScreen extends Screen {
             addRenderableWidget(Button.builder(lbl, b -> {
                 currentTab = id;
                 confirmDeleteHome = null;
-                if (id == 5) sendAction("REFRESH_STATS", "");
+                if (id == 5 || id == 6) sendAction("REFRESH_STATS", ""); // stats + build info live
                 init();
-            }).bounds(px + 5, py + 42 + i * 24, SIDE_W - 10, 20).build());
+            }).bounds(px + 5, navTop + i * tabPitch, SIDE_W - 10, tabBtnH).build());
         }
         addRenderableWidget(Button.builder(Component.literal("FERMER"), b -> onClose())
             .bounds(px + 5, py + ph - 25, SIDE_W - 10, 20).build());
@@ -445,9 +484,9 @@ public class SettingsScreen extends Screen {
         g.fill(px + 6, py + 29, cx - 6, py + 30, C_ACCENT);
 
         // Active tab highlight in sidebar
-        int tay = py + 42 + currentTab * 24;
-        g.fill(px + 2, tay,     px + 4, tay + 20, C_ACCENT);
-        g.fill(px + 4, tay, cx - 2, tay + 20, C_TABSEL);
+        int tay = py + 42 + currentTab * tabPitch;
+        g.fill(px + 2, tay,     px + 4, tay + tabBtnH, C_ACCENT);
+        g.fill(px + 4, tay, cx - 2, tay + tabBtnH, C_TABSEL);
 
         // Sidebar separator
         g.fill(cx - 1, py, cx, py + ph, C_ACCENT);
@@ -466,6 +505,7 @@ public class SettingsScreen extends Screen {
             case 3 -> renderVerrous(g);
             case 4 -> renderGroupe(g);
             case 5 -> renderStats(g);
+            case 6 -> renderBuild(g);
         }
 
         g.drawString(font, "@LKDM", px + pw - font.width("@LKDM") - 4, py + ph - 10, 0x55AAAAAA, false);
@@ -714,6 +754,42 @@ public class SettingsScreen extends Screen {
             g.fill(cx + 8, ry - 3, cx + 11, ry + gap - 5, C_ACCENT);
             g.drawString(font, "§7" + rows[i][0], lx, ry + 4, 0xFFAAAAAA);
             g.drawString(font, "§f" + rows[i][1], rx, ry + 4, 0xFFFFFFFF);
+        }
+    }
+
+    private void renderBuild(GuiGraphics g) {
+        int x = cx + 14, y = py + 38;
+        if (!buildHasZone) {
+            g.drawCenteredString(font, "§8Vous n'êtes dans aucune zone.", midX, py + ph / 2 - 10, 0xFF555555);
+            g.drawCenteredString(font, "§8Entrez dans une zone ou utilisez §6/build", midX, py + ph / 2 + 2, 0xFF444444);
+            return;
+        }
+        g.drawString(font, buildInMode ? "§a✔ Mode construction ACTIF"
+                                       : "§7Mode construction : §8inactif", x, y, 0xFFFFFFFF);
+        y += 16;
+        String[][] rows = {
+            { "Zone",        "§f" + buildZoneName },
+            { "État",        buildZoneActive ? "§aactivée" : "§cdésactivée" },
+            { "Taille",      "§f" + buildDims[0] + "×" + buildDims[1] + "×" + buildDims[2] },
+            { "Coin min",    "§7(" + buildMinStr + ")" },
+            { "Coin max",    "§7(" + buildMaxStr + ")" },
+            { "Votre accès", buildAuthorized ? "§aautorisé" : "§cnon autorisé" },
+        };
+        for (String[] r : rows) {
+            g.drawString(font, "§7" + r[0] + " :", x, y, 0xFFAAAAAA);
+            g.drawString(font, r[1], x + 80, y, 0xFFFFFFFF);
+            y += 13;
+        }
+        y += 6;
+        g.drawString(font, "§8RÈGLES DE LA ZONE", x, y, C_SEC);
+        g.fill(x, y + 10, px + pw - 12, y + 11, C_DIV);
+        y += 16;
+        for (String[] fl : buildFlags) {
+            Fabric.test.ZoneFlag zf = Fabric.test.ZoneFlag.byName(fl[0]);
+            String label = zf != null ? zf.label : fl[0];
+            g.drawString(font, "§7• " + label, x + 2, y, 0xFFAAAAAA);
+            g.drawString(font, "1".equals(fl[1]) ? "§aautorisé" : "§cbloqué", x + 134, y, 0xFFFFFFFF);
+            y += 12;
         }
     }
 

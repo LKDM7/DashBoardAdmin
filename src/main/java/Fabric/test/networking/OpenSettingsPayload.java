@@ -14,7 +14,8 @@ public record OpenSettingsPayload(
     String homes,
     String lockedBlocks,
     String trustedPlayers,
-    String stats
+    String stats,
+    String buildInfo
 ) implements CustomPacketPayload {
     public static final Type<OpenSettingsPayload> TYPE = new Type<>(ModMessages.OPEN_SETTINGS);
     public static final StreamCodec<FriendlyByteBuf, OpenSettingsPayload> CODEC = StreamCodec.of(
@@ -29,12 +30,13 @@ public record OpenSettingsPayload(
             buf.writeUtf(p.lockedBlocks);
             buf.writeUtf(p.trustedPlayers);
             buf.writeUtf(p.stats);
+            buf.writeUtf(p.buildInfo);
         },
         buf -> new OpenSettingsPayload(
             buf.readBoolean(), buf.readBoolean(), buf.readBoolean(),
             buf.readBoolean(), buf.readBoolean(),
             buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
-            buf.readUtf()
+            buf.readUtf(), buf.readUtf()
         )
     );
 

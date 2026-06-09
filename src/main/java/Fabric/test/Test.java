@@ -300,9 +300,13 @@ public class Test {
         scheduledCounters.remove(idx);
         return true;
     }
+    private static final int MAX_LOGS_PER_PLAYER = 200;
     static void addLog(java.util.UUID uuid, String entry) {
         String time = java.time.LocalTime.now().format(LOG_FMT);
-        playerLogs.computeIfAbsent(uuid, k -> new java.util.ArrayList<>()).add("[" + time + "] " + entry);
+        java.util.List<String> logs = playerLogs.computeIfAbsent(uuid, k -> new java.util.ArrayList<>());
+        logs.add("[" + time + "] " + entry);
+        // Cap the per-player log to avoid unbounded growth over a long-running server session.
+        while (logs.size() > MAX_LOGS_PER_PLAYER) logs.remove(0);
     }
     static void addSanction(String type, String player, String admin, String reason) {
         String ts = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"));

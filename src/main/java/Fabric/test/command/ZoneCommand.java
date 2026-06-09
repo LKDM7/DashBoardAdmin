@@ -1,6 +1,7 @@
 package Fabric.test.command;
 
 import Fabric.test.Zone;
+import Fabric.test.ZoneFlag;
 import Fabric.test.networking.OpenZonePayload;
 import Fabric.test.networking.ZoneActionPayload;
 import com.mojang.brigadier.CommandDispatcher;
@@ -177,6 +178,35 @@ public class ZoneCommand {
                 }
                 return 1;
             }))
+            .then(Commands.literal("flag")
+                .then(Commands.argument("name", com.mojang.brigadier.arguments.StringArgumentType.word())
+                    .suggests((ctx, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(zones.keySet(), b))
+                .then(Commands.argument("flag", com.mojang.brigadier.arguments.StringArgumentType.word())
+                    .suggests((ctx, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(
+                        Arrays.stream(ZoneFlag.values()).map(Enum::name), b))
+                .then(Commands.argument("state", com.mojang.brigadier.arguments.BoolArgumentType.bool())
+                    .executes(ctx -> {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        String name = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "name");
+                        Zone z = zones.get(name);
+                        if (z == null) {
+                            player.sendSystemMessage(Component.literal("§cZone §e" + name + " §cintrouvable."));
+                            return 0;
+                        }
+                        ZoneFlag f = ZoneFlag.byName(
+                            com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "flag").toUpperCase(Locale.ROOT));
+                        if (f == null) {
+                            player.sendSystemMessage(Component.literal("§cFlag inconnu. Valeurs : §e"
+                                + Arrays.stream(ZoneFlag.values()).map(Enum::name).collect(Collectors.joining(", "))));
+                            return 0;
+                        }
+                        boolean state = com.mojang.brigadier.arguments.BoolArgumentType.getBool(ctx, "state");
+                        z.setFlag(f, state);
+                        Fabric.test.ZonePersistence.save();
+                        player.sendSystemMessage(Component.literal("§aFlag §e" + f.name() + " §ade la zone §e"
+                            + name + " §a→ " + (state ? "§aautorisé" : "§cbloqué") + "§a."));
+                        return 1;
+                    })))))
         );
 
         dispatcher.register(Commands.literal("build").executes(ctx -> {
@@ -208,6 +238,9 @@ public class ZoneCommand {
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onEntityInteract);
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onBlockBreak);
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onBlockPlace);
+        NeoForge.EVENT_BUS.addListener(ZoneCommand::onZonePvp);
+        NeoForge.EVENT_BUS.addListener(ZoneCommand::onZoneMobSpawn);
+        NeoForge.EVENT_BUS.addListener(ZoneCommand::onZoneExplosion);
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onPlayerLogin);
         NeoForge.EVENT_BUS.addListener((ServerStartingEvent e) -> loadBuildState(e.getServer()));
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent e) -> saveBuildState(e.getServer()));
@@ -251,6 +284,18 @@ public class ZoneCommand {
                 sendBoxParticles(sp, wandA.get(sp.getUUID()), pos, (ServerLevel) event.getLevel());
             event.setCanceled(true);
             return;
+        }
+
+        // Zone INTERACT protection — block right-clicking blocks for non-authorized players
+        if (!sp.hasPermissions(2) && !buildZone.containsKey(sp.getUUID())) {
+            BlockPos hit = event.getHitVec().getBlockPos();
+            double cx = hit.getX() + 0.5, cy = hit.getY() + 0.5, cz = hit.getZ() + 0.5;
+            for (Zone z : zones.values())
+                if (!z.flag(ZoneFlag.INTERACT) && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
+                    sp.sendSystemMessage(Component.literal("§cInteraction interdite dans cette zone."), true);
+                    event.setCanceled(true);
+                    return;
+                }
         }
 
         // Build mode anti-glitch
@@ -303,7 +348,7 @@ public class ZoneCommand {
         BlockPos pos = event.getPos();
         double cx = pos.getX() + 0.5, cy = pos.getY() + 0.5, cz = pos.getZ() + 0.5;
         for (Zone z : zones.values()) {
-            if (z.zoneProtected && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
+            if (!z.flag(ZoneFlag.BUILD) && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
                 sp.sendSystemMessage(Component.literal("§cZone protégée."), true);
                 event.setCanceled(true);
                 return;
@@ -323,12 +368,43 @@ public class ZoneCommand {
         BlockPos pos = event.getPos();
         double cx = pos.getX() + 0.5, cy = pos.getY() + 0.5, cz = pos.getZ() + 0.5;
         for (Zone z : zones.values()) {
-            if (z.zoneProtected && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
+            if (!z.flag(ZoneFlag.BUILD) && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
                 sp.sendSystemMessage(Component.literal("§cZone protégée."), true);
                 event.setCanceled(true);
                 return;
             }
         }
+    }
+
+    // ─── Zone flag enforcement (PvP / mob spawns / explosions) ────────────────
+
+    private static void onZonePvp(net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer target)) return;
+        if (!(event.getSource().getEntity() instanceof ServerPlayer)) return;
+        for (Zone z : zones.values())
+            if (!z.flag(ZoneFlag.PVP) && z.contains(target.getX(), target.getY(), target.getZ())) {
+                event.setCanceled(true);
+                return;
+            }
+    }
+
+    private static void onZoneMobSpawn(net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent event) {
+        if (!(event.getEntity() instanceof net.minecraft.world.entity.monster.Monster mob)) return;
+        for (Zone z : zones.values())
+            if (!z.flag(ZoneFlag.MOB_SPAWN) && z.contains(mob.getX(), mob.getY(), mob.getZ())) {
+                event.setSpawnCancelled(true);
+                return;
+            }
+    }
+
+    private static void onZoneExplosion(net.neoforged.neoforge.event.level.ExplosionEvent.Detonate event) {
+        if (event.getLevel().isClientSide()) return;
+        event.getAffectedBlocks().removeIf(pos -> {
+            double cx = pos.getX() + 0.5, cy = pos.getY() + 0.5, cz = pos.getZ() + 0.5;
+            for (Zone z : zones.values())
+                if (!z.flag(ZoneFlag.EXPLOSIONS) && z.contains(cx, cy, cz)) return true;
+            return false;
+        });
     }
 
     // ─── Tick (called every server tick from Test) ────────────────────────────
@@ -633,7 +709,11 @@ public class ZoneCommand {
                 members.add(uuid + ":" + mName);
             }
             sb.append(members).append("|");
-            sb.append(z.nightVision).append("|").append(z.zoneProtected);
+            // Field 4 = nightVision, field 5 = legacy "protected" (= BUILD blocked), field 6 = flags.
+            sb.append(z.nightVision).append("|").append(!z.flag(ZoneFlag.BUILD)).append("|");
+            StringJoiner flagJoiner = new StringJoiner(";");
+            for (ZoneFlag f : ZoneFlag.values()) flagJoiner.add(f.name() + ":" + (z.flag(f) ? "1" : "0"));
+            sb.append(flagJoiner);
         }
         String online = server.getPlayerList().getPlayers().stream()
             .map(p -> p.getName().getString())
@@ -685,9 +765,19 @@ public class ZoneCommand {
                     sendZoneScreen(admin, server);
                 }
             }
-            case "TOGGLE_PROTECTED" -> {
+            case "TOGGLE_FLAG" -> {
                 if (z != null) {
-                    z.zoneProtected = !z.zoneProtected;
+                    ZoneFlag f = ZoneFlag.byName(payload.value());
+                    if (f != null) {
+                        z.setFlag(f, !z.flag(f));
+                        Fabric.test.ZonePersistence.save();
+                        sendZoneScreen(admin, server);
+                    }
+                }
+            }
+            case "TOGGLE_PROTECTED" -> { // legacy alias → toggles the BUILD flag
+                if (z != null) {
+                    z.setFlag(ZoneFlag.BUILD, !z.flag(ZoneFlag.BUILD));
                     Fabric.test.ZonePersistence.save();
                     sendZoneScreen(admin, server);
                 }

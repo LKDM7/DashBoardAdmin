@@ -81,7 +81,8 @@ public class AdminScreen extends Screen {
 
     // Zones tab state
     private record ZoneData(int x1, int y1, int z1, int x2, int y2, int z2,
-                             java.util.List<String[]> members, boolean nightVision) {}
+                             java.util.List<String[]> members, boolean nightVision,
+                             java.util.Map<Fabric.test.ZoneFlag, Boolean> flags) {}
     private final java.util.Map<String, ZoneData> zoneMap      = new java.util.LinkedHashMap<>();
     private final java.util.List<String>          zoneOnline   = new java.util.ArrayList<>();
     private String  selectedZone   = null;
@@ -93,6 +94,10 @@ public class AdminScreen extends Screen {
     private int px, py, pw, ph;
     private int cx, midX, midY;
     private final int[] tabYMap = new int[8]; // Y position of each tab button, for highlight
+    // Sidebar nav layout (computed in init from ph, mirrored by render for labels/dividers)
+    private int navTabH = 20;
+    private int navServeurLabelY, navJoueursLabelY, navChatLabelY;
+    private int navDiv1Y, navDiv2Y;
 
     public AdminScreen(AdminCommand.OpenAdminGuiPayload payload) {
         super(Component.literal("ADMIN DASHBOARD"));
@@ -161,8 +166,12 @@ public class AdminScreen extends Screen {
 
     @Override
     protected void init() {
-        pw = (int)(this.width  * 0.70);
-        ph = (int)(this.height * 0.70);
+        // Ratio of the screen, with a minimum size so the tab/content layout stays clean at
+        // high GUI scales (x3/x4) where the available screen is small.
+        pw = Math.max((int)(this.width  * 0.70), Math.min(this.width  - 20, 400));
+        // Height floor raised to ~310 so the densest tab (FEATURES) and the full sidebar fit
+        // at high GUI scales; clamped to height-16 so the panel never leaves the screen.
+        ph = Math.max((int)(this.height * 0.72), Math.min(this.height - 16, 310));
         px = (this.width  - pw) / 2;
         py = (this.height - ph) / 2;
         cx = px + SIDE_W;
@@ -232,42 +241,57 @@ public class AdminScreen extends Screen {
             return;
         }
 
-        // ── Sidebar tabs ─────────────────────────────────────────────────────────
+        // ── Sidebar tabs (adaptive vertical layout: compresses at high GUI scale so the
+        //    lower tabs never collide with the bottom-anchored FERMER button) ───────────
         int unresolved = reports.size() + acceptedReports.size();
-        int sy = py + 36;
+        int fermerH   = 20;
+        int navTop    = py + 36;
+        int navBottom = py + ph - 8 - fermerH;   // tabs must end above FERMER
+        int gap       = 6;
+        int labelH    = 11;
+        int avail     = navBottom - navTop;
+        int fixedOverhead = 3 * labelH + 2 * gap; // 3 section labels + 2 inter-group gaps
+        int tabSlot   = Math.max(16, Math.min(22, (avail - fixedOverhead) / 8));
+        navTabH       = Math.min(20, tabSlot - 2);
 
+        int y = navTop;
         // ─ SERVEUR group ─
-        tabYMap[0] = sy + 12; tab("MONDE",    0, sy + 12);
-        tabYMap[3] = sy + 34; tab("FEATURES", 3, sy + 34);
-        tabYMap[6] = sy + 56;
+        navServeurLabelY = y; y += labelH;
+        tabYMap[0] = y; tab("MONDE",    0, y); y += tabSlot;
+        tabYMap[3] = y; tab("FEATURES", 3, y); y += tabSlot;
+        tabYMap[6] = y;
         boolean zonesActive = currentTab == 6;
         addRenderableWidget(Button.builder(
             Component.literal("ZONES").withStyle(zonesActive
                 ? s -> s.withColor(0x00E5FF).withBold(true)
                 : s -> s.withColor(0x777777)),
             b -> { send("OPEN_ZONES", "", ""); currentTab = 6; init(); })
-            .bounds(px + 5, sy + 56, SIDE_W - 10, 20).build());
+            .bounds(px + 5, y, SIDE_W - 10, navTabH).build());
+        y += tabSlot;
+        navDiv1Y = y; y += gap;
 
         // ─ JOUEURS group ─
-        sy += 86;
-        tabYMap[1] = sy + 12; tab("JOUEURS",  1, sy + 12);
-        tabYMap[5] = sy + 34; tab("LOGS",     5, sy + 34);
-        tabYMap[7] = sy + 56;
+        navJoueursLabelY = y; y += labelH;
+        tabYMap[1] = y; tab("JOUEURS",  1, y); y += tabSlot;
+        tabYMap[5] = y; tab("LOGS",     5, y); y += tabSlot;
+        tabYMap[7] = y;
         boolean sancActive = currentTab == 7;
         addRenderableWidget(Button.builder(
             Component.literal("SANCTIONS").withStyle(sancActive
                 ? s -> s.withColor(0x00E5FF).withBold(true)
                 : s -> s.withColor(0x777777)),
             b -> { send("GET_SANCTIONS", "", ""); currentTab = 7; init(); })
-            .bounds(px + 5, sy + 56, SIDE_W - 10, 20).build());
+            .bounds(px + 5, y, SIDE_W - 10, navTabH).build());
+        y += tabSlot;
+        navDiv2Y = y; y += gap;
 
         // ─ CHAT group ─
-        sy += 86;
-        tabYMap[2] = sy + 12; tab("CHAT",     2, sy + 12);
-        tabYMap[4] = sy + 34;
-        tab("REPORTS" + (unresolved == 0 ? "" : " §c(" + unresolved + ")"), 4, sy + 34);
+        navChatLabelY = y; y += labelH;
+        tabYMap[2] = y; tab("CHAT",     2, y); y += tabSlot;
+        tabYMap[4] = y;
+        tab("REPORTS" + (unresolved == 0 ? "" : " §c(" + unresolved + ")"), 4, y);
 
-        addRenderableWidget(btn("FERMER", b -> onClose()).bounds(px + 5, py + ph - 25, SIDE_W - 10, 20).build());
+        addRenderableWidget(btn("FERMER", b -> onClose()).bounds(px + 5, py + ph - 6 - fermerH, SIDE_W - 10, fermerH).build());
 
         // ── Tab content ──────────────────────────────────────────────────────────
         switch (currentTab) {
@@ -287,7 +311,7 @@ public class AdminScreen extends Screen {
         Component txt = Component.literal(label).withStyle(
             active ? s -> s.withColor(0x00E5FF).withBold(true) : s -> s.withColor(0x777777));
         addRenderableWidget(Button.builder(txt, b -> { currentTab = id; init(); })
-            .bounds(px + 5, y, SIDE_W - 10, 20).build());
+            .bounds(px + 5, y, SIDE_W - 10, navTabH).build());
     }
 
     private Button.Builder btn(String label, Button.OnPress handler) {
@@ -364,10 +388,13 @@ public class AdminScreen extends Screen {
 
         int divX = cx + 98;
         int areaW = px + pw - divX - 6;
-        int aMid  = divX + 2 + areaW / 2;
-        int lCol  = aMid - 108;
-        int rCol  = aMid + 8;
-        int bw    = 100;
+        // Two button columns derived from the available width so they never overflow the panel
+        // at high GUI scales (capped at 100px wide, centred in the area).
+        int gap   = 8;
+        int bw    = Math.max(60, Math.min(100, (areaW - gap) / 2));
+        int totalW = bw * 2 + gap;
+        int lCol  = divX + 2 + (areaW - totalW) / 2;
+        int rCol  = lCol + bw + gap;
         int aY    = py + 68;
 
         addRenderableWidget(btn("INVENTAIRE", b -> send("OPEN_INV",     selPlayer, "")).bounds(lCol, aY,       bw, 20).build());
@@ -557,7 +584,7 @@ public class AdminScreen extends Screen {
         }).bounds(midX - 55, cy + 22, 110, 20).build());
 
         // ── Max Homes ─────────────────────────────────────────────────────────
-        int hmY = cy + 52;
+        int hmY = cy + 50;
         maxHomesBox = new EditBox(font, bx, hmY, 36, 16, Component.empty());
         maxHomesBox.setMaxLength(2);
         maxHomesBox.setValue(String.valueOf(maxHomes));
@@ -571,10 +598,13 @@ public class AdminScreen extends Screen {
             } catch (NumberFormatException ignored) {}
         }).bounds(bx + 42, hmY, 30, 16).build());
 
-        // ── Discord Webhooks ──────────────────────────────────────────────────
-        int whY = hmY + 40;
-        webhookReportsBox   = new EditBox(font, bx, whY,      bw, 16, Component.empty());
-        webhookSanctionsBox = new EditBox(font, bx, whY + 22, bw, 16, Component.empty());
+        // ── Discord Webhooks (label column on the left, box fills the rest) ────
+        int whY   = hmY + 36;
+        int wLblW = font.width("Sanctions") + 8;
+        int wBoxX = bx + wLblW;
+        int wBoxW = bw - wLblW;
+        webhookReportsBox   = new EditBox(font, wBoxX, whY,      wBoxW, 16, Component.empty());
+        webhookSanctionsBox = new EditBox(font, wBoxX, whY + 22, wBoxW, 16, Component.empty());
         webhookReportsBox.setMaxLength(300);
         webhookSanctionsBox.setMaxLength(300);
         webhookReportsBox.setValue(webhookReports);
@@ -585,7 +615,7 @@ public class AdminScreen extends Screen {
             webhookReports   = webhookReportsBox.getValue().trim();
             webhookSanctions = webhookSanctionsBox.getValue().trim();
             send("SET_WEBHOOKS", webhookReports, webhookSanctions);
-        }).bounds(midX - 70, whY + 44, 140, 18).build());
+        }).bounds(midX - 70, whY + 40, 140, 18).build());
     }
 
     // ─── REPORTS ─────────────────────────────────────────────────────────────────
@@ -694,18 +724,18 @@ public class AdminScreen extends Screen {
             px + SIDE_W / 2, py + 11, 0xFFFFFFFF);
         g.fill(px + 6, py + 29, cx - 6, py + 30, C_ACCENT);
 
-        // Sidebar section labels
-        g.drawString(font, "SERVEUR",  px + 7, py + 38,       0xFF666666);
-        g.drawString(font, "JOUEURS",  px + 7, py + 38 + 86,  0xFF666666);
-        g.drawString(font, "CHAT",     px + 7, py + 38 + 172, 0xFF666666);
+        // Sidebar section labels (positions computed in init, adaptive to ph)
+        g.drawString(font, "SERVEUR",  px + 7, navServeurLabelY, 0xFF666666);
+        g.drawString(font, "JOUEURS",  px + 7, navJoueursLabelY, 0xFF666666);
+        g.drawString(font, "CHAT",     px + 7, navChatLabelY,    0xFF666666);
         // Group dividers
-        g.fill(px + 5, py + 36 + 79, cx - 5, py + 36 + 80, 0x33FFFFFF);
-        g.fill(px + 5, py + 36 + 165, cx - 5, py + 36 + 166, 0x33FFFFFF);
+        g.fill(px + 5, navDiv1Y, cx - 5, navDiv1Y + 1, 0x33FFFFFF);
+        g.fill(px + 5, navDiv2Y, cx - 5, navDiv2Y + 1, 0x33FFFFFF);
 
         // Active tab highlight (position from tabYMap)
         int tay = tabYMap[currentTab];
-        g.fill(px + 2, tay,     px + 4, tay + 20, C_ACCENT);
-        g.fill(px + 4, tay, cx - 2, tay + 20, C_TABSEL);
+        g.fill(px + 2, tay,     px + 4, tay + navTabH, C_ACCENT);
+        g.fill(px + 4, tay, cx - 2, tay + navTabH, C_TABSEL);
 
         // Sidebar separator
         g.fill(cx - 1, py, cx, py + ph, C_ACCENT);
@@ -816,10 +846,15 @@ public class AdminScreen extends Screen {
         g.drawString(font, " §8[" + selGamemode + "]", gmX, py + 31, 0xFFFFFFFF);
         g.fill(divX + 1, py + 45, px + pw, py + 46, C_DIV);
 
-        int areaW = px + pw - (divX + 2) - 6;
-        int aMid  = divX + 2 + areaW / 2;
-        lbl(g, "ACTIONS",    aMid - 108, py + 53);
-        lbl(g, "MODÉRATION", aMid + 8,   py + 53);
+        // Mirror the adaptive column layout from buildPlayerActions so the labels stay above their columns.
+        int areaW  = px + pw - divX - 6;
+        int gap    = 8;
+        int bw     = Math.max(60, Math.min(100, (areaW - gap) / 2));
+        int totalW = bw * 2 + gap;
+        int lCol   = divX + 2 + (areaW - totalW) / 2;
+        int rCol   = lCol + bw + gap;
+        lbl(g, "ACTIONS",    lCol, py + 53);
+        lbl(g, "MODÉRATION", rCol, py + 53);
     }
 
     private void renderChat(GuiGraphics g) {
@@ -905,16 +940,16 @@ public class AdminScreen extends Screen {
             g.drawString(font, fLbls[i], xs[i], cy - 9, 0xFF666666);
 
         // Max Homes section
-        int hmY = cy + 52;
+        int hmY = cy + 50;
         g.fill(bx, hmY - 10, bx + bw, hmY - 9, C_DIV);
         lbl(g, "MAX HOMES PAR JOUEUR  (1-10)", bx, hmY - 7);
 
-        // Discord Webhooks section
-        int whY = hmY + 40;
+        // Discord Webhooks section — labels vertically centred on their boxes (left column)
+        int whY = hmY + 36;
         g.fill(bx, whY - 12, bx + bw, whY - 11, C_DIV);
         lbl(g, "DISCORD WEBHOOKS", bx, whY - 8);
-        g.drawString(font, "§8Reports :", bx, whY - 1, 0xFF666666);
-        g.drawString(font, "§8Sanctions (ban/kick/mute) :", bx, whY + 21, 0xFF666666);
+        g.drawString(font, "§8Reports",   bx, whY + 4,  0xFF666666);
+        g.drawString(font, "§8Sanctions", bx, whY + 26, 0xFF666666);
     }
 
     private void renderReports(GuiGraphics g) {
@@ -1014,7 +1049,7 @@ public class AdminScreen extends Screen {
         g.fill(divX, py + 26, divX + 1, py + ph - 5, C_DIV);
 
         if (selPlayer == null) {
-            g.drawCenteredString(font, "§8← Sélectionnez un joueur", cx + 49, py + ph / 2, 0xFF555555);
+            g.drawCenteredString(font, "§8← Sélectionnez un joueur", (divX + px + pw) / 2, py + ph / 2, 0xFF555555);
             return;
         }
 
@@ -1193,7 +1228,7 @@ public class AdminScreen extends Screen {
         zoneOnline.clear();
         if (!payload.zonesSerialized().isEmpty()) {
             for (String line : payload.zonesSerialized().split("\n")) {
-                String[] f = line.split("\\|", 5);
+                String[] f = line.split("\\|");
                 if (f.length < 5) continue;
                 try {
                     String[] mn = f[1].split(","), mx = f[2].split(",");
@@ -1203,10 +1238,19 @@ public class AdminScreen extends Screen {
                             String[] um = m.split(":", 2);
                             if (um.length == 2) members.add(um);
                         }
+                    java.util.EnumMap<Fabric.test.ZoneFlag, Boolean> flags = new java.util.EnumMap<>(Fabric.test.ZoneFlag.class);
+                    if (f.length > 6 && !f[6].isEmpty())
+                        for (String pair : f[6].split(";")) {
+                            String[] kv = pair.split(":");
+                            if (kv.length == 2) {
+                                Fabric.test.ZoneFlag fl = Fabric.test.ZoneFlag.byName(kv[0]);
+                                if (fl != null) flags.put(fl, kv[1].equals("1"));
+                            }
+                        }
                     zoneMap.put(f[0], new ZoneData(
                         Integer.parseInt(mn[0]), Integer.parseInt(mn[1]), Integer.parseInt(mn[2]),
                         Integer.parseInt(mx[0]), Integer.parseInt(mx[1]), Integer.parseInt(mx[2]),
-                        members, Boolean.parseBoolean(f[4])));
+                        members, Boolean.parseBoolean(f[4]), flags));
                 } catch (Exception ignored) {}
             }
         }
@@ -1321,14 +1365,30 @@ public class AdminScreen extends Screen {
     }
 
     private void buildZoneOptions(ZoneData z, int detX, int detW, int top, int bot) {
-        int w = detW - 8;
+        int w = detW - 8, lx = detX + 4;
+        // Row height derived from available height so the list fits at any GUI scale.
+        int rows = 3 + Fabric.test.ZoneFlag.values().length;
+        int rowH = Math.max(13, Math.min(20, (bot - top) / rows));
+        int bh   = Math.max(12, rowH - 2);
+        int y = top;
+
         addRenderableWidget(btn("Vision nocturne : " + (z.nightVision() ? "§aON" : "§cOFF"),
-            b -> sendZone("TOGGLE_NIGHT_VISION", selectedZone, "")).bounds(detX + 4, top,      w, 18).build());
+            b -> sendZone("TOGGLE_NIGHT_VISION", selectedZone, "")).bounds(lx, y, w, bh).build());
+        y += rowH;
+
+        for (Fabric.test.ZoneFlag fl : Fabric.test.ZoneFlag.values()) {
+            boolean allowed = z.flags().getOrDefault(fl, fl.defaultAllowed);
+            addRenderableWidget(btn(fl.label + " : " + (allowed ? "§aautorisé" : "§cbloqué"),
+                b -> sendZone("TOGGLE_FLAG", selectedZone, fl.name())).bounds(lx, y, w, bh).build());
+            y += rowH;
+        }
+
         addRenderableWidget(btn("§eTéléporter vers la zone",
-            b -> sendZone("TP_ZONE", selectedZone, "")).bounds(detX + 4, top + 24, w, 18).build());
+            b -> sendZone("TP_ZONE", selectedZone, "")).bounds(lx, y, w, bh).build());
+        y += rowH;
         addRenderableWidget(btn("§c§lSUPPRIMER LA ZONE",
             b -> { sendZone("DELETE_ZONE", selectedZone, ""); selectedZone = null; init(); })
-            .bounds(detX + 4, top + 48, w, 18).build());
+            .bounds(lx, y, w, bh).build());
     }
 
     private void renderZones(GuiGraphics g) {

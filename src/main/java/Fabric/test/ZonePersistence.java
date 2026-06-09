@@ -26,8 +26,10 @@ public class ZonePersistence {
             obj.addProperty("maxX", z.max.getX());
             obj.addProperty("maxY", z.max.getY());
             obj.addProperty("maxZ", z.max.getZ());
-            obj.addProperty("nightVision",   z.nightVision);
-            obj.addProperty("zoneProtected", z.zoneProtected);
+            obj.addProperty("nightVision", z.nightVision);
+            JsonObject flags = new JsonObject();
+            for (ZoneFlag f : ZoneFlag.values()) flags.addProperty(f.name(), z.flag(f));
+            obj.add("flags", flags);
             JsonArray members = new JsonArray();
             for (UUID uuid : z.members) members.add(uuid.toString());
             obj.add("members", members);
@@ -52,8 +54,15 @@ public class ZonePersistence {
                 BlockPos max = new BlockPos(
                     obj.get("maxX").getAsInt(), obj.get("maxY").getAsInt(), obj.get("maxZ").getAsInt());
                 Zone z = new Zone(e.getKey(), min, max);
-                z.nightVision   = obj.has("nightVision")   && obj.get("nightVision").getAsBoolean();
-                z.zoneProtected = obj.has("zoneProtected") && obj.get("zoneProtected").getAsBoolean();
+                z.nightVision = obj.has("nightVision") && obj.get("nightVision").getAsBoolean();
+                if (obj.has("flags")) {
+                    JsonObject flags = obj.getAsJsonObject("flags");
+                    for (ZoneFlag f : ZoneFlag.values())
+                        if (flags.has(f.name())) z.setFlag(f, flags.get(f.name()).getAsBoolean());
+                } else if (obj.has("zoneProtected") && obj.get("zoneProtected").getAsBoolean()) {
+                    // Migration: old single "protected" boolean → BUILD access blocked.
+                    z.setFlag(ZoneFlag.BUILD, false);
+                }
                 if (obj.has("members"))
                     for (JsonElement m : obj.getAsJsonArray("members"))
                         z.members.add(UUID.fromString(m.getAsString()));

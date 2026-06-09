@@ -14,6 +14,9 @@
 .DS_Store
 Thumbs.db
 
+# GUI screenshots dropped for layout review
+/gui-screens/
+
 # Claude / AI tooling artifacts
 /.claude/
 /.claude-flow/

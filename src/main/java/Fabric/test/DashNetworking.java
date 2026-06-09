@@ -127,7 +127,7 @@ public class DashNetworking {
                         addEntity.setAccessible(true);
                         addEntity.invoke(chunkMap, admin);
                     } catch (ReflectiveOperationException ignored) {}
-                    admin.sendSystemMessage(Component.literal("§eVanish: OFF"));
+                    admin.sendSystemMessage(Component.literal("§eVanish : OFF"));
                 } else {
                     Test.vanishedPlayers.add(admin.getUUID());
                     // Remove entity from chunk tracker via reflection (broadcasts remove to clients)
@@ -142,7 +142,7 @@ public class DashNetworking {
                         new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(java.util.List.of(admin.getUUID()));
                     for (ServerPlayer other : vanishSrv.getPlayerList().getPlayers())
                         if (!other.getUUID().equals(admin.getUUID())) other.connection.send(removeInfo);
-                    admin.sendSystemMessage(Component.literal("§eVanish: ON"));
+                    admin.sendSystemMessage(Component.literal("§eVanish : ON"));
                 }
             }
             case "MUTE" -> {
@@ -236,7 +236,7 @@ public class DashNetworking {
             case "TOGGLE_DOUBLE_DOOR"        -> { Test.setDoubleDoorEnabled(!Test.isDoubleDoorEnabled()); admin.sendSystemMessage(Component.literal("§eDouble Door " + (Test.isDoubleDoorEnabled() ? "§aactivé" : "§cdésactivé") + "§e.")); ServerConfig.save(); }
             case "TOGGLE_RIGHT_CLICK_HARVEST"-> { Test.setRightClickHarvestEnabled(!Test.isRightClickHarvestEnabled()); admin.sendSystemMessage(Component.literal("§eRécolte clic droit " + (Test.isRightClickHarvestEnabled() ? "§aactivée" : "§cdésactivée") + "§e.")); ServerConfig.save(); }
             case "TOGGLE_DISPENSER_HARVEST"  -> { Test.setDispenserHarvestEnabled(!Test.isDispenserHarvestEnabled()); admin.sendSystemMessage(Component.literal("§eDistributeur récolte " + (Test.isDispenserHarvestEnabled() ? "§aactivé" : "§cdésactivé") + "§e.")); ServerConfig.save(); }
-            case "SET_AFK_DELAY" -> { try { int mins = Integer.parseInt(payload.value()); Test.setAfkDelayMinutes(mins); ServerConfig.save(); admin.sendSystemMessage(Component.literal("§eDelai AFK réglé à §f" + mins + "§e min.")); } catch (NumberFormatException ignored) {} }
+            case "SET_AFK_DELAY" -> { try { int mins = Integer.parseInt(payload.value()); Test.setAfkDelayMinutes(mins); ServerConfig.save(); admin.sendSystemMessage(Component.literal("§eDélai AFK réglé à §f" + mins + "§e min.")); } catch (NumberFormatException ignored) {} }
         }
     }
 

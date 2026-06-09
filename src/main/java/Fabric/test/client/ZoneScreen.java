@@ -1,5 +1,6 @@
 package Fabric.test.client;
 
+import Fabric.test.ZoneFlag;
 import Fabric.test.networking.OpenZonePayload;
 import Fabric.test.networking.ZoneActionPayload;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -23,7 +24,7 @@ public class ZoneScreen extends Screen {
     private static final int LIST_W   = 118;
 
     private record ZoneData(int x1, int y1, int z1, int x2, int y2, int z2,
-                             List<String[]> members, boolean nightVision, boolean zoneProtected) {}
+                             List<String[]> members, boolean nightVision, Map<ZoneFlag, Boolean> flags) {}
 
     private final Map<String, ZoneData> zones         = new LinkedHashMap<>();
     private final List<String>          onlinePlayers = new ArrayList<>();
@@ -64,12 +65,20 @@ public class ZoneScreen extends Screen {
                             String[] um = m.split(":", 2);
                             if (um.length == 2) members.add(um); // [uuid, name]
                         }
-                    boolean nightVision  = Boolean.parseBoolean(f[4]);
-                    boolean zoneProtected = f.length > 5 && Boolean.parseBoolean(f[5]);
+                    boolean nightVision = Boolean.parseBoolean(f[4]);
+                    EnumMap<ZoneFlag, Boolean> flags = new EnumMap<>(ZoneFlag.class);
+                    if (f.length > 6 && !f[6].isEmpty())
+                        for (String pair : f[6].split(";")) {
+                            String[] kv = pair.split(":");
+                            if (kv.length == 2) {
+                                ZoneFlag fl = ZoneFlag.byName(kv[0]);
+                                if (fl != null) flags.put(fl, kv[1].equals("1"));
+                            }
+                        }
                     zones.put(f[0], new ZoneData(
                         Integer.parseInt(mn[0]), Integer.parseInt(mn[1]), Integer.parseInt(mn[2]),
                         Integer.parseInt(mx[0]), Integer.parseInt(mx[1]), Integer.parseInt(mx[2]),
-                        members, nightVision, zoneProtected));
+                        members, nightVision, flags));
                 } catch (Exception ignored) {}
             }
         }
@@ -82,8 +91,9 @@ public class ZoneScreen extends Screen {
 
     @Override
     protected void init() {
-        pw  = Math.min((int)(width  * 0.82), 560);
-        ph  = Math.min((int)(height * 0.80), 340);
+        // Capped ratio, with a minimum so fixed-offset content stays clean at high GUI scales.
+        pw  = Math.max(Math.min((int)(width  * 0.82), 560), Math.min(width  - 20, 380));
+        ph  = Math.max(Math.min((int)(height * 0.80), 340), Math.min(height - 20, 240));
         px  = (width  - pw) / 2;
         py  = (height - ph) / 2;
         detX = px + LIST_W + 1;
@@ -212,14 +222,29 @@ public class ZoneScreen extends Screen {
 
     private void buildOptions(ZoneData z, int top, int bot) {
         int lx = detX + 4, w = detW - 8;
+        // 8 rows total (nightVision + flags + TP + delete). Row height is derived from the
+        // available height so the list always fits the panel, whatever the GUI scale.
+        int rows = 3 + ZoneFlag.values().length;
+        int rowH = Math.max(13, Math.min(20, (bot - top) / rows));
+        int bh   = Math.max(12, rowH - 2);
+        int y = top;
+
         addRenderableWidget(btn("Vision nocturne : " + (z.nightVision() ? "§aON" : "§cOFF"),
-            b -> send("TOGGLE_NIGHT_VISION", selected, "")).bounds(lx, top,      w, 18).build());
-        addRenderableWidget(btn("Protection passive : " + (z.zoneProtected() ? "§aON" : "§cOFF"),
-            b -> send("TOGGLE_PROTECTED", selected, "")).bounds(lx, top + 24, w, 18).build());
+            b -> send("TOGGLE_NIGHT_VISION", selected, "")).bounds(lx, y, w, bh).build());
+        y += rowH;
+
+        for (ZoneFlag fl : ZoneFlag.values()) {
+            boolean allowed = z.flags().getOrDefault(fl, fl.defaultAllowed);
+            addRenderableWidget(btn(fl.label + " : " + (allowed ? "§aautorisé" : "§cbloqué"),
+                b -> send("TOGGLE_FLAG", selected, fl.name())).bounds(lx, y, w, bh).build());
+            y += rowH;
+        }
+
         addRenderableWidget(btn("§eTéléporter vers la zone",
-            b -> { send("TP_ZONE", selected, ""); onClose(); }).bounds(lx, top + 48, w, 18).build());
+            b -> { send("TP_ZONE", selected, ""); onClose(); }).bounds(lx, y, w, bh).build());
+        y += rowH;
         addRenderableWidget(btn("§c§lSUPPRIMER LA ZONE",
-            b -> { send("DELETE_ZONE", selected, ""); selected = null; init(); }).bounds(lx, top + 72, w, 18).build());
+            b -> { send("DELETE_ZONE", selected, ""); selected = null; init(); }).bounds(lx, y, w, bh).build());
     }
 
     // ─── render ───────────────────────────────────────────────────────────────────
@@ -248,11 +273,13 @@ public class ZoneScreen extends Screen {
             g.drawCenteredString(font, "§8/zone create", px + LIST_W / 2, py + ph / 2 + 4, 0xFF333333);
         }
 
-        // Selected highlight in list
+        // Selected highlight in list (only within the visible window)
         if (selected != null) {
-            int topY = py + 30, entryH = 22, idx = 0, vi = 0;
+            int topY = py + 30, botY = py + ph - 30, entryH = 22, idx = 0, vi = 0;
+            int maxVis = Math.max(1, (botY - topY) / entryH);
             for (String name : zones.keySet()) {
                 if (idx >= listScroll) {
+                    if (vi >= maxVis) break;
                     if (name.equals(selected)) {
                         g.fill(px + 2, topY + vi * entryH, px + LIST_W - 2, topY + vi * entryH + 20, C_SEL);
                         g.fill(px + 2, topY + vi * entryH, px + 4, topY + vi * entryH + 20, C_ACCENT);

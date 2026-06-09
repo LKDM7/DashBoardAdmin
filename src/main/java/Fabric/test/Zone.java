@@ -7,13 +7,23 @@ public class Zone {
     public String  name;
     public BlockPos min, max;
     public final Set<UUID> members = new LinkedHashSet<>();
-    public boolean nightVision   = false;
-    public boolean zoneProtected = false;
+    public boolean nightVision = false;
+    /** Per-flag overrides. Absent flag = its {@link ZoneFlag#defaultAllowed}. */
+    public final EnumMap<ZoneFlag, Boolean> flags = new EnumMap<>(ZoneFlag.class);
 
     public Zone(String name, BlockPos min, BlockPos max) {
         this.name = name;
         this.min  = min;
         this.max  = max;
+    }
+
+    /** Whether {@code flag} is currently allowed in this zone (falls back to its default). */
+    public boolean flag(ZoneFlag flag) {
+        return flags.getOrDefault(flag, flag.defaultAllowed);
+    }
+
+    public void setFlag(ZoneFlag flag, boolean allowed) {
+        flags.put(flag, allowed);
     }
 
     public boolean contains(double x, double y, double z) {

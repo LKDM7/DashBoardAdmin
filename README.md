@@ -1,6 +1,10 @@
 # DashBoardAdmin
 
-Mod d'administration complet pour serveur SMP, développé avec Fabric pour Minecraft 1.21.10.
+Mod d'administration complet pour serveur SMP, développé avec NeoForge pour Minecraft 1.21.1.
+
+## Téléchargement
+
+**[⬇️ Télécharger DashBoardAdmin v1.0.5 (.jar)](https://github.com/LKDM7/DashBoardAdmin/raw/master/releases/dashboardadmin-1.0.5.jar)**
 
 ## Fonctionnalités
 
@@ -16,9 +20,8 @@ Mod d'administration complet pour serveur SMP, développé avec Fabric pour Mine
 
 ## Installation
 
-1. Installe [Fabric Loader](https://fabricmc.net/use/) `0.19.2+`
-2. Installe [Fabric API](https://modrinth.com/mod/fabric-api) `0.138.4+1.21.10`
-3. Place le fichier `.jar` dans le dossier `mods/` de ton serveur/client
+1. Installe [NeoForge](https://neoforged.net/) `21.1.232+` pour Minecraft 1.21.1
+2. Place le fichier `.jar` dans le dossier `mods/` de ton serveur/client
 
 ## Compilation
 
@@ -30,7 +33,8 @@ Le fichier `.jar` généré se trouve dans `build/libs/`.
 
 ## Infos
 
-- **Version Minecraft :** 1.21.10
-- **Loader :** Fabric `0.19.2`
+- **Version du mod :** 1.0.5
+- **Version Minecraft :** 1.21.1
+- **Loader :** NeoForge `21.1.232`
 - **Auteur :** LKDM
 - **Licence :** All Rights Reserved

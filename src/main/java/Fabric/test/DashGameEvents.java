@@ -896,7 +896,7 @@ public class DashGameEvents {
             if (Test.clearLagTicks == 0) {
                 long count = 0;
                 for (ServerLevel level : server.getAllLevels()) for (net.minecraft.world.entity.Entity e : level.getAllEntities()) if (e instanceof net.minecraft.world.entity.item.ItemEntity) { e.discard(); count++; }
-                server.getPlayerList().broadcastSystemMessage(Component.literal("§eClearLag: §f" + count + " items supprimés."), false);
+                server.getPlayerList().broadcastSystemMessage(Component.literal("§eClearLag : §f" + count + " items supprimés."), false);
             }
         }
         if (Test.removeMobsTicks > 0) {
@@ -904,7 +904,7 @@ public class DashGameEvents {
             if (Test.removeMobsTicks == 0) {
                 long count = 0;
                 for (ServerLevel level : server.getAllLevels()) for (net.minecraft.world.entity.Entity e : level.getAllEntities()) if (e instanceof net.minecraft.world.entity.monster.Monster && !e.hasCustomName()) { e.discard(); count++; }
-                server.getPlayerList().broadcastSystemMessage(Component.literal("§cMobs supprimés: §f" + count), false);
+                server.getPlayerList().broadcastSystemMessage(Component.literal("§cMobs supprimés : §f" + count), false);
             }
         }
 
@@ -951,6 +951,34 @@ public class DashGameEvents {
                 Test.scheduledCounters.set(i, Test.getScheduledIntervalsArray()[i]);
                 server.getPlayerList().broadcastSystemMessage(Component.literal("§6§l[Annonce] §r" + Test.getScheduledMsgsArray()[i]), false);
             }
+        }
+
+        // Periodic autosave (every 5 minutes) — protects all data against crashes / hard kills,
+        // since the regular persistence only fires on a clean ServerStoppingEvent.
+        if (server.getTickCount() > 0 && server.getTickCount() % 6000 == 0) {
+            saveAll();
+        }
+    }
+
+    /** Persists every data store. Each save is isolated so one failure cannot abort the others. */
+    static void saveAll() {
+        runSave(HomePersistence::save,        "homes");
+        runSave(VirtualChestManager::save,    "virtual chests");
+        runSave(SettingsPersistence::save,    "player settings");
+        runSave(LockPersistence::save,        "locks");
+        runSave(MobKillsPersistence::save,    "mob kills");
+        runSave(SeenPersistence::save,        "seen timestamps");
+        runSave(ServerConfig::save,           "server config");
+        runSave(ZonePersistence::save,        "zones");
+        runSave(SanctionsPersistence::save,   "sanctions");
+        runSave(GroupPersistence::save,       "groups");
+    }
+
+    private static void runSave(Runnable save, String label) {
+        try {
+            save.run();
+        } catch (Exception e) {
+            System.err.println("[DashBoardAdmin] Autosave failed for " + label + ": " + e.getMessage());
         }
     }
 

@@ -203,8 +203,10 @@ public class SettingsScreen extends Screen {
 
     @Override
     protected void init() {
-        pw = (int)(this.width  * 0.70);
-        ph = (int)(this.height * 0.70);
+        // Ratio of the screen, but with a minimum size so the fixed-offset content (sidebar tabs,
+        // FERMER button) never clips at high GUI scales (x3/x4) where the screen is small.
+        pw = Math.max((int)(this.width  * 0.70), Math.min(this.width  - 20, 360));
+        ph = Math.max((int)(this.height * 0.70), Math.min(this.height - 20, 215));
         px = (this.width  - pw) / 2;
         py = (this.height - ph) / 2;
         cx = px + SIDE_W;
@@ -343,13 +345,18 @@ public class SettingsScreen extends Screen {
             y += 22;
         }
 
-        int invY = contentTop + (pendingInviteFrom.isEmpty() ? 2 : 22)
-            + Math.max(22, groupMembers.size() * 22) + 6 - groupScroll;
+        // Mirror renderGroupe's vertical cursor exactly so the "+" buttons line up with their
+        // player names: members block (header + rows, or the "aucun groupe" line) then the
+        // INVITER header (4px gap + 14px header/divider).
+        int membersBlockH = groupMembers.isEmpty() ? 22 : 14 + groupMembers.size() * 22;
+        int invY = contentTop + (pendingInviteFrom.isEmpty() ? 2 : 22) - groupScroll
+            + membersBlockH + 18;
         for (String pName : onlinePlayers) {
             int fy = invY;
+            // Name is drawn at fy + 3 (8px tall); centre the 14px button on that line.
             addRenderableWidget(Button.builder(Component.literal("§7+"),
                 b -> { sendGroup("INVITE", pName); init(); })
-                .bounds(px + pw - 24, fy + 3, 18, 14).build());
+                .bounds(px + pw - 24, fy, 18, 14).build());
             invY += 18;
         }
 
@@ -678,16 +685,11 @@ public class SettingsScreen extends Screen {
             g.fill(sx, sy, sx + 16, sy + 16, sel ? argb : (argb & 0x00FFFFFF) | 0x88000000);
         }
 
-        // Group name label/box area
+        // Group name label/box area — when an edit box is present its own hint ("Nom du
+        // groupe…") labels it, so we only draw a label in the read-only (non-leader) case.
         g.fill(cx + 4, botY + 50, px + pw - 4, botY + 51, C_DIV);
-        if (!groupMembers.isEmpty()) {
-            if (groupNameBox != null) {
-                g.drawString(font, "NOM DU GROUPE", cx + 8, botY + 55, C_SEC);
-            } else if (!groupName.isEmpty()) {
-                g.drawString(font, "NOM §7" + groupName, cx + 8, botY + 58, C_SEC);
-            }
-        } else if (pendingInviteFrom.isEmpty()) {
-            g.drawString(font, "NOM DU GROUPE", cx + 8, botY + 55, C_SEC);
+        if (!groupMembers.isEmpty() && groupNameBox == null && !groupName.isEmpty()) {
+            g.drawString(font, "NOM §7" + groupName, cx + 8, botY + 58, C_SEC);
         }
     }
 

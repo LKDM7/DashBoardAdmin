@@ -4,7 +4,9 @@ Mod d'administration pour serveur SMP, sous NeoForge pour Minecraft 1.21.1.
 
 ## Téléchargement
 
-**[Télécharger DashBoardAdmin v1.0.5 (.jar)](https://github.com/LKDM7/DashBoardAdmin/raw/master/releases/dashboardadmin-1.0.5.jar)**
+**[Télécharger la dernière version (.jar)](https://github.com/LKDM7/DashBoardAdmin/raw/master/releases/dashboardadmin-latest.jar)**
+
+Lien stable, toujours à jour (actuellement v1.0.6). Tous les joueurs doivent utiliser la même version que le serveur (vérification réseau stricte).
 
 ## Fonctionnalités
 
@@ -33,7 +35,7 @@ Le fichier `.jar` généré se trouve dans `build/libs/`.
 
 ## Infos
 
-- **Version du mod :** 1.0.5
+- **Version du mod :** 1.0.6
 - **Version Minecraft :** 1.21.1
 - **Loader :** NeoForge `21.1.232`
 - **Auteur :** LKDM

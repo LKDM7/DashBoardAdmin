@@ -79,145 +79,129 @@ public class ReportScreen extends Screen {
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_V && (modifiers & GLFW.GLFW_MOD_CONTROL) != 0) {
-            if (tryPasteFromClipboard()) return true;
-            if (tryLoadLastScreenshot())  return true;
-            hintText = "§cAucune image — prenez un screenshot F2 puis Ctrl+V";
-            init();
-            return true;
+            // Grab a clipboard image OFF the render thread: touching AWT's system clipboard on
+            // the GLFW main thread hard-crashes the game on Windows (native access violation,
+            // not catchable). Text paste is left to the focused EditBox via super.keyPressed
+            // (Minecraft's GLFW-based clipboard), so pasting text into the message works too.
+            pasteImageAsync();
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
-    // ── Presse-papiers AWT ────────────────────────────────────────────────────
+    // ── Collage d'image (presse-papiers / dernier screenshot), hors thread rendu ──────
 
-    private boolean tryPasteFromClipboard() {
-        try {
-            if (java.awt.GraphicsEnvironment.isHeadless()) return false;
+    private volatile boolean pasteInFlight = false;
 
-            java.awt.datatransfer.Clipboard cb =
-                java.awt.Toolkit.getDefaultToolkit().getSystemClipboard();
-            java.awt.datatransfer.Transferable t = cb.getContents(null);
-            if (t == null) return false;
-
-            java.awt.image.BufferedImage bimg = null;
-
-            if (t.isDataFlavorSupported(java.awt.datatransfer.DataFlavor.imageFlavor)) {
-                java.awt.Image awt = (java.awt.Image)
-                    t.getTransferData(java.awt.datatransfer.DataFlavor.imageFlavor);
-                if (awt != null && awt.getWidth(null) > 0) {
-                    bimg = new java.awt.image.BufferedImage(awt.getWidth(null), awt.getHeight(null),
-                        java.awt.image.BufferedImage.TYPE_INT_ARGB);
-                    java.awt.Graphics2D g2d = bimg.createGraphics();
-                    g2d.drawImage(awt, 0, 0, null);
-                    g2d.dispose();
+    private void pasteImageAsync() {
+        if (pasteInFlight) return;
+        pasteInFlight = true;
+        Thread worker = new Thread(() -> {
+            byte[] sendPng = null, previewPng = null;
+            // 1) Image du presse-papiers (AWT — sûr hors du thread GLFW)
+            try {
+                java.awt.image.BufferedImage bimg = readClipboardImage();
+                if (bimg != null) {
+                    int sendW = bimg.getWidth(), sendH = bimg.getHeight();
+                    if (sendW > MAX_SEND_W || sendH > MAX_SEND_H) {
+                        double s = Math.min((double) MAX_SEND_W / sendW, (double) MAX_SEND_H / sendH);
+                        sendW = Math.max(1, (int) (sendW * s));
+                        sendH = Math.max(1, (int) (sendH * s));
+                    }
+                    sendPng    = encodePng(bimg, sendW, sendH);
+                    previewPng = encodePng(bimg, PREVIEW_W, PREVIEW_H);
                 }
+            } catch (Throwable ignored) {}
+            // 2) Repli : dernier screenshot F2
+            if (sendPng == null) {
+                try {
+                    byte[][] r = readLastScreenshot();
+                    if (r != null) { sendPng = r[0]; previewPng = r[1]; }
+                } catch (Throwable ignored) {}
             }
-            if (bimg == null) {
-                for (java.awt.datatransfer.DataFlavor f : t.getTransferDataFlavors()) {
-                    if (!"image".equals(f.getPrimaryType())) continue;
-                    try {
-                        Object data = t.getTransferData(f);
-                        if (data instanceof java.io.InputStream is)
-                            bimg = javax.imageio.ImageIO.read(is);
-                        if (bimg != null && bimg.getWidth() > 0) break;
-                        bimg = null;
-                    } catch (Exception ignored) {}
-                }
-            }
-            if (bimg == null) return false;
 
-            return applyFromBufferedImage(bimg, "§a✔ Image collée depuis le presse-papiers");
-        } catch (Exception ignored) {
-            return false;
-        }
+            final byte[] fSend = sendPng, fPreview = previewPng;
+            Minecraft.getInstance().execute(() -> {
+                pasteInFlight = false;
+                if (Minecraft.getInstance().screen != this) return; // écran fermé entre-temps
+                if (fSend == null || fPreview == null) {
+                    if (!hasImage) hintText = "§cAucune image — prenez un screenshot F2 puis Ctrl+V";
+                    return;
+                }
+                try {
+                    NativeImage preview = NativeImage.read(fPreview);
+                    sendImageBytes = fSend;
+                    applyPreviewTexture(preview);
+                    hintText = "§a✔ Image collée";
+                    hasImage = true;
+                    init();
+                } catch (Exception ignored) {}
+            });
+        }, "ReportClipboardPaste");
+        worker.setDaemon(true);
+        worker.start();
     }
 
-    // ── Dernier screenshot F2 ─────────────────────────────────────────────────
+    /** Lit une image du presse-papiers système via AWT. À n'appeler QUE depuis un thread annexe. */
+    private static java.awt.image.BufferedImage readClipboardImage() throws Exception {
+        if (java.awt.GraphicsEnvironment.isHeadless()) return null;
+        java.awt.datatransfer.Clipboard cb =
+            java.awt.Toolkit.getDefaultToolkit().getSystemClipboard();
+        java.awt.datatransfer.Transferable t = cb.getContents(null);
+        if (t == null) return null;
 
-    private boolean tryLoadLastScreenshot() {
-        try {
-            Path dir = Minecraft.getInstance().gameDirectory.toPath().resolve("screenshots");
-            if (!Files.isDirectory(dir)) return false;
-
-            Path last;
-            try (Stream<Path> s = Files.list(dir)) {
-                last = s.filter(p -> p.toString().toLowerCase().endsWith(".png"))
-                        .max(Comparator.comparingLong(p -> p.toFile().lastModified()))
-                        .orElse(null);
+        if (t.isDataFlavorSupported(java.awt.datatransfer.DataFlavor.imageFlavor)) {
+            java.awt.Image awt = (java.awt.Image)
+                t.getTransferData(java.awt.datatransfer.DataFlavor.imageFlavor);
+            if (awt != null && awt.getWidth(null) > 0) {
+                java.awt.image.BufferedImage b = new java.awt.image.BufferedImage(
+                    awt.getWidth(null), awt.getHeight(null), java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                java.awt.Graphics2D g2d = b.createGraphics();
+                g2d.drawImage(awt, 0, 0, null);
+                g2d.dispose();
+                return b;
             }
-            if (last == null) return false;
-
-            byte[] raw = Files.readAllBytes(last);
-            NativeImage full = NativeImage.read(raw);
-            int srcW = full.getWidth(), srcH = full.getHeight();
-
-            // Image envoyée au serveur : pleine résolution si ≤ 1280×720, sinon redimensionnée
-            if (srcW <= MAX_SEND_W && srcH <= MAX_SEND_H) {
-                sendImageBytes = raw;
-            } else {
-                NativeImage send = new NativeImage(MAX_SEND_W, MAX_SEND_H, false);
-                full.resizeSubRectTo(0, 0, srcW, srcH, send);
-                Path tmp = Files.createTempFile("rpt_", ".png");
-                send.writeToFile(tmp);
-                sendImageBytes = Files.readAllBytes(tmp);
-                Files.deleteIfExists(tmp);
-                send.close();
-            }
-
-            // Aperçu GUI : toujours 240×135
-            NativeImage preview = new NativeImage(PREVIEW_W, PREVIEW_H, false);
-            full.resizeSubRectTo(0, 0, srcW, srcH, preview);
-            full.close();
-
-            applyPreviewTexture(preview);
-            hintText  = "§a✔ Screenshot chargé";
-            hasImage  = true;
-            init();
-            return true;
-        } catch (Exception ignored) {
-            return false;
         }
+        for (java.awt.datatransfer.DataFlavor f : t.getTransferDataFlavors()) {
+            if (!"image".equals(f.getPrimaryType())) continue;
+            try {
+                Object data = t.getTransferData(f);
+                if (data instanceof java.io.InputStream is) {
+                    java.awt.image.BufferedImage b = javax.imageio.ImageIO.read(is);
+                    if (b != null && b.getWidth() > 0) return b;
+                }
+            } catch (Exception ignored) {}
+        }
+        return null;
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    /**
-     * Prend un BufferedImage AWT, produit :
-     *  - sendImageBytes  : PNG à résolution max 1280×720
-     *  - previewTexture  : NativeImage 240×135 pour le GUI
-     */
-    private boolean applyFromBufferedImage(java.awt.image.BufferedImage src, String successMsg) {
-        try {
-            int srcW = src.getWidth(), srcH = src.getHeight();
-
-            // Calcule les dimensions d'envoi (conserver les proportions)
-            int sendW = srcW, sendH = srcH;
-            if (sendW > MAX_SEND_W || sendH > MAX_SEND_H) {
-                double scale = Math.min((double) MAX_SEND_W / sendW, (double) MAX_SEND_H / sendH);
-                sendW = Math.max(1, (int) (sendW * scale));
-                sendH = Math.max(1, (int) (sendH * scale));
-            }
-
-            // Encode l'image d'envoi en PNG
-            java.awt.image.BufferedImage sendBuf = scale(src, sendW, sendH);
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            javax.imageio.ImageIO.write(sendBuf, "PNG", baos);
-            sendImageBytes = baos.toByteArray();
-
-            // Crée l'aperçu 240×135 via PNG → NativeImage.read (plus simple qu'une boucle pixel)
-            java.awt.image.BufferedImage previewBuf = scale(src, PREVIEW_W, PREVIEW_H);
-            ByteArrayOutputStream pBaos = new ByteArrayOutputStream();
-            javax.imageio.ImageIO.write(previewBuf, "PNG", pBaos);
-            NativeImage previewNative = NativeImage.read(pBaos.toByteArray());
-
-            applyPreviewTexture(previewNative);
-            hintText = successMsg;
-            hasImage = true;
-            init();
-            return true;
-        } catch (Exception ignored) {
-            return false;
+    /** Charge le dernier screenshot F2 et renvoie [pngEnvoi, pngApercu]. Thread annexe uniquement. */
+    private static byte[][] readLastScreenshot() throws Exception {
+        Path dir = Minecraft.getInstance().gameDirectory.toPath().resolve("screenshots");
+        if (!Files.isDirectory(dir)) return null;
+        Path last;
+        try (Stream<Path> s = Files.list(dir)) {
+            last = s.filter(p -> p.toString().toLowerCase().endsWith(".png"))
+                    .max(Comparator.comparingLong(p -> p.toFile().lastModified()))
+                    .orElse(null);
         }
+        if (last == null) return null;
+        java.awt.image.BufferedImage bimg = javax.imageio.ImageIO.read(last.toFile());
+        if (bimg == null) return null;
+
+        int sendW = bimg.getWidth(), sendH = bimg.getHeight();
+        if (sendW > MAX_SEND_W || sendH > MAX_SEND_H) {
+            double s = Math.min((double) MAX_SEND_W / sendW, (double) MAX_SEND_H / sendH);
+            sendW = Math.max(1, (int) (sendW * s));
+            sendH = Math.max(1, (int) (sendH * s));
+        }
+        return new byte[][]{ encodePng(bimg, sendW, sendH), encodePng(bimg, PREVIEW_W, PREVIEW_H) };
+    }
+
+    /** Redimensionne (exactement w×h) puis encode en PNG. CPU only — sûr hors thread rendu. */
+    private static byte[] encodePng(java.awt.image.BufferedImage src, int w, int h) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(scale(src, w, h), "PNG", baos);
+        return baos.toByteArray();
     }
 
     private static java.awt.image.BufferedImage scale(java.awt.image.BufferedImage src, int w, int h) {

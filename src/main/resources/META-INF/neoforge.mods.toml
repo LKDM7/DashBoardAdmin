@@ -6,6 +6,9 @@ license="All-Rights-Reserved"
 modId="dashboardadmin"
 version="${file.jarVersion}"
 displayName="DashBoardAdmin"
+# Vérification stricte : le client et le serveur DOIVENT avoir la même version du mod.
+# (C'est aussi le comportement par défaut de NeoForge, rendu explicite ici.)
+displayTest="MATCH_VERSION"
 description='''
 DashBoardAdmin est un mod NeoForge tout-en-un pour serveurs SMP.
 Il offre un panneau d'administration graphique complet (gestion des joueurs, zones,

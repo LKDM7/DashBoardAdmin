@@ -276,7 +276,24 @@ public class SettingsScreen extends Screen {
             case 2 -> buildHomes();
             case 3 -> buildVerrous();
             case 4 -> buildGroupe();
+            case 6 -> buildBuild();
         }
+    }
+
+    /** Onglet BUILD : bouton de visualisation des zones (overlay wireframe, préférence client). */
+    private void buildBuild() {
+        int btnW = Math.min(200, pw - SIDE_W - 28);
+        addRenderableWidget(Button.builder(overlayLabel(), b -> {
+            ClientZoneCache.overlayEnabled = !ClientZoneCache.overlayEnabled;
+            ClientZoneCache.saveConfig();
+            b.setMessage(overlayLabel());
+        }).bounds(cx + 14, py + ph - 24, btnW, 20).build());
+    }
+
+    private static Component overlayLabel() {
+        return Component.literal(ClientZoneCache.overlayEnabled
+            ? "§aVISUALISATION ZONES : ON"
+            : "§cVISUALISATION ZONES : OFF");
     }
 
     private void buildSettings() {

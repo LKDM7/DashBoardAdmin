@@ -36,6 +36,8 @@ public class DashNetworking {
             reg.playToClient(OpenSanctionsPayload.TYPE,   OpenSanctionsPayload.CODEC,   (p, c) -> {});
             reg.playToClient(OpenReportPayload.TYPE,      OpenReportPayload.CODEC,      (p, c) -> {});
             reg.playToClient(ReportImagePayload.TYPE,     ReportImagePayload.CODEC,     (p, c) -> {});
+            reg.playToClient(ZoneSyncPayload.TYPE,        ZoneSyncPayload.CODEC,        (p, c) -> {});
+            reg.playToClient(WandSelectionPayload.TYPE,   WandSelectionPayload.CODEC,   (p, c) -> {});
         }
 
         // ── C2S ───────────────────────────────────────────────────────────────

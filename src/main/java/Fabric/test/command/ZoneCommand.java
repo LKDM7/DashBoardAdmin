@@ -3,7 +3,9 @@ package Fabric.test.command;
 import Fabric.test.Zone;
 import Fabric.test.ZoneFlag;
 import Fabric.test.networking.OpenZonePayload;
+import Fabric.test.networking.WandSelectionPayload;
 import Fabric.test.networking.ZoneActionPayload;
+import Fabric.test.networking.ZoneSyncPayload;
 import com.mojang.brigadier.CommandDispatcher;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -137,6 +139,8 @@ public class ZoneCommand {
                         zones.put(name, new Zone(name, min, max));
                         wandA.remove(player.getUUID());
                         wandB.remove(player.getUUID());
+                        syncZonesAll(ctx.getSource().getServer());            // la nouvelle zone apparaît chez tous les membres/ops
+                        PacketDistributor.sendToPlayer(player, WandSelectionPayload.empty()); // efface la prévisualisation jaune
                         int dx = max.getX()-min.getX()+1, dy = max.getY()-min.getY()+1, dz = max.getZ()-min.getZ()+1;
                         player.sendSystemMessage(Component.literal(
                             "§aZone §e" + name + " §acréée §7(" + dx + "×" + dy + "×" + dz + ")§a !"));
@@ -241,6 +245,7 @@ public class ZoneCommand {
     private static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer sp)) return;
         UUID uuid = sp.getUUID();
+        syncZones(sp);                                     // overlay : zones visibles par ce joueur
         if (!pendingRestore.remove(uuid)) return;          // only states reloaded from disk
         if (!buildSavedState.containsKey(uuid)) { buildZone.remove(uuid); return; }
         exitBuildMode(sp);                                 // restores inventory/xp/effects + saves
@@ -256,6 +261,7 @@ public class ZoneCommand {
         BlockPos pos = event.getPos();
         wandA.put(sp.getUUID(), pos);
         sp.sendSystemMessage(Component.literal("§aPoint A §7→ §f(" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + ")"));
+        syncWandSelection(sp);
         if (wandB.containsKey(sp.getUUID()))
             sendBoxParticles(sp, pos, wandB.get(sp.getUUID()), (ServerLevel) event.getLevel());
         event.setCanceled(true);
@@ -271,6 +277,7 @@ public class ZoneCommand {
             BlockPos pos = event.getHitVec().getBlockPos();
             wandB.put(sp.getUUID(), pos);
             sp.sendSystemMessage(Component.literal("§bPoint B §7→ §f(" + pos.getX() + ", " + pos.getY() + ", " + pos.getZ() + ")"));
+            syncWandSelection(sp);
             if (wandA.containsKey(sp.getUUID()))
                 sendBoxParticles(sp, wandA.get(sp.getUUID()), pos, (ServerLevel) event.getLevel());
             event.setCanceled(true);
@@ -608,6 +615,7 @@ public class ZoneCommand {
             it.remove();
         }
         saveBuildState(server);
+        syncZonesAll(server);   // la zone disparaît de l'overlay de tous les joueurs
     }
 
     // ─── Persistence (reboot/crash-safe build state) ──────────────────────────
@@ -689,6 +697,44 @@ public class ZoneCommand {
         } catch (IOException ex) { ex.printStackTrace(); }
     }
 
+    // ─── Overlay sync (canal séparé, volontairement minimal) ──────────────────
+
+    /**
+     * Envoie au joueur la liste des zones qu'il a le droit de voir (overlay client).
+     * Filtre STRICT : membre explicite uniquement (PAS isAuthorized, qui ouvrirait
+     * les zones sans membres à tout le monde). Un op voit tout. Ni membres ni flags
+     * ne quittent le serveur — uniquement nom + coordonnées + enabled.
+     */
+    public static void syncZones(ServerPlayer player) {
+        if (player == null) return;
+        boolean op = player.hasPermissions(2);
+        StringBuilder sb = new StringBuilder();
+        for (Zone z : zones.values()) {
+            if (!op && !z.members.contains(player.getUUID())) continue;
+            if (sb.length() > 0) sb.append("\n");
+            sb.append(z.name).append("|")
+              .append(z.min.getX()).append(",").append(z.min.getY()).append(",").append(z.min.getZ()).append("|")
+              .append(z.max.getX()).append(",").append(z.max.getY()).append(",").append(z.max.getZ()).append("|")
+              .append(z.enabled);
+        }
+        PacketDistributor.sendToPlayer(player, new ZoneSyncPayload(sb.toString()));
+    }
+
+    /** Resynchronise tous les joueurs en ligne (après création/suppression/modif). */
+    public static void syncZonesAll(MinecraftServer server) {
+        if (server == null) return;
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) syncZones(p);
+    }
+
+    /** Envoie au joueur l'état complet de sa sélection baguette (A/B) pour l'overlay. */
+    private static void syncWandSelection(ServerPlayer sp) {
+        BlockPos pa = wandA.get(sp.getUUID());
+        BlockPos pb = wandB.get(sp.getUUID());
+        PacketDistributor.sendToPlayer(sp, new WandSelectionPayload(
+            pa != null, pa != null ? pa.getX() : 0, pa != null ? pa.getY() : 0, pa != null ? pa.getZ() : 0,
+            pb != null, pb != null ? pb.getX() : 0, pb != null ? pb.getY() : 0, pb != null ? pb.getZ() : 0));
+    }
+
     // ─── GUI ──────────────────────────────────────────────────────────────────────
 
     public static void sendZoneScreen(ServerPlayer player, MinecraftServer server) {
@@ -747,6 +793,7 @@ public class ZoneCommand {
                             "§cJoueur §e" + payload.value() + " §cinconnu ou hors ligne."));
                     }
                     sendZoneScreen(admin, server);
+                    syncZonesAll(server);   // le joueur ajouté doit voir sa zone apparaître sans relog
                 }
             }
             case "REMOVE_MEMBER" -> {
@@ -754,6 +801,7 @@ public class ZoneCommand {
                     try { z.members.remove(UUID.fromString(payload.value())); }
                     catch (IllegalArgumentException ignored) {}
                     sendZoneScreen(admin, server);
+                    syncZonesAll(server);   // le joueur retiré doit voir sa zone disparaître sans relog
                 }
             }
             case "TOGGLE_NIGHT_VISION" -> {
@@ -780,6 +828,7 @@ public class ZoneCommand {
                     admin.sendSystemMessage(Component.literal("§eZone §6" + z.name + " §e→ "
                         + (z.enabled ? "§aactivée" : "§cdésactivée") + "§e."));
                     sendZoneScreen(admin, server);
+                    syncZonesAll(server);   // la boîte passe de vert à gris en direct chez les joueurs
                 }
             }
             case "TOGGLE_PROTECTED" -> { // legacy alias → toggles the BUILD flag
@@ -810,6 +859,7 @@ public class ZoneCommand {
                         }
                     }
                     sendZoneScreen(admin, server);
+                    syncZonesAll(server);   // nouvelles coordonnées reflétées dans l'overlay
                 }
             }
         }

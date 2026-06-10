@@ -110,5 +110,14 @@ public class DashClientNetworking {
                 Screen cur = Minecraft.getInstance().screen;
                 if (cur instanceof AdminScreen as) as.onReportImageReceived(payload.playerName(), payload.imageData());
             }));
+
+        reg.playToClient(ZoneSyncPayload.TYPE, ZoneSyncPayload.CODEC,
+            (payload, ctx) -> ctx.enqueueWork(() ->
+                ClientZoneCache.update(payload.zonesSerialized())));
+
+        reg.playToClient(WandSelectionPayload.TYPE, WandSelectionPayload.CODEC,
+            (payload, ctx) -> ctx.enqueueWork(() ->
+                ClientZoneCache.updateWand(payload.hasA(), payload.ax(), payload.ay(), payload.az(),
+                                           payload.hasB(), payload.bx(), payload.by(), payload.bz())));
     }
 }

@@ -35,6 +35,8 @@ public class TestClient {
         NeoForge.EVENT_BUS.register(ClientTickHandler.class);
         GroupHud.register();
         NotifHud.register();
+        ZoneOverlayRenderer.register();
+        ClientZoneCache.loadConfig();
     }
 
     // ─── Tick handler (inner static class on GAME bus) ────────────────────────

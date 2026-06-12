@@ -387,14 +387,14 @@ public class ZoneScreen extends Screen {
         // Zone name + coords bar
         g.fill(detX, py + 22, px + pw, py + 44, 0xFF0A0A0A);
         int sx = z.x2()-z.x1()+1, sy = z.y2()-z.y1()+1, sz = z.z2()-z.z1()+1;
-        g.drawString(font, "§e§l" + selected, detX + 6, py + 26, 0xFFFFFFFF);
+        g.drawString(font, "§e§l" + selected, detX + 6, py + 25, 0xFFFFFFFF);
         if (!z.inside().isEmpty())
             g.drawString(font, "§a◉ " + z.inside().size() + " présent" + (z.inside().size() > 1 ? "s" : ""),
-                detX + 10 + font.width("§e§l" + selected), py + 26, 0xFF55FF55);
+                detX + 12 + font.width("§e§l" + selected), py + 25, 0xFF55FF55);
         g.drawString(font, "§8" + sx + "×" + sy + "×" + sz
             + "  (" + z.x1() + "," + z.y1() + "," + z.z1()
             + ") → (" + z.x2() + "," + z.y2() + "," + z.z2() + ")",
-            detX + 6, py + 36, 0xFF555555);
+            detX + 6, py + 34, 0xFF555555);
         g.fill(detX, py + 43, px + pw, py + 44, C_DIV);
 
         // Sub-tab highlight

@@ -1600,7 +1600,7 @@ public class AdminScreen extends Screen {
         ZoneData z = zoneMap.get(selectedZone);
         if (z == null) return;
 
-        // Sub-tabs
+        // Sub-tabs (sous l'en-tête de 22px : nom + dimensions sans chevauchement)
         int tabW = znDetW / 4;
         String[] tabLabels = { "MEMBRES", "COORDS", "OPTIONS", "MSG" };
         for (int i = 0; i < tabLabels.length; i++) {
@@ -1609,10 +1609,10 @@ public class AdminScreen extends Screen {
             Component lbl = Component.literal(tabLabels[i]).withStyle(
                 active ? s -> s.withColor(0x00E5FF).withBold(true) : s -> s.withColor(0x777777));
             addRenderableWidget(Button.builder(lbl, b -> { zoneDetailTab = ti; init(); })
-                .bounds(znDetX + tabW * i, py + 46, tabW - 1, 16).build());
+                .bounds(znDetX + tabW * i, py + 50, tabW - 1, 16).build());
         }
 
-        int contentTop = py + 66;
+        int contentTop = py + 70;
         int contentBot = py + ph - 5;
         switch (zoneDetailTab) {
             case 0 -> buildZoneMembers(z, znDetX, znDetW, contentTop, contentBot);
@@ -1786,27 +1786,27 @@ public class AdminScreen extends Screen {
         ZoneData z = zoneMap.get(selectedZone);
         if (z == null) return;
 
-        // Zone info bar
-        g.fill(znDetX, py + 26, px + pw, py + 44, 0xFF0A0A0A);
+        // Zone info bar (22px : la ligne des dimensions ne touche plus les sous-onglets)
+        g.fill(znDetX, py + 26, px + pw, py + 48, 0xFF0A0A0A);
         int sx = z.x2()-z.x1()+1, sy = z.y2()-z.y1()+1, sz = z.z2()-z.z1()+1;
-        g.drawString(font, "§e§l" + selectedZone, znDetX + 4, py + 29, 0xFFFFFFFF);
+        g.drawString(font, "§e§l" + selectedZone, znDetX + 4, py + 28, 0xFFFFFFFF);
         if (!z.inside().isEmpty())
             g.drawString(font, "§a◉ " + z.inside().size() + " présent" + (z.inside().size() > 1 ? "s" : ""),
-                znDetX + 8 + font.width("§e§l" + selectedZone), py + 29, 0xFF55FF55);
+                znDetX + 10 + font.width("§e§l" + selectedZone), py + 28, 0xFF55FF55);
         g.drawString(font, "§8" + sx + "×" + sy + "×" + sz
             + "  (" + z.x1() + "," + z.y1() + "," + z.z1()
             + ") → (" + z.x2() + "," + z.y2() + "," + z.z2() + ")",
             znDetX + 4, py + 38, 0xFF555555);
-        g.fill(znDetX, py + 43, px + pw, py + 44, C_DIV);
+        g.fill(znDetX, py + 47, px + pw, py + 48, C_DIV);
 
         // Sub-tab highlight
         int tabW = znDetW / 4;
         int tx = znDetX + tabW * zoneDetailTab;
-        g.fill(tx, py + 44, tx + tabW - 1, py + 62, C_TABSEL);
-        g.fill(tx, py + 60, tx + tabW - 1, py + 62, C_ACCENT);
-        g.fill(znDetX, py + 62, px + pw, py + 63, C_DIV);
+        g.fill(tx, py + 48, tx + tabW - 1, py + 66, C_TABSEL);
+        g.fill(tx, py + 64, tx + tabW - 1, py + 66, C_ACCENT);
+        g.fill(znDetX, py + 66, px + pw, py + 67, C_DIV);
 
-        int contentTop = py + 66;
+        int contentTop = py + 70;
         int contentBot = py + ph - 5;
         if (zoneDetailTab == 0) renderZoneMembers(g, z, znDetX, znDetW, contentTop, contentBot);
         else if (zoneDetailTab == 1) renderZoneCoords(g, z, znDetX, znDetW, contentTop, contentBot);

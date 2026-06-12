@@ -347,9 +347,20 @@ public class AdminScreen extends Screen {
 
     // ─── JOUEURS ─────────────────────────────────────────────────────────────────
 
+    /** Joueurs en ligne filtrés par la recherche — même liste pour init() et render() (têtes). */
+    private java.util.List<PlayerInfo> filteredPlayers() {
+        if (Minecraft.getInstance().getConnection() == null) return java.util.List.of();
+        java.util.List<PlayerInfo> out = new java.util.ArrayList<>();
+        for (PlayerInfo info : Minecraft.getInstance().getConnection().getOnlinePlayers()) {
+            if (info.getProfile() == null) continue;
+            if (!search.isEmpty() && !info.getProfile().getName().toLowerCase().contains(search.toLowerCase())) continue;
+            out.add(info);
+        }
+        return out;
+    }
+
     private void buildJoueurs() {
         if (Minecraft.getInstance().getConnection() == null) return;
-        Collection<PlayerInfo> players = Minecraft.getInstance().getConnection().getOnlinePlayers();
 
         searchBox = new EditBox(font, cx + 5, py + 29, 88, 14, Component.literal("Rechercher..."));
         searchBox.setResponder(s -> { if (!s.equals(search)) { search = s; init(); } });
@@ -357,20 +368,18 @@ public class AdminScreen extends Screen {
         addRenderableWidget(searchBox);
 
         int yOff = py + 48;
-        for (PlayerInfo info : players) {
-            if (info.getProfile() == null) continue;
+        for (PlayerInfo info : filteredPlayers()) {
             String name = info.getProfile().getName();
-            if (!search.isEmpty() && !name.toLowerCase().contains(search.toLowerCase())) continue;
             boolean sel = name.equals(selPlayer);
-            String dot = mutedPlayers.contains(name)   ? "§c■ " :
-                         frozenPlayers.contains(name)  ? "§b■ " :
-                         keepInvPlayers.contains(name) ? "§a■ " : "§8· ";
-            Component lbl = Component.literal(dot + (sel ? "§f§l" : "§7") + name);
+            String dot = mutedPlayers.contains(name)   ? "§c■" :
+                         frozenPlayers.contains(name)  ? "§b■" :
+                         keepInvPlayers.contains(name) ? "§a■" : "";
+            Component lbl = Component.literal((sel ? "§f§l" : "§7") + name + (dot.isEmpty() ? "" : " " + dot));
             addRenderableWidget(Button.builder(lbl, b -> {
                 selPlayer   = name;
                 selGamemode = info.getGameMode().getName().toUpperCase();
                 init();
-            }).bounds(cx + 4, yOff, 90, 14).build());
+            }).bounds(cx + 16, yOff, 78, 14).build());
             yOff += 16;
         }
 
@@ -816,13 +825,19 @@ public class AdminScreen extends Screen {
         int divX = cx + 98;
         g.fill(divX, py + 26, divX + 1, py + ph - 5, C_DIV);
 
+        // Têtes de skin à gauche de chaque entrée de la liste
+        java.util.List<PlayerInfo> shown = filteredPlayers();
+        {
+            int yOff = py + 48;
+            for (PlayerInfo info : shown) {
+                net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g, info.getSkin(), cx + 5, yOff + 3, 8);
+                yOff += 16;
+            }
+        }
+
         // Section BANNIS dans le panneau gauche
         if (!bannedPlayers.isEmpty()) {
-            Collection<PlayerInfo> onlinePls = Minecraft.getInstance().getConnection() != null
-                ? Minecraft.getInstance().getConnection().getOnlinePlayers() : java.util.List.of();
-            int searchCount = (int) onlinePls.stream()
-                .filter(i -> i.getProfile() != null && (search.isEmpty() || i.getProfile().getName().toLowerCase().contains(search.toLowerCase())))
-                .count();
+            int searchCount = shown.size();
             int banY = py + 48 + searchCount * 16 + 8;
             g.drawString(font, "BANNIS", cx + 6, banY - 2, 0xFF888888);
             g.fill(cx + 4, banY + 6, cx + 94, banY + 7, C_DIV);
@@ -843,8 +858,15 @@ public class AdminScreen extends Screen {
         }
 
         g.fill(divX + 1, py + 26, px + pw, py + 46, 0xFF0A0A0A);
-        g.drawString(font, "§e§l" + selPlayer, divX + 8, py + 31, 0xFFFFFFFF);
-        int gmX = divX + 10 + font.width("§e§l" + selPlayer);
+        PlayerInfo selInfo = shown.stream()
+            .filter(i -> i.getProfile().getName().equals(selPlayer)).findFirst().orElse(null);
+        int nameX = divX + 8;
+        if (selInfo != null) {
+            net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g, selInfo.getSkin(), divX + 6, py + 30, 12);
+            nameX = divX + 22;
+        }
+        g.drawString(font, "§e§l" + selPlayer, nameX, py + 31, 0xFFFFFFFF);
+        int gmX = nameX + 2 + font.width("§e§l" + selPlayer);
         g.drawString(font, " §8[" + selGamemode + "]", gmX, py + 31, 0xFFFFFFFF);
         g.fill(divX + 1, py + 45, px + pw, py + 46, C_DIV);
 
@@ -1041,7 +1063,7 @@ public class AdminScreen extends Screen {
                 logsScroll  = 0;
                 send("GET_LOGS", name, "");
                 init();
-            }).bounds(cx + 4, yOff, 90, 14).build());
+            }).bounds(cx + 16, yOff, 78, 14).build());
             yOff += 16;
         }
     }
@@ -1049,6 +1071,16 @@ public class AdminScreen extends Screen {
     private void renderLogs(GuiGraphics g) {
         int divX = cx + 98;
         g.fill(divX, py + 26, divX + 1, py + ph - 5, C_DIV);
+
+        // Têtes de skin dans la liste de gauche
+        if (Minecraft.getInstance().getConnection() != null) {
+            int yOff = py + 48;
+            for (PlayerInfo info : Minecraft.getInstance().getConnection().getOnlinePlayers()) {
+                if (info.getProfile() == null) continue;
+                net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g, info.getSkin(), cx + 5, yOff + 3, 8);
+                yOff += 16;
+            }
+        }
 
         if (selPlayer == null) {
             g.drawCenteredString(font, "§8← Sélectionnez un joueur", (divX + px + pw) / 2, py + ph / 2, 0xFF555555);
@@ -1221,6 +1253,13 @@ public class AdminScreen extends Screen {
 
     private void lbl(GuiGraphics g, String text, int x, int y) {
         g.drawString(font, text, x, y, 0xFF888888);
+    }
+
+    /** Tête de skin d'un joueur en ligne (rien si hors ligne / inconnu). */
+    private static void drawFace(GuiGraphics g, String playerName, int x, int y, int size) {
+        if (Minecraft.getInstance().getConnection() == null) return;
+        PlayerInfo pi = Minecraft.getInstance().getConnection().getPlayerInfo(playerName);
+        if (pi != null) net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g, pi.getSkin(), x, y, size);
     }
 
     // ─── ZONES ───────────────────────────────────────────────────────────────────
@@ -1534,8 +1573,9 @@ public class AdminScreen extends Screen {
                 boolean isMember = z.members().stream().anyMatch(m -> m[1].equalsIgnoreCase(playerName));
                 int ry = entryY + ri * 18;
                 g.fill(rightX + 20, ry - 1, px + pw - 2, ry + 13, C_ROW);
+                drawFace(g, playerName, rightX + 24, ry + 2, 8);
                 g.drawString(font, isMember ? "§8■ §7" + playerName : "§f" + playerName,
-                    rightX + 24, ry + 1, 0xFFFFFFFF);
+                    rightX + 35, ry + 1, 0xFFFFFFFF);
                 ri++;
             }
         }

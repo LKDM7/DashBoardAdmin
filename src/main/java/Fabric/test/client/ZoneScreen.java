@@ -430,10 +430,11 @@ public class ZoneScreen extends Screen {
                 boolean isMember = z.members().stream().anyMatch(m -> m[1].equalsIgnoreCase(playerName));
                 int ry = top + ri * 18;
                 g.fill(rightX + 20, ry - 1, px + pw - 2, ry + 13, C_ROW);
+                drawFace(g, playerName, rightX + 24, ry + 2, 8);
                 if (isMember) {
-                    g.drawString(font, "§8■ §7" + playerName, rightX + 24, ry + 1, 0xFF555555);
+                    g.drawString(font, "§8■ §7" + playerName, rightX + 35, ry + 1, 0xFF555555);
                 } else {
-                    g.drawString(font, "§f" + playerName, rightX + 24, ry + 1, 0xFFFFFFFF);
+                    g.drawString(font, "§f" + playerName, rightX + 35, ry + 1, 0xFFFFFFFF);
                 }
                 ri++;
             }
@@ -482,6 +483,14 @@ public class ZoneScreen extends Screen {
     private String truncate(String s, int max) {
         if (s == null) return "";
         return s.length() > max ? s.substring(0, max) + "…" : s;
+    }
+
+    /** Tête de skin d'un joueur en ligne (rien si hors ligne / inconnu). */
+    private static void drawFace(GuiGraphics g, String playerName, int x, int y, int size) {
+        var conn = net.minecraft.client.Minecraft.getInstance().getConnection();
+        if (conn == null) return;
+        var pi = conn.getPlayerInfo(playerName);
+        if (pi != null) net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g, pi.getSkin(), x, y, size);
     }
 
     @Override public void renderBackground(net.minecraft.client.gui.GuiGraphics g, int mx, int my, float delta) {}

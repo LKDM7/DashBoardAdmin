@@ -287,11 +287,11 @@ public class DashNetworking {
             case "BAN" -> {
                 if (target != null) {
                     String[] banParts = payload.value().split("\t", 2);
-                    int banDays = 0; String reason = "Banni par un admin.";
-                    try { banDays = Integer.parseInt(banParts[0]); } catch (NumberFormatException ignored) {}
+                    long banSeconds = 0; String reason = "Banni par un admin.";
+                    try { banSeconds = Long.parseLong(banParts[0]); } catch (NumberFormatException ignored) {}
                     if (banParts.length > 1 && !banParts[1].isEmpty()) reason = banParts[1];
-                    java.util.Date expires = banDays > 0 ? new java.util.Date(System.currentTimeMillis() + (long) banDays * 24 * 3600 * 1000L) : null;
-                    String sanctionReason = (banDays > 0 ? "(" + banDays + "j) " : "") + reason;
+                    java.util.Date expires = banSeconds > 0 ? new java.util.Date(System.currentTimeMillis() + banSeconds * 1000L) : null;
+                    String sanctionReason = (banSeconds > 0 ? "(" + Test.formatDurationShort(banSeconds) + ") " : "") + reason;
                     Test.addLog(target.getUUID(), "Banned par " + admin.getName().getString() + " (" + sanctionReason + ")");
                     Test.addSanction("BAN", target.getName().getString(), admin.getName().getString(), sanctionReason);
                     DiscordWebhook.sendSanction(Test.getWebhookSanctions(), admin.getName().getString(), target.getName().getString(), "BAN", sanctionReason);

@@ -44,13 +44,16 @@ public class AdminScreen extends Screen {
     private EditBox warpNameBox;
     private final java.util.Map<String, String> adminNotes = new java.util.HashMap<>(); // nomLower → note
     private EditBox noteBox;
+    private boolean showNotesList = false;
+    private int     notesScroll   = 0;
     private java.util.Map<String, String> reports         = new java.util.LinkedHashMap<>();
     private java.util.Map<String, String> acceptedReports = new java.util.LinkedHashMap<>();
     private java.util.Map<String, String> closedReports   = new java.util.LinkedHashMap<>();
     private EditBox  announceBox, banReasonBox, searchBox;
     private boolean  isBanning = false, isKicking = false, isRemovingMobs = false, isRestarting = false;
-    private int      banDurationDays   = 0;   // 0=permanent, else days
+    private long     banDurationSecs   = 0;   // 0=permanent, sinon durée en secondes
     private int      restartMinutes    = 5;
+    private EditBox  banDayBox, banHourBox, banMinBox, banSecBox;
     private String   confirmUnbanPlayer = null; // non-null = confirmation déban SANCTIONS
     private String   broadcastTarget   = "";  // ""=TOUS, playerName, "GROUP:leaderName"
     private java.util.List<String[]> availableGroups = new java.util.ArrayList<>(); // [leaderName, groupName, count]
@@ -244,6 +247,14 @@ public class AdminScreen extends Screen {
             return;
         }
 
+        // ── Liste des notes admin (overlay) ──────────────────────────────────────
+        if (showNotesList) {
+            int closeBtnY = py + ph - 28;
+            addRenderableWidget(btn("§cFermer", b -> { showNotesList = false; init(); })
+                .bounds(width / 2 - 40, closeBtnY, 80, 20).build());
+            return;
+        }
+
         // ── Confirmation dialogs ─────────────────────────────────────────────────
         if (confirmUnbanPlayer != null) {
             int dw = 240, dh = 80, dx = (width - dw) / 2, dy = (height - dh) / 2;
@@ -260,26 +271,45 @@ public class AdminScreen extends Screen {
             return;
         }
         if (isBanning) {
-            int dw = 240, dh = 130, dx = (width - dw) / 2, dy = (height - dh) / 2;
-            banReasonBox = new EditBox(font, dx + 10, dy + 35, 220, 20, Component.literal("Raison du ban"));
+            int dw = 240, dh = 174, dx = (width - dw) / 2, dy = (height - dh) / 2;
+            // init() est rappelé à chaque clic de chip : on préserve ce qui a déjà été tapé.
+            String prevReason = banReasonBox != null ? banReasonBox.getValue() : "";
+            String prevD = banDayBox  != null ? banDayBox.getValue()  : "";
+            String prevH = banHourBox != null ? banHourBox.getValue() : "";
+            String prevM = banMinBox  != null ? banMinBox.getValue()  : "";
+            String prevS = banSecBox  != null ? banSecBox.getValue()  : "";
+
+            banReasonBox = new EditBox(font, dx + 10, dy + 34, 220, 20, Component.literal("Raison du ban"));
+            banReasonBox.setValue(prevReason);
             banReasonBox.setFocused(true);
             addRenderableWidget(banReasonBox);
-            int[] durations = {1, 3, 7, 0};
+
+            long[] durations = {86400L, 259200L, 604800L, 0L};
             String[] durLabels = {"1j", "3j", "7j", "∞"};
             for (int i = 0; i < 4; i++) {
-                final int dur = durations[i];
-                boolean sel = banDurationDays == dur;
+                final long dur = durations[i];
+                boolean sel = banDurationSecs == dur;
                 addRenderableWidget(btn((sel ? "§a" : "§7") + durLabels[i],
-                    b -> { banDurationDays = dur; init(); })
-                    .bounds(dx + 10 + i * 56, dy + 62, 50, 16).build());
+                    b -> { banDurationSecs = dur; init(); })
+                    .bounds(dx + 10 + i * 56, dy + 70, 50, 16).build());
             }
+
+            // Durée personnalisée : jours / heures / minutes / secondes (prend le dessus si renseignée)
+            banDayBox  = banUnitBox(dx + 10,  dy + 106, prevD);
+            banHourBox = banUnitBox(dx + 66,  dy + 106, prevH);
+            banMinBox  = banUnitBox(dx + 122, dy + 106, prevM);
+            banSecBox  = banUnitBox(dx + 178, dy + 106, prevS);
+
             addRenderableWidget(btn("§aVALIDER", b -> {
-                send("BAN", selPlayer, banDurationDays + "\t" + banReasonBox.getValue());
-                isBanning = false; banDurationDays = 0; init();
-            }).bounds(dx + 10, dy + 100, 105, 20).build());
+                long custom = banBoxVal(banDayBox) * 86400L + banBoxVal(banHourBox) * 3600L
+                            + banBoxVal(banMinBox) * 60L + banBoxVal(banSecBox);
+                long secs = custom > 0 ? custom : banDurationSecs;
+                send("BAN", selPlayer, secs + "\t" + banReasonBox.getValue());
+                isBanning = false; banDurationSecs = 0; init();
+            }).bounds(dx + 10, dy + 144, 105, 20).build());
             addRenderableWidget(btn("§cANNULER", b -> {
-                isBanning = false; banDurationDays = 0; init();
-            }).bounds(dx + 125, dy + 100, 105, 20).build());
+                isBanning = false; banDurationSecs = 0; init();
+            }).bounds(dx + 125, dy + 144, 105, 20).build());
             return;
         }
         if (isKicking) {
@@ -392,6 +422,20 @@ public class AdminScreen extends Screen {
         return Button.builder(Component.literal(label), handler);
     }
 
+    /** Petite EditBox numérique pour la durée perso du ban (j/h/m/s). */
+    private EditBox banUnitBox(int x, int y, String value) {
+        EditBox b = new EditBox(font, x, y, 34, 14, Component.empty());
+        b.setMaxLength(4);
+        b.setValue(value);
+        b.setFilter(s -> s.matches("\\d{0,4}"));
+        addRenderableWidget(b);
+        return b;
+    }
+
+    private static long banBoxVal(EditBox b) {
+        try { return Long.parseLong(b.getValue().trim()); } catch (Exception e) { return 0; }
+    }
+
     // ─── MONDE ───────────────────────────────────────────────────────────────────
 
     private void buildMonde() {
@@ -463,6 +507,11 @@ public class AdminScreen extends Screen {
         searchBox.setResponder(s -> { if (!s.equals(search)) { search = s; init(); } });
         searchBox.setValue(search);
         addRenderableWidget(searchBox);
+
+        // Consultation de toutes les notes admin (coin droit de la barre d'en-tête du détail)
+        addRenderableWidget(btn("§eNOTES" + (adminNotes.isEmpty() ? "" : " (" + adminNotes.size() + ")"),
+            b -> { showNotesList = true; notesScroll = 0; init(); })
+            .bounds(px + pw - 64, py + 29, 58, 14).build());
 
         int yOff = py + 48;
         for (PlayerInfo info : filteredPlayers()) {
@@ -932,7 +981,7 @@ public class AdminScreen extends Screen {
 
         // Dialog overlays
         if (confirmUnbanPlayer != null || isBanning || isKicking || isRemovingMobs || isRestarting) {
-            int dh = isBanning ? 130 : isRestarting ? 104 : 80;
+            int dh = isBanning ? 174 : isRestarting ? 104 : 80;
             int dw = 240, dx = (width - dw) / 2, dy = (height - dh) / 2;
             g.fill(0, 0, this.width, this.height, 0x88000000);
             g.fill(dx, dy, dx + dw, dy + dh, 0xFF1A1A1A);
@@ -946,11 +995,64 @@ public class AdminScreen extends Screen {
                 Component.literal("§c⚠ §f" + title).withStyle(s -> s.withBold(true)),
                 dx + dw / 2, dy + 8, 0xFFFFFFFF);
             if (isBanning) {
-                g.drawString(font, "§8Raison :", dx + 10, dy + 28, 0xFF555555);
-                g.drawString(font, "§8Durée :", dx + 10, dy + 54, 0xFF555555);
+                g.drawString(font, "§8Raison :", dx + 10, dy + 24, 0xFF555555);
+                g.drawString(font, "§8Durée :",  dx + 10, dy + 60, 0xFF555555);
+                g.drawString(font, "§8Durée perso §7(prioritaire si renseignée) §8:", dx + 10, dy + 94, 0xFF555555);
+                g.drawString(font, "§7j", dx + 46,  dy + 109, 0xFF888888);
+                g.drawString(font, "§7h", dx + 102, dy + 109, 0xFF888888);
+                g.drawString(font, "§7m", dx + 158, dy + 109, 0xFF888888);
+                g.drawString(font, "§7s", dx + 214, dy + 109, 0xFF888888);
             }
             if (isRestarting) {
                 g.drawString(font, "§8Délai avant arrêt (annonces auto) :", dx + 10, dy + 26, 0xFF555555);
+            }
+        }
+
+        // Notes admin overlay
+        if (showNotesList) {
+            int ow = Math.min(380, width - 40), oh = ph - 16;
+            int ox = (width - ow) / 2, ot = py + 8;
+            g.fill(0, 0, this.width, this.height, 0xAA000000);
+            g.fill(ox, ot, ox + ow, ot + oh, 0xFF1A1A1A);
+            g.fill(ox, ot, ox + ow, ot + 2, C_ACCENT);
+            g.drawCenteredString(font,
+                Component.literal("NOTES ADMIN").withStyle(s -> s.withColor(0x00E5FF).withBold(true)),
+                ox + ow / 2, ot + 8, 0xFFFFFFFF);
+
+            int listTop = ot + 22, listBot = ot + oh - 26;
+            if (adminNotes.isEmpty()) {
+                g.drawCenteredString(font, "§8Aucune note enregistrée", ox + ow / 2, (listTop + listBot) / 2 - 4, 0xFF444444);
+                g.drawCenteredString(font, "§8Sélectionnez un joueur puis remplissez le champ Note.", ox + ow / 2, (listTop + listBot) / 2 + 8, 0xFF333333);
+            } else {
+                java.util.List<String> names = new java.util.ArrayList<>(adminNotes.keySet());
+                java.util.Collections.sort(names);
+                int entryH = 24;
+                int maxVis = Math.max(1, (listBot - listTop) / entryH);
+                int maxScroll = Math.max(0, names.size() - maxVis);
+                notesScroll = Math.max(0, Math.min(notesScroll, maxScroll));
+
+                g.enableScissor(ox + 2, listTop, ox + ow - 8, listBot);
+                int y = listTop;
+                for (int i = notesScroll; i < names.size() && i < notesScroll + maxVis; i++) {
+                    String name = names.get(i);
+                    if (i % 2 == 0) g.fill(ox + 4, y, ox + ow - 10, y + entryH - 2, C_ROW);
+                    g.fill(ox + 4, y, ox + 5, y + entryH - 2, 0xFFFFAA00);
+                    g.drawString(font, "§e" + name, ox + 10, y + 2, 0xFFFFFFFF);
+                    String note = adminNotes.get(name);
+                    while (font.width("§7" + note) > ow - 24 && note.length() > 1)
+                        note = note.substring(0, note.length() - 1);
+                    g.drawString(font, "§7" + note + (note.equals(adminNotes.get(name)) ? "" : "…"), ox + 10, y + 12, 0xFFAAAAAA);
+                    y += entryH;
+                }
+                g.disableScissor();
+
+                if (names.size() > maxVis) {
+                    int sbX = ox + ow - 7, sbH = listBot - listTop;
+                    int thumbH = Math.max(8, sbH * maxVis / names.size());
+                    int thumbY = maxScroll > 0 ? listTop + (sbH - thumbH) * notesScroll / maxScroll : listTop;
+                    g.fill(sbX, listTop, sbX + 3, listBot, 0x33FFFFFF);
+                    g.fill(sbX, thumbY, sbX + 3, thumbY + thumbH, C_ACCENT);
+                }
             }
         }
 
@@ -1484,6 +1586,10 @@ public class AdminScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        if (showNotesList) {
+            notesScroll = Math.max(0, notesScroll - (int) scrollY);
+            return true;
+        }
         if (currentTab == 5 && !logsEntries.isEmpty()) {
             logsScroll -= (int)(scrollY * 3);
             if (logsScroll < 0) logsScroll = 0;

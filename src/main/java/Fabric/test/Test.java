@@ -442,6 +442,15 @@ public class Test {
         return true;
     }
 
+    /** Durée compacte : "3j 4h", "2h 30m", "45m", "30s"… (2 unités max). */
+    public static String formatDurationShort(long seconds) {
+        long d = seconds / 86400, h = (seconds % 86400) / 3600, m = (seconds % 3600) / 60, s = seconds % 60;
+        if (d > 0) return d + "j" + (h > 0 ? " " + h + "h" : "");
+        if (h > 0) return h + "h" + (m > 0 ? " " + m + "m" : "");
+        if (m > 0) return m + "m" + (s > 0 ? " " + s + "s" : "");
+        return s + "s";
+    }
+
     public static String formatTimeAgo(long timestamp) {
         long diff = System.currentTimeMillis() - timestamp;
         long sec  = diff / 1000;

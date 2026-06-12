@@ -42,9 +42,11 @@ public class ServerConfig {
         features.addProperty("doubleDoor",         Test.isDoubleDoorEnabled());
         features.addProperty("rightClickHarvest",  Test.isRightClickHarvestEnabled());
         features.addProperty("dispenserHarvest",   Test.isDispenserHarvestEnabled());
+        features.addProperty("mailSpy",            Test.isMailSpyEnabled());
         root.add("features", features);
 
         root.addProperty("cooldownWarp", Test.getCooldownWarp());
+        root.addProperty("cooldownRtp",  Test.getCooldownRtp());
 
         JsonObject warps = new JsonObject();
         for (Map.Entry<String, BlockPos> e : Test.getWarps().entrySet()) {
@@ -106,9 +108,11 @@ public class ServerConfig {
                 if (f.has("doubleDoor"))        Test.setDoubleDoorEnabled(f.get("doubleDoor").getAsBoolean());
                 if (f.has("rightClickHarvest")) Test.setRightClickHarvestEnabled(f.get("rightClickHarvest").getAsBoolean());
                 if (f.has("dispenserHarvest"))  Test.setDispenserHarvestEnabled(f.get("dispenserHarvest").getAsBoolean());
+                if (f.has("mailSpy"))           Test.setMailSpyEnabled(f.get("mailSpy").getAsBoolean());
             }
 
             if (root.has("cooldownWarp")) Test.setCooldownWarp(root.get("cooldownWarp").getAsInt());
+            if (root.has("cooldownRtp"))  Test.setCooldownRtp(root.get("cooldownRtp").getAsInt());
 
             if (root.has("warps")) {
                 for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("warps").entrySet()) {

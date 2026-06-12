@@ -71,6 +71,8 @@ public class DashGameEvents {
                 if (Test.getPlayerSettings(target.getUUID()).showChatNotifications)
                     target.sendSystemMessage(Component.literal("§e[✉] Nouveau message de §f" + sender.getName().getString()), true);
                 PacketDistributor.sendToPlayer(target, new NotifPayload("MAIL", "§b✉ Message de §f" + sender.getName().getString()));
+                Test.addLog(sender.getUUID(), "MP → " + target.getName().getString() + ": " + msg);
+                Test.spyPrivateMessage(ctx.getSource().getServer(), sender, target, msg);
                 return 1;
             }))));
 
@@ -89,8 +91,54 @@ public class DashGameEvents {
                 target.sendSystemMessage(Component.literal("§e" + sender.getName().getString() + " §7: §f" + msg));
                 sender.sendSystemMessage(Component.literal("§7[moi -> §e" + target.getName().getString() + "§7] §f" + msg));
                 Test.getLastMsg().put(target.getUUID(), sender.getUUID());
+                Test.addLog(sender.getUUID(), "MP → " + target.getName().getString() + ": " + msg);
+                Test.spyPrivateMessage(ctx.getSource().getServer(), sender, target, msg);
                 return 1;
             })));
+
+        // /rtp — téléportation aléatoire sécurisée (Overworld, 500-3000 blocs du spawn)
+        dispatcher.register(Commands.literal("rtp").executes(ctx -> {
+            ServerPlayer player = ctx.getSource().getPlayerOrException();
+            if (Fabric.test.command.ZoneCommand.isInBuildMode(player.getUUID())) {
+                player.sendSystemMessage(Component.literal("§cImpossible d'utiliser §6/rtp §cen mode construction."));
+                return 0;
+            }
+            ServerLevel level = (ServerLevel) player.level();
+            if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) {
+                player.sendSystemMessage(Component.literal("§c/rtp n'est utilisable que dans l'Overworld."));
+                return 0;
+            }
+            if (!Test.checkCooldown(Test.getLastRtpUse(), player.getUUID(), Test.getCooldownRtp(), player, "/rtp")) return 0;
+
+            net.minecraft.core.BlockPos spawn = level.getSharedSpawnPos();
+            java.util.Random rng = new java.util.Random();
+            for (int attempt = 0; attempt < 15; attempt++) {
+                double angle = rng.nextDouble() * Math.PI * 2;
+                double dist  = 500 + rng.nextDouble() * 2500;
+                int x = spawn.getX() + (int) (Math.cos(angle) * dist);
+                int z = spawn.getZ() + (int) (Math.sin(angle) * dist);
+                int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+                if (y <= level.getMinBuildHeight() + 1) continue;
+                net.minecraft.core.BlockPos groundPos = new net.minecraft.core.BlockPos(x, y - 1, z);
+                net.minecraft.world.level.block.state.BlockState ground = level.getBlockState(groundPos);
+                if (!ground.getFluidState().isEmpty()) continue; // eau / lave
+                if (ground.isAir()
+                    || ground.is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK)
+                    || ground.is(net.minecraft.world.level.block.Blocks.CACTUS)
+                    || ground.is(net.minecraft.world.level.block.Blocks.POWDER_SNOW)
+                    || ground.is(net.minecraft.world.level.block.Blocks.FIRE)) continue;
+                Test.savePosition(player); // /back ramène au point de départ
+                player.teleportTo(level, x + 0.5, y, z + 0.5, java.util.Set.of(), player.getYRot(), player.getXRot());
+                player.sendSystemMessage(Component.literal(
+                    "§a✔ Téléporté aléatoirement en §e(" + x + ", " + y + ", " + z + ")§a — §7/back §apour revenir."));
+                Test.addLog(player.getUUID(), "RTP → (" + x + ", " + y + ", " + z + ")");
+                return 1;
+            }
+            // Échec : on rend le cooldown au joueur.
+            Test.getLastRtpUse().remove(player.getUUID());
+            player.sendSystemMessage(Component.literal("§cAucune position sûre trouvée, réessayez."));
+            return 0;
+        }));
 
         // /lock
         dispatcher.register(Commands.literal("lock").executes(ctx -> {
@@ -901,6 +949,36 @@ public class DashGameEvents {
             }
         }
 
+        // Restart programmé : annonces dégressives puis sauvegarde complète et arrêt propre.
+        if (Test.restartTicks > 0) {
+            Test.restartTicks--;
+            int t = Test.restartTicks;
+            if (t == 0) {
+                server.getPlayerList().broadcastSystemMessage(
+                    Component.literal("§4§l⚠ Redémarrage du serveur — sauvegarde en cours…"), false);
+                saveAll();
+                server.getPlayerList().saveAll();
+                server.saveAllChunks(true, true, true);
+                server.halt(false);
+            } else if (t % 20 == 0) {
+                int sec = t / 20;
+                String msg = switch (sec) {
+                    case 1800 -> "30 minutes";
+                    case 900  -> "15 minutes";
+                    case 600  -> "10 minutes";
+                    case 300  -> "5 minutes";
+                    case 60   -> "1 minute";
+                    case 30   -> "30 secondes";
+                    case 10   -> "10 secondes";
+                    case 5, 4, 3, 2, 1 -> sec + "…";
+                    default   -> null;
+                };
+                if (msg != null)
+                    server.getPlayerList().broadcastSystemMessage(
+                        Component.literal("§c⚠ Redémarrage du serveur dans §e" + msg), false);
+            }
+        }
+
         // ClearLag
         if (Test.clearLagTicks > 0) {
             Test.clearLagTicks--;
@@ -983,6 +1061,7 @@ public class DashGameEvents {
         runSave(ZonePersistence::save,        "zones");
         runSave(SanctionsPersistence::save,   "sanctions");
         runSave(GroupPersistence::save,       "groups");
+        runSave(ModerationPersistence::save,  "moderation (logs/chat/notes)");
     }
 
     private static void runSave(Runnable save, String label) {

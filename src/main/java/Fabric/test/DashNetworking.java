@@ -221,6 +221,19 @@ public class DashNetworking {
                 }
             }
             case "REFRESH_ADMIN" -> AdminCommand.sendAdminGui(admin, admin.getServer());
+            case "SET_NOTE" -> {
+                java.util.UUID noteUuid = target != null ? target.getUUID()
+                    : Test.getPlayerNameCache().entrySet().stream()
+                        .filter(e -> e.getValue().equalsIgnoreCase(payload.target()))
+                        .map(java.util.Map.Entry::getKey).findFirst().orElse(null);
+                if (noteUuid != null) {
+                    Test.setAdminNote(noteUuid, payload.value());
+                    ModerationPersistence.save();
+                    admin.sendSystemMessage(Component.literal(payload.value().isBlank()
+                        ? "§eNote de §f" + payload.target() + " §esupprimée."
+                        : "§aNote de §f" + payload.target() + " §aenregistrée."));
+                }
+            }
             case "GET_CHAT" -> PacketDistributor.sendToPlayer(admin,
                 new PlayerLogsPayload("Chat global", Test.getChatHistorySerialized()));
             case "WARP_ADD" -> {
@@ -242,6 +255,29 @@ public class DashNetworking {
                 AdminCommand.sendAdminGui(admin, admin.getServer());
             }
             case "WARP_TP" -> teleportToWarp(admin, payload.value());
+            case "SCHEDULE_RESTART" -> {
+                try {
+                    int mins = Math.max(1, Math.min(120, Integer.parseInt(payload.value())));
+                    Test.scheduleRestart(mins);
+                    admin.getServer().getPlayerList().broadcastSystemMessage(Component.literal(
+                        "§c⚠ §lRedémarrage du serveur programmé dans §e§l" + mins + " minute" + (mins > 1 ? "s" : "") + "§c§l."), false);
+                } catch (NumberFormatException ignored) {}
+            }
+            case "CANCEL_RESTART" -> {
+                if (Test.isRestartScheduled()) {
+                    Test.cancelRestart();
+                    admin.getServer().getPlayerList().broadcastSystemMessage(Component.literal(
+                        "§a✔ Redémarrage du serveur annulé."), false);
+                } else {
+                    admin.sendSystemMessage(Component.literal("§eAucun redémarrage programmé."));
+                }
+            }
+            case "TOGGLE_MAIL_SPY" -> {
+                Test.setMailSpyEnabled(!Test.isMailSpyEnabled());
+                ServerConfig.save();
+                admin.sendSystemMessage(Component.literal("§eSpy des MP : "
+                    + (Test.isMailSpyEnabled() ? "§aactivé" : "§cdésactivé") + "§e."));
+            }
             case "SET_MOTD" -> {
                 Test.setMotd(payload.value());
                 ServerConfig.save();

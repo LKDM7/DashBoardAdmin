@@ -42,12 +42,15 @@ public class AdminScreen extends Screen {
     private boolean  selOffline  = false;
     private final java.util.List<String[]> warpsList = new java.util.ArrayList<>(); // [nom, "x, y, z", dim]
     private EditBox warpNameBox;
+    private final java.util.Map<String, String> adminNotes = new java.util.HashMap<>(); // nomLower → note
+    private EditBox noteBox;
     private java.util.Map<String, String> reports         = new java.util.LinkedHashMap<>();
     private java.util.Map<String, String> acceptedReports = new java.util.LinkedHashMap<>();
     private java.util.Map<String, String> closedReports   = new java.util.LinkedHashMap<>();
     private EditBox  announceBox, banReasonBox, searchBox;
-    private boolean  isBanning = false, isKicking = false, isRemovingMobs = false;
+    private boolean  isBanning = false, isKicking = false, isRemovingMobs = false, isRestarting = false;
     private int      banDurationDays   = 0;   // 0=permanent, else days
+    private int      restartMinutes    = 5;
     private String   confirmUnbanPlayer = null; // non-null = confirmation déban SANCTIONS
     private String   broadcastTarget   = "";  // ""=TOUS, playerName, "GROUP:leaderName"
     private java.util.List<String[]> availableGroups = new java.util.ArrayList<>(); // [leaderName, groupName, count]
@@ -65,6 +68,7 @@ public class AdminScreen extends Screen {
     private String  webhookReports   = "";
     private String  webhookSanctions = "";
     private String  motd             = "";
+    private boolean mailSpyEnabled   = false;
     private EditBox maxHomesBox;
     private EditBox webhookReportsBox;
     private EditBox webhookSanctionsBox;
@@ -121,7 +125,7 @@ public class AdminScreen extends Screen {
         mutedPlayers.clear(); frozenPlayers.clear(); keepInvPlayers.clear(); afkPlayers.clear();
         reports.clear(); acceptedReports.clear(); closedReports.clear();
         schedBroadcasts.clear(); bannedPlayers.clear(); availableGroups.clear(); offlinePlayers.clear();
-        warpsList.clear();
+        warpsList.clear(); adminNotes.clear();
         applyPayload(payload);
         init();
     }
@@ -135,6 +139,11 @@ public class AdminScreen extends Screen {
                 if (ci > 0) offlinePlayers.add(new String[]{ entry.substring(0, ci), entry.substring(ci + 1) });
             }
         serverStats = payload.serverStats().isEmpty() ? null : payload.serverStats().split("\\|");
+        if (!payload.adminNotes().isEmpty())
+            for (String line : payload.adminNotes().split("\n")) {
+                int ci = line.indexOf(':');
+                if (ci > 0) adminNotes.put(line.substring(0, ci).toLowerCase(), line.substring(ci + 1));
+            }
         if (!payload.warps().isEmpty())
             for (String entry : payload.warps().split(";")) {
                 String[] parts = entry.split(":", 2);
@@ -187,6 +196,7 @@ public class AdminScreen extends Screen {
                 if (feats.length >= 11) webhookReports   = feats[10];
                 if (feats.length >= 12) webhookSanctions = feats[11];
                 if (feats.length >= 13) motd             = feats[12];
+                if (feats.length >= 14) mailSpyEnabled   = Boolean.parseBoolean(feats[13]);
             }
         }
         String grpRaw = payload.groupsSerialized();
@@ -282,6 +292,24 @@ public class AdminScreen extends Screen {
             int dw = 240, dh = 80, dx = (width - dw) / 2, dy = (height - dh) / 2;
             addRenderableWidget(btn("§cSUPPRIMER MOBS", b -> { send("REMOVE_MOBS", "", ""); isRemovingMobs = false; init(); }).bounds(dx + 10,  dy + 48, 105, 20).build());
             addRenderableWidget(btn("ANNULER",           b -> { isRemovingMobs = false; init(); }).bounds(dx + 125, dy + 48, 105, 20).build());
+            return;
+        }
+        if (isRestarting) {
+            int dw = 240, dh = 104, dx = (width - dw) / 2, dy = (height - dh) / 2;
+            int[] durations = {1, 5, 15, 30};
+            for (int i = 0; i < durations.length; i++) {
+                final int dur = durations[i];
+                boolean sel = restartMinutes == dur;
+                addRenderableWidget(btn((sel ? "§a" : "§7") + dur + "m",
+                    b -> { restartMinutes = dur; init(); })
+                    .bounds(dx + 10 + i * 56, dy + 38, 50, 16).build());
+            }
+            addRenderableWidget(btn("§cPROGRAMMER", b -> {
+                send("SCHEDULE_RESTART", "", String.valueOf(restartMinutes));
+                isRestarting = false; init();
+            }).bounds(dx + 10, dy + 74, 105, 20).build());
+            addRenderableWidget(btn("ANNULER", b -> { isRestarting = false; init(); })
+                .bounds(dx + 125, dy + 74, 105, 20).build());
             return;
         }
 
@@ -383,10 +411,13 @@ public class AdminScreen extends Screen {
             .bounds(lx, my + 26, 162, 20).build());
 
         int oy = py + 168;
-        addRenderableWidget(btn("CLEAR LAG",   b -> send("CLEAR_LAG", "", "")).bounds(lx,       oy, 92, 20).build());
-        addRenderableWidget(btn("REMOVE MOBS", b -> { isRemovingMobs = true; init(); }).bounds(lx + 96,  oy, 92, 20).build());
-        addRenderableWidget(btn("SET SPAWN",   b -> send("SET_SPAWN", "", "")).bounds(lx,      oy + 26, 92, 20).build());
-        addRenderableWidget(btn("VANISH",      b -> send("VANISH",    "", "")).bounds(lx + 96, oy + 26, 92, 20).build());
+        int bw3 = Math.min(92, (px + pw - 12 - lx - 8) / 3);
+        addRenderableWidget(btn("CLEAR LAG",   b -> send("CLEAR_LAG", "", "")).bounds(lx,                oy, bw3, 20).build());
+        addRenderableWidget(btn("REMOVE MOBS", b -> { isRemovingMobs = true; init(); }).bounds(lx + bw3 + 4,      oy, bw3, 20).build());
+        addRenderableWidget(btn("SET SPAWN",   b -> send("SET_SPAWN", "", "")).bounds(lx + (bw3 + 4) * 2, oy, bw3, 20).build());
+        addRenderableWidget(btn("VANISH",      b -> send("VANISH",    "", "")).bounds(lx,                oy + 26, bw3, 20).build());
+        addRenderableWidget(btn("§cRESTART",   b -> { isRestarting = true; init(); }).bounds(lx + bw3 + 4,      oy + 26, bw3, 20).build());
+        addRenderableWidget(btn("§7ANNULER R.", b -> send("CANCEL_RESTART", "", "")).bounds(lx + (bw3 + 4) * 2, oy + 26, bw3, 20).build());
 
         // Santé serveur — bouton de rafraîchissement (les stats sont un instantané)
         addRenderableWidget(btn("§b⟳", b -> send("REFRESH_ADMIN", "", ""))
@@ -486,6 +517,23 @@ public class AdminScreen extends Screen {
 
         if (selPlayer == null) return;
 
+        // Note admin (fiche Activité) — éditable pour joueurs en ligne ET hors ligne
+        {
+            int divXn = cx + 98;
+            int noteY = py + ph - 16;
+            int okW = 26;
+            noteBox = new EditBox(font, divXn + 42, noteY, px + pw - (divXn + 42) - okW - 10, 12, Component.literal("note admin"));
+            noteBox.setMaxLength(120);
+            noteBox.setValue(adminNotes.getOrDefault(selPlayer.toLowerCase(), ""));
+            addRenderableWidget(noteBox);
+            addRenderableWidget(btn("§aOK", b -> {
+                String note = noteBox.getValue().trim();
+                if (note.isEmpty()) adminNotes.remove(selPlayer.toLowerCase());
+                else adminNotes.put(selPlayer.toLowerCase(), note);
+                send("SET_NOTE", selPlayer, note);
+            }).bounds(px + pw - okW - 6, noteY - 1, okW, 14).build());
+        }
+
         if (selOffline) {
             // Joueur hors ligne : seules les consultations ont un sens.
             int divX2 = cx + 98;
@@ -581,6 +629,12 @@ public class AdminScreen extends Screen {
         addRenderableWidget(btn("CHAT " + (chatLocked ? "§c🔒 VERROUILLÉ" : "§a🔓 OUVERT"),
             b -> { send("LOCK_CHAT", "", ""); chatLocked = !chatLocked; init(); })
             .bounds(contentX + (btnW + 6) * 2, aY + 44, btnW, 20).build());
+
+        // Spy des messages privés (les MP sont relayés aux admins en ligne).
+        // Posé sur la ligne du label BROADCASTS (divY+2 côté droit, libre) — voir renderChat.
+        addRenderableWidget(btn("SPY MP : " + (mailSpyEnabled ? "§aON" : "§cOFF"),
+            b -> { send("TOGGLE_MAIL_SPY", "", ""); mailSpyEnabled = !mailSpyEnabled; init(); })
+            .bounds(contentX + contentW - 90, aY + 101, 90, 14).build());
 
         // ── Section BROADCASTS ───────────────────────────────────────────────────
         int bY = py + 168;
@@ -877,8 +931,8 @@ public class AdminScreen extends Screen {
         }
 
         // Dialog overlays
-        if (confirmUnbanPlayer != null || isBanning || isKicking || isRemovingMobs) {
-            int dh = isBanning ? 130 : 80;
+        if (confirmUnbanPlayer != null || isBanning || isKicking || isRemovingMobs || isRestarting) {
+            int dh = isBanning ? 130 : isRestarting ? 104 : 80;
             int dw = 240, dx = (width - dw) / 2, dy = (height - dh) / 2;
             g.fill(0, 0, this.width, this.height, 0x88000000);
             g.fill(dx, dy, dx + dw, dy + dh, 0xFF1A1A1A);
@@ -886,6 +940,7 @@ public class AdminScreen extends Screen {
             String title = isBanning     ? "BAN : " + selPlayer
                 : isKicking              ? "KICK : " + selPlayer + " ?"
                 : isRemovingMobs         ? "Supprimer les mobs ?"
+                : isRestarting           ? "Redémarrer le serveur ?"
                 : "Déban : " + confirmUnbanPlayer + " ?";
             g.drawCenteredString(font,
                 Component.literal("§c⚠ §f" + title).withStyle(s -> s.withBold(true)),
@@ -893,6 +948,9 @@ public class AdminScreen extends Screen {
             if (isBanning) {
                 g.drawString(font, "§8Raison :", dx + 10, dy + 28, 0xFF555555);
                 g.drawString(font, "§8Durée :", dx + 10, dy + 54, 0xFF555555);
+            }
+            if (isRestarting) {
+                g.drawString(font, "§8Délai avant arrêt (annonces auto) :", dx + 10, dy + 26, 0xFF555555);
             }
         }
 
@@ -1037,9 +1095,9 @@ public class AdminScreen extends Screen {
         renderActivityCard(g, divX);
     }
 
-    /** Fiche Activité du joueur sélectionné : dernière connexion, sanctions, reports déposés. */
+    /** Fiche Activité du joueur sélectionné : dernière connexion, sanctions, reports, note admin. */
     private void renderActivityCard(GuiGraphics g, int divX) {
-        int top = py + ph - 46;
+        int top = py + ph - 58;
         g.fill(divX + 1, top - 2, px + pw, top - 1, C_DIV);
         g.fill(divX + 1, top - 1, px + pw, py + ph - 3, 0x0DFFFFFF);
         lbl(g, "ACTIVITÉ", divX + 8, top + 2);
@@ -1068,6 +1126,7 @@ public class AdminScreen extends Screen {
         g.drawString(font, sancTxt, divX + 8, top + 24, 0xFFAAAAAA);
         g.drawString(font, "§7Reports déposés : " + (reportCount == 0 ? "§80" : "§e" + reportCount),
             divX + 8, top + 35, 0xFFAAAAAA);
+        g.drawString(font, "§7Note :", divX + 8, py + ph - 14, 0xFFAAAAAA);
     }
 
     private void renderChat(GuiGraphics g) {

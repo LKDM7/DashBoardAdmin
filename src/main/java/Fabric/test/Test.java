@@ -36,6 +36,7 @@ public class Test {
     private static volatile boolean doubleDoorEnabled        = false;
     private static volatile boolean rightClickHarvestEnabled = false;
     private static volatile boolean dispenserHarvestEnabled  = false;
+    private static volatile boolean mailSpyEnabled           = false;
 
     // ─── State maps ───────────────────────────────────────────────────────────
     private static final java.util.Map<java.util.UUID, Long>     lastActivityTime = new java.util.HashMap<>();
@@ -43,6 +44,11 @@ public class Test {
     private static int leafDecayCounter = 0;
     static int clearLagTicks   = -1;
     static int removeMobsTicks = -1;
+    /** Ticks restants avant l'arrêt programmé du serveur (-1 = aucun). */
+    static volatile int restartTicks = -1;
+    public static boolean isRestartScheduled() { return restartTicks > 0; }
+    public static void scheduleRestart(int minutes) { restartTicks = Math.max(1, minutes) * 1200; }
+    public static void cancelRestart() { restartTicks = -1; }
     private static final java.util.Map<java.util.UUID, java.util.Map<String, net.minecraft.core.BlockPos>> playerHomes    = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, java.util.Map<String, String>>                       playerHomesDim = new java.util.HashMap<>();
     static final java.util.Map<java.util.UUID, Boolean>                        frozenPlayers   = new java.util.HashMap<>();
@@ -61,6 +67,7 @@ public class Test {
     private static volatile String webhookSanctions = "";
     private static volatile String motd             = "";
     private static final java.util.List<String> chatHistory = new java.util.ArrayList<>();
+    private static final java.util.Map<java.util.UUID, String> adminNotes = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, Integer>        hostileMobKills = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, PlayerSettings> playerSettings  = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, Long>           lastSeenTimestamps = new java.util.HashMap<>();
@@ -71,6 +78,8 @@ public class Test {
     private static volatile int cooldownBack = 10;
     private static volatile int cooldownTpa  = 60;
     private static volatile int cooldownWarp = 10;
+    private static volatile int cooldownRtp  = 300;
+    private static final java.util.Map<java.util.UUID, Long> lastRtpUse = new java.util.HashMap<>();
     private static final java.util.List<String>  scheduledMsgs      = new java.util.ArrayList<>();
     private static final java.util.List<Integer> scheduledIntervals = new java.util.ArrayList<>();
     static final java.util.List<Integer>         scheduledCounters  = new java.util.ArrayList<>();
@@ -118,6 +127,7 @@ public class Test {
         new String[]{"/groupdeny",   "Refuser une invitation de groupe"},
         new String[]{"/build",       "Mode construction dans une zone autorisée"},
         new String[]{"/warp",        "Se téléporter vers un warp"},
+        new String[]{"/rtp",         "Téléportation aléatoire sécurisée"},
         new String[]{"/ignore",      "Ignorer les messages d'un joueur"},
         new String[]{"/unignore",    "Arrêter d'ignorer un joueur"}
     );
@@ -155,6 +165,7 @@ public class Test {
         ZonePersistence.register();
         SanctionsPersistence.register();
         GroupPersistence.register();
+        ModerationPersistence.register();
 
         modEventBus.addListener(DashNetworking::onRegisterPayloads);
         NeoForge.EVENT_BUS.register(DashGameEvents.class);
@@ -196,6 +207,18 @@ public class Test {
     public static void setDoubleDoorEnabled(boolean v)        { doubleDoorEnabled = v; }
     public static void setRightClickHarvestEnabled(boolean v) { rightClickHarvestEnabled = v; }
     public static void setDispenserHarvestEnabled(boolean v)  { dispenserHarvestEnabled = v; }
+    public static boolean isMailSpyEnabled()                   { return mailSpyEnabled; }
+    public static void setMailSpyEnabled(boolean v)            { mailSpyEnabled = v; }
+    /** Spy MP : relaie un message privé aux admins en ligne (hors expéditeur/destinataire). */
+    public static void spyPrivateMessage(net.minecraft.server.MinecraftServer server,
+                                         ServerPlayer sender, ServerPlayer target, String msg) {
+        if (!mailSpyEnabled) return;
+        Component spy = Component.literal("§8[SPY] §7" + sender.getName().getString()
+            + " §8→ §7" + target.getName().getString() + " §8: §f" + msg);
+        for (ServerPlayer op : server.getPlayerList().getPlayers())
+            if (op.hasPermissions(2) && !op.getUUID().equals(sender.getUUID()) && !op.getUUID().equals(target.getUUID()))
+                op.sendSystemMessage(spy);
+    }
     public static int    getMaxHomes()                    { return maxHomes; }
     public static void   setMaxHomes(int v)               { maxHomes = Math.max(1, Math.min(10, v)); }
     public static String getWebhookReports()              { return webhookReports; }
@@ -215,6 +238,25 @@ public class Test {
     public static String getChatHistorySerialized() {
         synchronized (chatHistory) { return String.join("\n", chatHistory); }
     }
+    static java.util.List<String> getChatHistoryRaw() { return chatHistory; }
+    // ── Notes admin (modération, visibles uniquement des admins) ─────────────
+    public static java.util.Map<java.util.UUID, String> getAdminNotes() { return adminNotes; }
+    public static void setAdminNote(java.util.UUID uuid, String note) {
+        String clean = note == null ? "" : note.replace("\n", " ").replace("|", " ").replace("\t", " ").trim();
+        if (clean.isEmpty()) adminNotes.remove(uuid);
+        else adminNotes.put(uuid, clean);
+    }
+    /** "nom:note" par ligne, pour la fiche Activité du dashboard. */
+    public static String getAdminNotesSerialized() {
+        StringBuilder sb = new StringBuilder();
+        for (java.util.Map.Entry<java.util.UUID, String> e : adminNotes.entrySet()) {
+            String name = playerNameCache.get(e.getKey());
+            if (name == null || e.getValue().isEmpty()) continue;
+            if (sb.length() > 0) sb.append('\n');
+            sb.append(name).append(':').append(e.getValue());
+        }
+        return sb.toString();
+    }
     public static boolean isFrozen(java.util.UUID uuid)   { return frozenPlayers.getOrDefault(uuid, false); }
     public static boolean isMuted(java.util.UUID uuid)    { return mutedPlayers.contains(uuid); }
     public static boolean isVanished(java.util.UUID uuid) { return vanishedPlayers.contains(uuid); }
@@ -228,6 +270,9 @@ public class Test {
     public static void setCooldownTpa(int v)               { cooldownTpa  = v; }
     public static int  getCooldownWarp()                   { return cooldownWarp; }
     public static void setCooldownWarp(int v)              { cooldownWarp = v; }
+    public static int  getCooldownRtp()                    { return cooldownRtp; }
+    public static void setCooldownRtp(int v)               { cooldownRtp = Math.max(0, v); }
+    public static java.util.Map<java.util.UUID, Long> getLastRtpUse() { return lastRtpUse; }
     public static java.util.Map<String, net.minecraft.core.BlockPos> getWarps()    { return warps; }
     public static java.util.Map<String, String>                      getWarpsDim() { return warpsDim; }
     public static java.util.Map<java.util.UUID, Long>           getLastWarpUse()           { return lastWarpUse; }
@@ -255,7 +300,7 @@ public class Test {
              + "|" + fastLeafDecayEnabled + "|" + doubleDoorEnabled + "|" + getAfkDelayMinutes()
              + "|" + rightClickHarvestEnabled + "|" + dispenserHarvestEnabled
              + "|" + cropTrampleEnabled + "|" + maxHomes
-             + "|" + webhookReports + "|" + webhookSanctions + "|" + motd;
+             + "|" + webhookReports + "|" + webhookSanctions + "|" + motd + "|" + mailSpyEnabled;
     }
     public static String getMutedPlayerNames(net.minecraft.server.MinecraftServer server) {
         return mutedPlayers.stream().map(uuid -> server.getPlayerList().getPlayer(uuid)).filter(p -> p != null).map(p -> p.getName().getString()).collect(java.util.stream.Collectors.joining(";"));

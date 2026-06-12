@@ -1,0 +1,88 @@
+package Fabric.test;
+
+import com.google.gson.*;
+import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
+
+/**
+ * Persistance des données de modération : logs par joueur, historique du chat
+ * public et notes admin. Sans ce fichier, tout cet historique était perdu à
+ * chaque redémarrage du serveur (la section HORS LIGNE affichait des logs vides).
+ */
+public class ModerationPersistence {
+    private static final Path PATH = Paths.get("run/data/moderation.json");
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+
+    public static void save() {
+        JsonObject root = new JsonObject();
+
+        JsonObject logs = new JsonObject();
+        for (Map.Entry<UUID, List<String>> e : Test.getPlayerLogs().entrySet()) {
+            JsonArray arr = new JsonArray();
+            for (String line : e.getValue()) arr.add(line);
+            logs.add(e.getKey().toString(), arr);
+        }
+        root.add("playerLogs", logs);
+
+        JsonArray chat = new JsonArray();
+        synchronized (Test.getChatHistoryRaw()) {
+            for (String line : Test.getChatHistoryRaw()) chat.add(line);
+        }
+        root.add("chatHistory", chat);
+
+        JsonObject notes = new JsonObject();
+        for (Map.Entry<UUID, String> e : Test.getAdminNotes().entrySet())
+            notes.addProperty(e.getKey().toString(), e.getValue());
+        root.add("adminNotes", notes);
+
+        try {
+            Files.createDirectories(PATH.getParent());
+            Files.writeString(PATH, GSON.toJson(root));
+        } catch (IOException ex) { ex.printStackTrace(); }
+    }
+
+    public static void load() {
+        if (!Files.exists(PATH)) return;
+        try {
+            JsonObject root = GSON.fromJson(Files.readString(PATH), JsonObject.class);
+
+            if (root.has("playerLogs")) {
+                Map<UUID, List<String>> logs = Test.getPlayerLogs();
+                logs.clear();
+                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("playerLogs").entrySet()) {
+                    List<String> list = new ArrayList<>();
+                    for (JsonElement el : e.getValue().getAsJsonArray()) list.add(el.getAsString());
+                    try { logs.put(UUID.fromString(e.getKey()), list); }
+                    catch (IllegalArgumentException ignored) {}
+                }
+            }
+
+            if (root.has("chatHistory")) {
+                List<String> chat = Test.getChatHistoryRaw();
+                synchronized (chat) {
+                    chat.clear();
+                    for (JsonElement el : root.getAsJsonArray("chatHistory")) chat.add(el.getAsString());
+                }
+            }
+
+            if (root.has("adminNotes")) {
+                Map<UUID, String> notes = Test.getAdminNotes();
+                notes.clear();
+                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("adminNotes").entrySet()) {
+                    try { notes.put(UUID.fromString(e.getKey()), e.getValue().getAsString()); }
+                    catch (IllegalArgumentException ignored) {}
+                }
+            }
+        } catch (IOException ex) { ex.printStackTrace(); }
+    }
+
+    public static void register() {
+        NeoForge.EVENT_BUS.addListener((ServerStartingEvent e) -> load());
+        NeoForge.EVENT_BUS.addListener((ServerStoppingEvent e) -> save());
+    }
+}

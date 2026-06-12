@@ -83,7 +83,10 @@ public class AdminScreen extends Screen {
     private record ZoneData(int x1, int y1, int z1, int x2, int y2, int z2,
                              java.util.List<String[]> members, boolean nightVision,
                              java.util.Map<Fabric.test.ZoneFlag, Boolean> flags, boolean enabled,
-                             int colorIdx, int priority, String greeting, String farewell) {}
+                             int colorIdx, int priority, String greeting, String farewell,
+                             java.util.List<String> inside) {
+        int color() { return Fabric.test.Zone.COLORS[Math.floorMod(colorIdx, Fabric.test.Zone.COLORS.length)]; }
+    }
     private final java.util.Map<String, ZoneData> zoneMap      = new java.util.LinkedHashMap<>();
     private final java.util.List<String>          zoneOnline   = new java.util.ArrayList<>();
     private String  selectedZone   = null;
@@ -1293,11 +1296,13 @@ public class AdminScreen extends Screen {
                     int priority    = f.length > 9 ? Integer.parseInt(f[9]) : 0;
                     String greeting = f.length > 10 ? f[10] : "";
                     String farewell = f.length > 11 ? f[11] : "";
+                    java.util.List<String> inside = new java.util.ArrayList<>();
+                    if (f.length > 12 && !f[12].isEmpty()) java.util.Collections.addAll(inside, f[12].split(","));
                     zoneMap.put(f[0], new ZoneData(
                         Integer.parseInt(mn[0]), Integer.parseInt(mn[1]), Integer.parseInt(mn[2]),
                         Integer.parseInt(mx[0]), Integer.parseInt(mx[1]), Integer.parseInt(mx[2]),
                         members, Boolean.parseBoolean(f[4]), flags, enabled,
-                        colorIdx, priority, greeting, farewell));
+                        colorIdx, priority, greeting, farewell, inside));
                 } catch (Exception ignored) {}
             }
         }
@@ -1327,8 +1332,10 @@ public class AdminScreen extends Screen {
         for (String name : zoneMap.keySet()) {
             if (idx >= zoneListScroll && idx < zoneListScroll + maxVis) {
                 final String n = name;
-                addRenderableWidget(Button.builder(
-                    Component.literal((name.equals(selectedZone) ? "§f§l" : "§7") + truncate(name, 10)),
+                final int zColor = zoneMap.get(name).color();
+                Component lbl = Component.literal("■ ").withStyle(s -> s.withColor(zColor))
+                    .append(Component.literal((name.equals(selectedZone) ? "§f§l" : "§7") + truncate(name, 9)));
+                addRenderableWidget(Button.builder(lbl,
                     b -> { selectedZone = n; zoneDetailTab = 0; init(); })
                     .bounds(cx + 2, y, ZONE_LIST_W - 4, 16).build());
                 y += entryH;
@@ -1422,7 +1429,7 @@ public class AdminScreen extends Screen {
     private void buildZoneOptions(ZoneData z, int detX, int detW, int top, int bot) {
         int w = detW - 8, lx = detX + 4;
         // Row height derived from available height so the list fits at any GUI scale.
-        int rows = 5 + Fabric.test.ZoneFlag.values().length;
+        int rows = 6 + Fabric.test.ZoneFlag.values().length;
         int rowH = Math.max(13, Math.min(20, (bot - top) / rows));
         int bh   = Math.max(12, rowH - 2);
         int y = top;
@@ -1436,8 +1443,21 @@ public class AdminScreen extends Screen {
         y += rowH;
 
         int cIdx = Math.floorMod(z.colorIdx(), Fabric.test.Zone.COLORS.length);
-        addRenderableWidget(btn("Couleur : " + Fabric.test.Zone.COLOR_NAMES[cIdx],
+        Component colorLbl = Component.literal("Couleur : ")
+            .append(Component.literal("■ ").withStyle(s -> s.withColor(z.color())))
+            .append(Fabric.test.Zone.COLOR_NAMES[cIdx]);
+        addRenderableWidget(Button.builder(colorLbl,
             b -> sendZone("CYCLE_COLOR", selectedZone, "")).bounds(lx, y, w, bh).build());
+        y += rowH;
+
+        // Presets : combinaison complète de flags en un clic
+        int pw3 = (w - 8) / 3;
+        addRenderableWidget(btn("§bSpawn", b -> sendZone("APPLY_PRESET", selectedZone, "SPAWN"))
+            .bounds(lx, y, pw3, bh).build());
+        addRenderableWidget(btn("§cArène", b -> sendZone("APPLY_PRESET", selectedZone, "ARENA"))
+            .bounds(lx + pw3 + 4, y, pw3, bh).build());
+        addRenderableWidget(btn("§6VIP", b -> sendZone("APPLY_PRESET", selectedZone, "VIP"))
+            .bounds(lx + (pw3 + 4) * 2, y, pw3, bh).build());
         y += rowH;
 
         for (Fabric.test.ZoneFlag fl : Fabric.test.ZoneFlag.values()) {
@@ -1517,6 +1537,9 @@ public class AdminScreen extends Screen {
         g.fill(znDetX, py + 26, px + pw, py + 44, 0xFF0A0A0A);
         int sx = z.x2()-z.x1()+1, sy = z.y2()-z.y1()+1, sz = z.z2()-z.z1()+1;
         g.drawString(font, "§e§l" + selectedZone, znDetX + 4, py + 29, 0xFFFFFFFF);
+        if (!z.inside().isEmpty())
+            g.drawString(font, "§a◉ " + z.inside().size() + " présent" + (z.inside().size() > 1 ? "s" : ""),
+                znDetX + 8 + font.width("§e§l" + selectedZone), py + 29, 0xFF55FF55);
         g.drawString(font, "§8" + sx + "×" + sy + "×" + sz
             + "  (" + z.x1() + "," + z.y1() + "," + z.z1()
             + ") → (" + z.x2() + "," + z.y2() + "," + z.z2() + ")",
@@ -1574,7 +1597,8 @@ public class AdminScreen extends Screen {
                 int ry = entryY + ri * 18;
                 g.fill(rightX + 20, ry - 1, px + pw - 2, ry + 13, C_ROW);
                 drawFace(g, playerName, rightX + 24, ry + 2, 8);
-                g.drawString(font, isMember ? "§8■ §7" + playerName : "§f" + playerName,
+                String insideDot = z.inside().contains(playerName) ? " §a◉" : "";
+                g.drawString(font, (isMember ? "§8■ §7" + playerName : "§f" + playerName) + insideDot,
                     rightX + 35, ry + 1, 0xFFFFFFFF);
                 ri++;
             }

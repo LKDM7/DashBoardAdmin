@@ -176,6 +176,35 @@ public class ZoneCommand {
                             Component.literal("§cZone §e" + name + " §csupprimée."));
                         return 1;
                     })))
+            .then(Commands.literal("rename")
+                .then(Commands.argument("name", com.mojang.brigadier.arguments.StringArgumentType.word())
+                    .suggests((ctx, b) -> net.minecraft.commands.SharedSuggestionProvider.suggest(zones.keySet(), b))
+                .then(Commands.argument("newname", com.mojang.brigadier.arguments.StringArgumentType.word())
+                    .executes(ctx -> {
+                        ServerPlayer player = ctx.getSource().getPlayerOrException();
+                        String oldName = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "name");
+                        String newName = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "newname");
+                        Zone z = zones.get(oldName);
+                        if (z == null) {
+                            player.sendSystemMessage(Component.literal("§cZone §e" + oldName + " §cintrouvable."));
+                            return 0;
+                        }
+                        if (zones.containsKey(newName)) {
+                            player.sendSystemMessage(Component.literal("§cUne zone §e" + newName + " §cexiste déjà."));
+                            return 0;
+                        }
+                        zones.remove(oldName);
+                        z.name = newName;
+                        zones.put(newName, z);
+                        // Références par nom à migrer (mode build en cours, dernière zone connue)
+                        buildZone.replaceAll((u, n) -> oldName.equals(n) ? newName : n);
+                        lastZoneOf.replaceAll((u, n) -> oldName.equals(n) ? newName : n);
+                        Fabric.test.ZonePersistence.save();
+                        syncZonesAll(ctx.getSource().getServer());
+                        player.sendSystemMessage(Component.literal(
+                            "§aZone §e" + oldName + " §arenommée en §e" + newName + "§a."));
+                        return 1;
+                    }))))
             .then(Commands.literal("list").executes(ctx -> {
                 ServerPlayer player = ctx.getSource().getPlayerOrException();
                 if (zones.isEmpty()) {
@@ -844,17 +873,38 @@ public class ZoneCommand {
             StringJoiner flagJoiner = new StringJoiner(";");
             for (ZoneFlag f : ZoneFlag.values()) flagJoiner.add(f.name() + ":" + (z.flag(f) ? "1" : "0"));
             sb.append(flagJoiner);
-            // Field 7 = enabled, 8 = couleur, 9 = priorité, 10 = greeting, 11 = farewell.
+            // Field 7 = enabled, 8 = couleur, 9 = priorité, 10 = greeting, 11 = farewell,
+            // 12 = joueurs en ligne actuellement DANS la zone.
             sb.append("|").append(z.enabled);
             sb.append("|").append(z.colorIdx);
             sb.append("|").append(z.priority);
             sb.append("|").append(sanitizeMsg(z.greeting));
             sb.append("|").append(sanitizeMsg(z.farewell));
+            StringJoiner inside = new StringJoiner(",");
+            for (ServerPlayer p : server.getPlayerList().getPlayers())
+                if (z.contains(p.getX(), p.getY(), p.getZ())) inside.add(p.getName().getString());
+            sb.append("|").append(inside);
         }
         String online = server.getPlayerList().getPlayers().stream()
             .map(p -> p.getName().getString())
             .collect(Collectors.joining(";"));
         PacketDistributor.sendToPlayer(player, new OpenZonePayload(sb.toString(), online));
+    }
+
+    /** Applique une combinaison complète de flags (ordre = celui de la déclaration de ZoneFlag). */
+    private static void applyPreset(Zone z, boolean build, boolean interact, boolean container,
+                                    boolean entry, boolean itemDrop, boolean itemPickup,
+                                    boolean pvp, boolean mobSpawn, boolean explosions, boolean cropTrample) {
+        z.setFlag(ZoneFlag.BUILD, build);
+        z.setFlag(ZoneFlag.INTERACT, interact);
+        z.setFlag(ZoneFlag.CONTAINER, container);
+        z.setFlag(ZoneFlag.ENTRY, entry);
+        z.setFlag(ZoneFlag.ITEM_DROP, itemDrop);
+        z.setFlag(ZoneFlag.ITEM_PICKUP, itemPickup);
+        z.setFlag(ZoneFlag.PVP, pvp);
+        z.setFlag(ZoneFlag.MOB_SPAWN, mobSpawn);
+        z.setFlag(ZoneFlag.EXPLOSIONS, explosions);
+        z.setFlag(ZoneFlag.CROP_TRAMPLE, cropTrample);
     }
 
     /** Les messages voyagent dans des formats délimités par | / \n / \t : on neutralise. */
@@ -884,6 +934,26 @@ public class ZoneCommand {
                     } catch (NumberFormatException ignored) {
                         admin.sendSystemMessage(Component.literal("§cPriorité invalide."));
                     }
+                    sendZoneScreen(admin, server);
+                }
+            }
+            case "APPLY_PRESET" -> {
+                if (z != null) {
+                    switch (payload.value()) {
+                        // Spawn protégé : tout bloqué pour les non-membres, monde pacifié.
+                        case "SPAWN" -> applyPreset(z, false, false, false, true, true, true,
+                                                       false, false, false, false);
+                        // Arène PvP : PvP forcé, pas de grief, pas de spawn naturel.
+                        case "ARENA" -> applyPreset(z, false, false, false, true, true, true,
+                                                       true, false, false, false);
+                        // Zone VIP : accès membres uniquement (entrée bloquée), tout protégé.
+                        case "VIP"   -> applyPreset(z, false, false, false, false, true, true,
+                                                       false, false, false, false);
+                        default -> { return; }
+                    }
+                    Fabric.test.ZonePersistence.save();
+                    admin.sendSystemMessage(Component.literal(
+                        "§aPreset §e" + payload.value() + " §aappliqué à §e" + z.name + "§a."));
                     sendZoneScreen(admin, server);
                 }
             }

@@ -25,7 +25,10 @@ public class ZoneScreen extends Screen {
 
     private record ZoneData(int x1, int y1, int z1, int x2, int y2, int z2,
                              List<String[]> members, boolean nightVision, Map<ZoneFlag, Boolean> flags,
-                             int colorIdx, int priority, String greeting, String farewell) {}
+                             int colorIdx, int priority, String greeting, String farewell,
+                             List<String> inside) {
+        int color() { return Fabric.test.Zone.COLORS[Math.floorMod(colorIdx, Fabric.test.Zone.COLORS.length)]; }
+    }
 
     private final Map<String, ZoneData> zones         = new LinkedHashMap<>();
     private final List<String>          onlinePlayers = new ArrayList<>();
@@ -81,10 +84,12 @@ public class ZoneScreen extends Screen {
                     int priority    = f.length > 9 ? Integer.parseInt(f[9]) : 0;
                     String greeting = f.length > 10 ? f[10] : "";
                     String farewell = f.length > 11 ? f[11] : "";
+                    List<String> inside = new ArrayList<>();
+                    if (f.length > 12 && !f[12].isEmpty()) Collections.addAll(inside, f[12].split(","));
                     zones.put(f[0], new ZoneData(
                         Integer.parseInt(mn[0]), Integer.parseInt(mn[1]), Integer.parseInt(mn[2]),
                         Integer.parseInt(mx[0]), Integer.parseInt(mx[1]), Integer.parseInt(mx[2]),
-                        members, nightVision, flags, colorIdx, priority, greeting, farewell));
+                        members, nightVision, flags, colorIdx, priority, greeting, farewell, inside));
                 } catch (Exception ignored) {}
             }
         }
@@ -155,8 +160,10 @@ public class ZoneScreen extends Screen {
         for (String name : zones.keySet()) {
             if (idx >= listScroll && idx < listScroll + maxVis) {
                 final String n = name;
-                addRenderableWidget(Button.builder(
-                    Component.literal((name.equals(selected) ? "§f§l" : "§7") + truncate(name, 11)),
+                final int zColor = zones.get(name).color();
+                Component lbl = Component.literal("■ ").withStyle(s -> s.withColor(zColor))
+                    .append(Component.literal((name.equals(selected) ? "§f§l" : "§7") + truncate(name, 10)));
+                addRenderableWidget(Button.builder(lbl,
                     b -> { selected = n; detailTab = 0; init(); })
                     .bounds(px + 4, y, LIST_W - 8, 18).build());
                 y += entryH;
@@ -236,9 +243,9 @@ public class ZoneScreen extends Screen {
 
     private void buildOptions(ZoneData z, int top, int bot) {
         int lx = detX + 4, w = detW - 8;
-        // nightVision + couleur + flags + TP + delete. Row height is derived from the
+        // nightVision + couleur + presets + flags + TP + delete. Row height is derived from the
         // available height so the list always fits the panel, whatever the GUI scale.
-        int rows = 4 + ZoneFlag.values().length;
+        int rows = 5 + ZoneFlag.values().length;
         int rowH = Math.max(13, Math.min(20, (bot - top) / rows));
         int bh   = Math.max(12, rowH - 2);
         int y = top;
@@ -248,8 +255,21 @@ public class ZoneScreen extends Screen {
         y += rowH;
 
         int cIdx = Math.floorMod(z.colorIdx(), Fabric.test.Zone.COLORS.length);
-        addRenderableWidget(btn("Couleur : " + Fabric.test.Zone.COLOR_NAMES[cIdx],
+        Component colorLbl = Component.literal("Couleur : ")
+            .append(Component.literal("■ ").withStyle(s -> s.withColor(z.color())))
+            .append(Fabric.test.Zone.COLOR_NAMES[cIdx]);
+        addRenderableWidget(Button.builder(colorLbl,
             b -> send("CYCLE_COLOR", selected, "")).bounds(lx, y, w, bh).build());
+        y += rowH;
+
+        // Presets : combinaison complète de flags en un clic
+        int pw3 = (w - 8) / 3;
+        addRenderableWidget(btn("§bSpawn", b -> send("APPLY_PRESET", selected, "SPAWN"))
+            .bounds(lx, y, pw3, bh).build());
+        addRenderableWidget(btn("§cArène", b -> send("APPLY_PRESET", selected, "ARENA"))
+            .bounds(lx + pw3 + 4, y, pw3, bh).build());
+        addRenderableWidget(btn("§6VIP", b -> send("APPLY_PRESET", selected, "VIP"))
+            .bounds(lx + (pw3 + 4) * 2, y, pw3, bh).build());
         y += rowH;
 
         for (ZoneFlag fl : ZoneFlag.values()) {
@@ -368,6 +388,9 @@ public class ZoneScreen extends Screen {
         g.fill(detX, py + 22, px + pw, py + 44, 0xFF0A0A0A);
         int sx = z.x2()-z.x1()+1, sy = z.y2()-z.y1()+1, sz = z.z2()-z.z1()+1;
         g.drawString(font, "§e§l" + selected, detX + 6, py + 26, 0xFFFFFFFF);
+        if (!z.inside().isEmpty())
+            g.drawString(font, "§a◉ " + z.inside().size() + " présent" + (z.inside().size() > 1 ? "s" : ""),
+                detX + 10 + font.width("§e§l" + selected), py + 26, 0xFF55FF55);
         g.drawString(font, "§8" + sx + "×" + sy + "×" + sz
             + "  (" + z.x1() + "," + z.y1() + "," + z.z1()
             + ") → (" + z.x2() + "," + z.y2() + "," + z.z2() + ")",
@@ -431,10 +454,11 @@ public class ZoneScreen extends Screen {
                 int ry = top + ri * 18;
                 g.fill(rightX + 20, ry - 1, px + pw - 2, ry + 13, C_ROW);
                 drawFace(g, playerName, rightX + 24, ry + 2, 8);
+                String insideDot = z.inside().contains(playerName) ? " §a◉" : "";
                 if (isMember) {
-                    g.drawString(font, "§8■ §7" + playerName, rightX + 35, ry + 1, 0xFF555555);
+                    g.drawString(font, "§8■ §7" + playerName + insideDot, rightX + 35, ry + 1, 0xFF555555);
                 } else {
-                    g.drawString(font, "§f" + playerName, rightX + 35, ry + 1, 0xFFFFFFFF);
+                    g.drawString(font, "§f" + playerName + insideDot, rightX + 35, ry + 1, 0xFFFFFFFF);
                 }
                 ri++;
             }

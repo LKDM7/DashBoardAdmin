@@ -59,6 +59,7 @@ public class SettingsScreen extends Screen {
 
     // Tab 2 — Homes
     private final Map<String, int[]>  homeMap    = new LinkedHashMap<>();
+    private final List<String[]>      warpList   = new ArrayList<>(); // [nom, "x, y, z", dim]
     private final Map<String, String> homeDimMap = new LinkedHashMap<>();
 
     // Tab 3 — Verrous & Confiance
@@ -132,6 +133,16 @@ public class SettingsScreen extends Screen {
                 }
             }
         }
+        if (!payload.warps().isEmpty())
+            for (String entry : payload.warps().split(";")) {
+                String[] parts = entry.split(":", 2);
+                if (parts.length == 2) {
+                    String[] cd = parts[1].split(",", 4);
+                    if (cd.length == 4) warpList.add(new String[]{
+                        parts[0], cd[0] + ", " + cd[1] + ", " + cd[2],
+                        cd[3].replace("minecraft:", "") });
+                }
+            }
         for (String entry : payload.lockedBlocks().split("\\|")) {
             if (!entry.isEmpty()) lockList.add(entry);
         }
@@ -310,8 +321,12 @@ public class SettingsScreen extends Screen {
         }
     }
 
+    /** Y du haut de la section WARPS PUBLICS — formule partagée entre init() et render(). */
+    private int warpsSectionTop() {
+        return py + 34 + ROW_H * homeMap.size() + (homeMap.isEmpty() ? 22 : 6);
+    }
+
     private void buildHomes() {
-        if (homeMap.isEmpty()) return;
         int start = py + 34;
         int i = 0;
         for (String name : new ArrayList<>(homeMap.keySet())) {
@@ -331,6 +346,20 @@ public class SettingsScreen extends Screen {
                 ).bounds(px + pw - 84, ry + 10, 78, 18).build());
             }
             i++;
+        }
+
+        // ── WARPS PUBLICS ────────────────────────────────────────────────────
+        if (!warpList.isEmpty()) {
+            int wy = warpsSectionTop() + 14;
+            int maxBottom = py + ph - 8;
+            for (String[] w : warpList) {
+                if (wy + 16 > maxBottom) break;
+                final String wn = w[0];
+                addRenderableWidget(Button.builder(Component.literal("§bTP"),
+                    b -> { sendAction("WARP_TP", wn); onClose(); })
+                    .bounds(px + pw - 44, wy, 38, 14).build());
+                wy += 18;
+            }
         }
     }
 
@@ -597,9 +626,7 @@ public class SettingsScreen extends Screen {
     private void renderHomes(GuiGraphics g) {
         int start = py + 34;
         if (homeMap.isEmpty()) {
-            g.drawCenteredString(font, "§8Aucun home enregistré",             midX, start + 70, 0xFF555555);
-            g.drawCenteredString(font, "§7Utilisez §b/sethome <nom>§7 en jeu", midX, start + 84, 0xFF555555);
-            return;
+            g.drawString(font, "§8Aucun home enregistré — §7utilisez §b/sethome <nom>", cx + 12, start + 4, 0xFF555555);
         }
         int i = 0;
         for (var e : homeMap.entrySet()) {
@@ -618,6 +645,27 @@ public class SettingsScreen extends Screen {
             g.drawString(font, "§7" + pos[0] + ", " + pos[1] + ", " + pos[2], cx + 12, ry + 20, 0xFFAAAAAA);
             g.drawString(font, "[" + dim + "]", cx + 12 + font.width("§7" + pos[0] + ", " + pos[1] + ", " + pos[2]) + 4, ry + 20, dimTagColor);
             i++;
+        }
+
+        // ── WARPS PUBLICS ────────────────────────────────────────────────────
+        if (!warpList.isEmpty()) {
+            int wy = warpsSectionTop();
+            g.drawString(font, "WARPS PUBLICS", cx + 8, wy + 2, C_SEC);
+            g.fill(cx + 8, wy + 11, px + pw - 8, wy + 12, C_DIV);
+            wy += 14;
+            int maxBottom = py + ph - 8;
+            int shown = 0;
+            for (String[] w : warpList) {
+                if (wy + 16 > maxBottom) {
+                    g.drawString(font, "§8+" + (warpList.size() - shown) + "…", cx + 12, wy, 0xFF444444);
+                    break;
+                }
+                g.drawString(font, "§b◈ §f" + w[0], cx + 12, wy + 3, 0xFFFFFFFF);
+                g.drawString(font, "§8" + w[1] + "  §7[" + w[2] + "]",
+                    cx + 16 + font.width("§b◈ §f" + w[0]), wy + 3, 0xFF777777);
+                wy += 18;
+                shown++;
+            }
         }
     }
 

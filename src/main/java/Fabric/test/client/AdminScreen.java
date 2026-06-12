@@ -40,6 +40,8 @@ public class AdminScreen extends Screen {
     private final java.util.List<String[]> offlinePlayers = new java.util.ArrayList<>(); // [nom, lastSeenMs]
     private String[] serverStats = null; // tps|mspt|ramU|ramM|entités|chunks|uptimeSec
     private boolean  selOffline  = false;
+    private final java.util.List<String[]> warpsList = new java.util.ArrayList<>(); // [nom, "x, y, z", dim]
+    private EditBox warpNameBox;
     private java.util.Map<String, String> reports         = new java.util.LinkedHashMap<>();
     private java.util.Map<String, String> acceptedReports = new java.util.LinkedHashMap<>();
     private java.util.Map<String, String> closedReports   = new java.util.LinkedHashMap<>();
@@ -103,7 +105,7 @@ public class AdminScreen extends Screen {
     // Layout (computed in init)
     private int px, py, pw, ph;
     private int cx, midX, midY;
-    private final int[] tabYMap = new int[8]; // Y position of each tab button, for highlight
+    private final int[] tabYMap = new int[9]; // Y position of each tab button, for highlight
     // Sidebar nav layout (computed in init from ph, mirrored by render for labels/dividers)
     private int navTabH = 20;
     private int navServeurLabelY, navJoueursLabelY, navChatLabelY;
@@ -119,6 +121,7 @@ public class AdminScreen extends Screen {
         mutedPlayers.clear(); frozenPlayers.clear(); keepInvPlayers.clear(); afkPlayers.clear();
         reports.clear(); acceptedReports.clear(); closedReports.clear();
         schedBroadcasts.clear(); bannedPlayers.clear(); availableGroups.clear(); offlinePlayers.clear();
+        warpsList.clear();
         applyPayload(payload);
         init();
     }
@@ -132,6 +135,16 @@ public class AdminScreen extends Screen {
                 if (ci > 0) offlinePlayers.add(new String[]{ entry.substring(0, ci), entry.substring(ci + 1) });
             }
         serverStats = payload.serverStats().isEmpty() ? null : payload.serverStats().split("\\|");
+        if (!payload.warps().isEmpty())
+            for (String entry : payload.warps().split(";")) {
+                String[] parts = entry.split(":", 2);
+                if (parts.length == 2) {
+                    String[] cd = parts[1].split(",", 4);
+                    if (cd.length == 4) warpsList.add(new String[]{
+                        parts[0], cd[0] + ", " + cd[1] + ", " + cd[2],
+                        cd[3].replace("minecraft:", "") });
+                }
+            }
         parseList(payload.mutedPlayers(),        mutedPlayers);
         parseList(payload.frozenPlayers(),        frozenPlayers);
         parseList(payload.keepInventoryPlayers(), keepInvPlayers);
@@ -282,7 +295,7 @@ public class AdminScreen extends Screen {
         int labelH    = 11;
         int avail     = navBottom - navTop;
         int fixedOverhead = 3 * labelH + 2 * gap; // 3 section labels + 2 inter-group gaps
-        int tabSlot   = Math.max(16, Math.min(22, (avail - fixedOverhead) / 8));
+        int tabSlot   = Math.max(15, Math.min(22, (avail - fixedOverhead) / 9));
         navTabH       = Math.min(20, tabSlot - 2);
 
         int y = navTop;
@@ -299,6 +312,7 @@ public class AdminScreen extends Screen {
             b -> { send("OPEN_ZONES", "", ""); currentTab = 6; init(); })
             .bounds(px + 5, y, SIDE_W - 10, navTabH).build());
         y += tabSlot;
+        tabYMap[8] = y; tab("WARPS", 8, y); y += tabSlot;
         navDiv1Y = y; y += gap;
 
         // ─ JOUEURS group ─
@@ -334,6 +348,7 @@ public class AdminScreen extends Screen {
             case 5 -> buildLogs();
             case 6 -> buildZones();
             case 7 -> buildSanctions();
+            case 8 -> buildWarps();
         }
     }
 
@@ -842,7 +857,7 @@ public class AdminScreen extends Screen {
         g.fill(cx - 1, py, cx, py + ph, C_ACCENT);
 
         // Content header
-        String[] titles = { "GESTION DU MONDE", "JOUEURS EN LIGNE", "CHAT & ANNONCES", "FONCTIONNALITÉS", "REPORTS", "LOGS JOUEURS", "GESTION DES ZONES", "HISTORIQUE SANCTIONS" };
+        String[] titles = { "GESTION DU MONDE", "JOUEURS EN LIGNE", "CHAT & ANNONCES", "FONCTIONNALITÉS", "REPORTS", "LOGS JOUEURS", "GESTION DES ZONES", "HISTORIQUE SANCTIONS", "WARPS" };
         g.fill(cx, py, px + pw, py + 26, C_HBAR);
         g.drawCenteredString(font,
             Component.literal(titles[currentTab]).withStyle(s -> s.withColor(0x00E5FF).withBold(true)),
@@ -858,6 +873,7 @@ public class AdminScreen extends Screen {
             case 5 -> renderLogs(g);
             case 6 -> renderZones(g);
             case 7 -> renderSanctions(g);
+            case 8 -> renderWarps(g);
         }
 
         // Dialog overlays
@@ -1445,6 +1461,61 @@ public class AdminScreen extends Screen {
         if (Minecraft.getInstance().getConnection() == null) return;
         PlayerInfo pi = Minecraft.getInstance().getConnection().getPlayerInfo(playerName);
         if (pi != null) net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g, pi.getSkin(), x, y, size);
+    }
+
+    // ─── WARPS ───────────────────────────────────────────────────────────────────
+
+    private void buildWarps() {
+        int lx = cx + 8;
+        int y = py + 48;
+        int maxBottom = py + ph - 36;
+        for (String[] w : warpsList) {
+            if (y + 18 > maxBottom) break;
+            final String wn = w[0];
+            addRenderableWidget(btn("§bTP", b -> { send("WARP_TP", "", wn); onClose(); })
+                .bounds(px + pw - 66, y, 28, 14).build());
+            addRenderableWidget(btn("§c✕", b -> send("WARP_DELETE", "", wn))
+                .bounds(px + pw - 34, y, 18, 14).build());
+            y += 20;
+        }
+        // Création d'un warp à la position actuelle de l'admin
+        warpNameBox = new EditBox(font, lx, py + ph - 28, 120, 18, Component.literal("nom du warp"));
+        warpNameBox.setMaxLength(24);
+        addRenderableWidget(warpNameBox);
+        addRenderableWidget(btn("§aCRÉER ICI", b -> {
+            String n = warpNameBox.getValue().trim();
+            if (!n.isEmpty()) { send("WARP_ADD", "", n); warpNameBox.setValue(""); }
+        }).bounds(lx + 126, py + ph - 28, 90, 18).build());
+    }
+
+    private void renderWarps(GuiGraphics g) {
+        int lx = cx + 8;
+        lbl(g, "WARPS PUBLICS" + (warpsList.isEmpty() ? "" : " (" + warpsList.size() + ")"), lx, py + 32);
+        g.fill(lx, py + 42, px + pw - 12, py + 43, C_DIV);
+
+        if (warpsList.isEmpty()) {
+            g.drawCenteredString(font, "§8Aucun warp défini", midX, py + ph / 2 - 6, 0xFF444444);
+            g.drawCenteredString(font, "§8Créez-en un à votre position ci-dessous", midX, py + ph / 2 + 6, 0xFF333333);
+        }
+
+        int y = py + 48;
+        int maxBottom = py + ph - 36;
+        int shown = 0;
+        for (String[] w : warpsList) {
+            if (y + 18 > maxBottom) {
+                g.drawString(font, "§8+" + (warpsList.size() - shown) + "…", lx, y, 0xFF444444);
+                break;
+            }
+            if (shown % 2 == 0) g.fill(cx + 4, y - 2, px + pw - 4, y + 14, C_ROW);
+            g.drawString(font, "§b◈ §f" + w[0], lx, y + 2, 0xFFFFFFFF);
+            g.drawString(font, "§8" + w[1] + "  §7[" + w[2] + "]",
+                lx + 8 + font.width("§b◈ §f" + w[0]), y + 2, 0xFF777777);
+            y += 20;
+            shown++;
+        }
+
+        g.fill(lx, py + ph - 36, px + pw - 12, py + ph - 35, C_DIV);
+        g.drawString(font, "§8Le warp est créé à votre position actuelle.", lx + 222, py + ph - 23, 0xFF444444);
     }
 
     // ─── ZONES ───────────────────────────────────────────────────────────────────

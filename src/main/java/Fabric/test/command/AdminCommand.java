@@ -39,7 +39,8 @@ public class AdminCommand {
             Fabric.test.GroupManager.getGroupsSerialized(server),
             Fabric.test.Test.getAfkPlayerNames(server),
             Fabric.test.Test.getOfflinePlayersSerialized(server),
-            Fabric.test.Test.getServerStatsSerialized(server)
+            Fabric.test.Test.getServerStatsSerialized(server),
+            Fabric.test.Test.getWarpsSerialized()
         ));
     }
 
@@ -58,7 +59,8 @@ public class AdminCommand {
         String groupsSerialized,
         String afkPlayers,
         String offlinePlayers,
-        String serverStats
+        String serverStats,
+        String warps
     ) implements CustomPacketPayload {
         public static final Type<OpenAdminGuiPayload> TYPE = new Type<>(ModMessages.OPEN_ADMIN_GUI);
         public static final StreamCodec<FriendlyByteBuf, OpenAdminGuiPayload> CODEC = StreamCodec.of(
@@ -78,12 +80,13 @@ public class AdminCommand {
                 buf.writeUtf(p.afkPlayers);
                 buf.writeUtf(p.offlinePlayers);
                 buf.writeUtf(p.serverStats);
+                buf.writeUtf(p.warps);
             },
             buf -> new OpenAdminGuiPayload(
                 buf.readBoolean(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
                 buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
                 buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
-                buf.readUtf(), buf.readUtf(), buf.readUtf()
+                buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf()
             )
         );
         @Override

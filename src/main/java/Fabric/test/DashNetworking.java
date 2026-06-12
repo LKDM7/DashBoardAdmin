@@ -223,6 +223,25 @@ public class DashNetworking {
             case "REFRESH_ADMIN" -> AdminCommand.sendAdminGui(admin, admin.getServer());
             case "GET_CHAT" -> PacketDistributor.sendToPlayer(admin,
                 new PlayerLogsPayload("Chat global", Test.getChatHistorySerialized()));
+            case "WARP_ADD" -> {
+                String wName = payload.value().trim().replaceAll("[^A-Za-z0-9_\\-]", "");
+                if (wName.isEmpty()) { admin.sendSystemMessage(Component.literal("§cNom de warp invalide.")); return; }
+                if (Test.getWarps().containsKey(wName)) { admin.sendSystemMessage(Component.literal("§cLe warp §e" + wName + " §cexiste déjà.")); return; }
+                Test.getWarps().put(wName, admin.blockPosition());
+                Test.getWarpsDim().put(wName, admin.level().dimension().location().toString());
+                ServerConfig.save();
+                admin.sendSystemMessage(Component.literal("§aWarp §e" + wName + " §acréé à votre position."));
+                AdminCommand.sendAdminGui(admin, admin.getServer());
+            }
+            case "WARP_DELETE" -> {
+                if (Test.getWarps().remove(payload.value()) != null) {
+                    Test.getWarpsDim().remove(payload.value());
+                    ServerConfig.save();
+                    admin.sendSystemMessage(Component.literal("§cWarp §e" + payload.value() + " §csupprimé."));
+                }
+                AdminCommand.sendAdminGui(admin, admin.getServer());
+            }
+            case "WARP_TP" -> teleportToWarp(admin, payload.value());
             case "SET_MOTD" -> {
                 Test.setMotd(payload.value());
                 ServerConfig.save();
@@ -263,9 +282,32 @@ public class DashNetworking {
         }
     }
 
+    /** Téléporte vers un warp (dimension comprise) — utilisé par le GUI admin et le menu joueur. */
+    private static void teleportToWarp(ServerPlayer player, String name) {
+        net.minecraft.core.BlockPos pos = Test.getWarps().get(name);
+        if (pos == null) { player.sendSystemMessage(Component.literal("§cWarp §e" + name + " §cintrouvable.")); return; }
+        String dimId = Test.getWarpsDim().getOrDefault(name, "minecraft:overworld");
+        net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimKey = net.minecraft.resources.ResourceKey.create(
+            net.minecraft.world.level.Level.OVERWORLD.registryKey(),
+            net.minecraft.resources.ResourceLocation.parse(dimId));
+        ServerLevel targetLevel = player.getServer().getLevel(dimKey);
+        if (targetLevel == null) targetLevel = (ServerLevel) player.level();
+        Test.savePosition(player);
+        player.teleportTo(targetLevel, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot());
+        player.sendSystemMessage(Component.literal("§aTéléporté au warp §e'" + name + "'§a."));
+    }
+
     // ─── Player action handler ────────────────────────────────────────────────
     private static void handlePlayerAction(PlayerActionPayload payload, ServerPlayer player) {
         switch (payload.action()) {
+            case "WARP_TP" -> {
+                if (Fabric.test.command.ZoneCommand.isInBuildMode(player.getUUID())) {
+                    player.sendSystemMessage(Component.literal("§cImpossible d'utiliser les warps en mode construction."));
+                    break;
+                }
+                if (!Test.checkCooldown(Test.getLastWarpUse(), player.getUUID(), Test.getCooldownWarp(), player, "/warp")) break;
+                teleportToWarp(player, payload.value());
+            }
             case "HOME_TP" -> {
                 if (!Test.checkCooldown(Test.getLastHomeUse(), player.getUUID(), Test.getCooldownHome(), player, "/home")) break;
                 net.minecraft.core.BlockPos pos = Test.getPlayerHomes(player.getUUID()).get(payload.value());
@@ -299,7 +341,7 @@ public class DashNetworking {
                 long rb = (player.getStats().getValue(net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.WALK_ONE_CM)) + player.getStats().getValue(net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.SPRINT_ONE_CM))) / 100L;
                 String stats = rh + "|" + rm + "|" + rd + "|" + rk + "|" + rm2 + "|" + rb + "|" + player.totalExperience;
                 PlayerSettings rs = Test.getPlayerSettings(player.getUUID());
-                PacketDistributor.sendToPlayer(player, new OpenSettingsPayload(rs.allowPrivateMessages, rs.allowTpaRequests, rs.allowTrades, rs.showChatNotifications, rs.showConnectionAlerts, "", "", "", "", stats, Fabric.test.command.ZoneCommand.getBuildInfoFor(player)));
+                PacketDistributor.sendToPlayer(player, new OpenSettingsPayload(rs.allowPrivateMessages, rs.allowTpaRequests, rs.allowTrades, rs.showChatNotifications, rs.showConnectionAlerts, "", "", "", "", stats, Fabric.test.command.ZoneCommand.getBuildInfoFor(player), Test.getWarpsSerialized()));
             }
         }
     }

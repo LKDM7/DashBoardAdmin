@@ -308,6 +308,16 @@ public class Test {
         return String.format(java.util.Locale.ROOT, "%.1f|%.1f|%d|%d|%d|%d|%d",
             tps, mspt, ramUsed, ramMax, entities, chunks, uptimeSec);
     }
+    /** Warps publics : "nom:x,y,z,dim;..." (le nom d'un warp ne contient ni ':' ni ';' — /setwarp prend un mot). */
+    public static String getWarpsSerialized() {
+        java.util.StringJoiner sj = new java.util.StringJoiner(";");
+        for (java.util.Map.Entry<String, net.minecraft.core.BlockPos> e : warps.entrySet()) {
+            net.minecraft.core.BlockPos p = e.getValue();
+            sj.add(e.getKey() + ":" + p.getX() + "," + p.getY() + "," + p.getZ() + ","
+                + warpsDim.getOrDefault(e.getKey(), "minecraft:overworld"));
+        }
+        return sj.toString();
+    }
     public static String getKeepInventoryPlayerNames(net.minecraft.server.MinecraftServer server) {
         return playerSettings.entrySet().stream().filter(e -> e.getValue().keepInventory).map(e -> server.getPlayerList().getPlayer(e.getKey())).filter(p -> p != null).map(p -> p.getName().getString()).collect(java.util.stream.Collectors.joining(";"));
     }

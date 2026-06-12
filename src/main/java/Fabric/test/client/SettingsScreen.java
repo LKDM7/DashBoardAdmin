@@ -648,24 +648,28 @@ public class SettingsScreen extends Screen {
         }
 
         // ── WARPS PUBLICS ────────────────────────────────────────────────────
-        if (!warpList.isEmpty()) {
-            int wy = warpsSectionTop();
-            g.drawString(font, "WARPS PUBLICS", cx + 8, wy + 2, C_SEC);
-            g.fill(cx + 8, wy + 11, px + pw - 8, wy + 12, C_DIV);
-            wy += 14;
-            int maxBottom = py + ph - 8;
-            int shown = 0;
-            for (String[] w : warpList) {
-                if (wy + 16 > maxBottom) {
-                    g.drawString(font, "§8+" + (warpList.size() - shown) + "…", cx + 12, wy, 0xFF444444);
-                    break;
-                }
-                g.drawString(font, "§b◈ §f" + w[0], cx + 12, wy + 3, 0xFFFFFFFF);
-                g.drawString(font, "§8" + w[1] + "  §7[" + w[2] + "]",
-                    cx + 16 + font.width("§b◈ §f" + w[0]), wy + 3, 0xFF777777);
-                wy += 18;
-                shown++;
+        int wy = warpsSectionTop();
+        g.drawString(font, "WARPS PUBLICS" + (warpList.isEmpty() ? "" : " §7(" + warpList.size() + ")"),
+            cx + 8, wy + 2, C_SEC);
+        g.fill(cx + 8, wy + 11, px + pw - 8, wy + 12, C_DIV);
+        wy += 14;
+        if (warpList.isEmpty()) {
+            g.drawString(font, "§8Aucun warp public sur le serveur.", cx + 12, wy + 3, 0xFF555555);
+            return;
+        }
+        int maxBottom = py + ph - 8;
+        int shown = 0;
+        for (String[] w : warpList) {
+            if (wy + 16 > maxBottom) {
+                g.drawString(font, "§8+" + (warpList.size() - shown) + "…", cx + 12, wy, 0xFF444444);
+                break;
             }
+            if (shown % 2 == 0) g.fill(cx + 8, wy - 1, px + pw - 8, wy + 15, C_ROW);
+            g.drawString(font, "§b◈ §f" + w[0], cx + 12, wy + 3, 0xFFFFFFFF);
+            g.drawString(font, "§8" + w[1] + "  §7[" + w[2] + "]",
+                cx + 16 + font.width("§b◈ §f" + w[0]), wy + 3, 0xFF777777);
+            wy += 18;
+            shown++;
         }
     }
 

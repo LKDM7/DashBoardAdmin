@@ -221,6 +221,14 @@ public class DashNetworking {
                 }
             }
             case "REFRESH_ADMIN" -> AdminCommand.sendAdminGui(admin, admin.getServer());
+            case "GET_CHAT" -> PacketDistributor.sendToPlayer(admin,
+                new PlayerLogsPayload("Chat global", Test.getChatHistorySerialized()));
+            case "SET_MOTD" -> {
+                Test.setMotd(payload.value());
+                ServerConfig.save();
+                admin.sendSystemMessage(Component.literal(Test.getMotd().isEmpty()
+                    ? "§eMOTD supprimé." : "§aMOTD mis à jour : §7" + Test.getMotd()));
+            }
             case "BAN" -> {
                 if (target != null) {
                     String[] banParts = payload.value().split("\t", 2);

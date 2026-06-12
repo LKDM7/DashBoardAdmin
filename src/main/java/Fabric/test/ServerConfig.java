@@ -27,6 +27,7 @@ public class ServerConfig {
         root.addProperty("maxHomes",        Test.getMaxHomes());
         root.addProperty("webhookReports",   Test.getWebhookReports());
         root.addProperty("webhookSanctions", Test.getWebhookSanctions());
+        root.addProperty("motd",             Test.getMotd());
 
         root.addProperty("pvpEnabled", Test.isPvpEnabled());
 
@@ -91,6 +92,7 @@ public class ServerConfig {
             if (root.has("maxHomes"))        Test.setMaxHomes(root.get("maxHomes").getAsInt());
             if (root.has("webhookReports"))   Test.setWebhookReports(root.get("webhookReports").getAsString());
             if (root.has("webhookSanctions")) Test.setWebhookSanctions(root.get("webhookSanctions").getAsString());
+            if (root.has("motd"))             Test.setMotd(root.get("motd").getAsString());
 
             if (root.has("features")) {
                 JsonObject f = root.getAsJsonObject("features");

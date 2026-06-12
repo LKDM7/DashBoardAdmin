@@ -62,6 +62,7 @@ public class AdminScreen extends Screen {
     private int     maxHomes         = 3;
     private String  webhookReports   = "";
     private String  webhookSanctions = "";
+    private String  motd             = "";
     private EditBox maxHomesBox;
     private EditBox webhookReportsBox;
     private EditBox webhookSanctionsBox;
@@ -172,6 +173,7 @@ public class AdminScreen extends Screen {
                 if (feats.length >= 10) try { maxHomes  = Integer.parseInt(feats[9]); } catch (NumberFormatException ignored) {}
                 if (feats.length >= 11) webhookReports   = feats[10];
                 if (feats.length >= 12) webhookSanctions = feats[11];
+                if (feats.length >= 13) motd             = feats[12];
             }
         }
         String grpRaw = payload.groupsSerialized();
@@ -553,13 +555,17 @@ public class AdminScreen extends Screen {
             chipX += cw + 2;
         }
 
-        int btnW = (contentW - 6) / 2;
+        int btnW = (contentW - 12) / 3;
         addRenderableWidget(btn("§a▶ DIFFUSER",
             b -> { if (!announceBox.getValue().isEmpty()) { send("ANNOUNCE", broadcastTarget, announceBox.getValue()); announceBox.setValue(""); } })
             .bounds(contentX, aY + 44, btnW, 20).build());
+        // Définit le texte saisi comme MOTD (message de connexion) ; champ vide = MOTD supprimé.
+        addRenderableWidget(btn("§eDÉFINIR MOTD",
+            b -> { motd = announceBox.getValue().trim(); send("SET_MOTD", "", motd); announceBox.setValue(""); init(); })
+            .bounds(contentX + btnW + 6, aY + 44, btnW, 20).build());
         addRenderableWidget(btn("CHAT " + (chatLocked ? "§c🔒 VERROUILLÉ" : "§a🔓 OUVERT"),
             b -> { send("LOCK_CHAT", "", ""); chatLocked = !chatLocked; init(); })
-            .bounds(contentX + btnW + 6, aY + 44, btnW, 20).build());
+            .bounds(contentX + (btnW + 6) * 2, aY + 44, btnW, 20).build());
 
         // ── Section BROADCASTS ───────────────────────────────────────────────────
         int bY = py + 168;
@@ -1064,9 +1070,11 @@ public class AdminScreen extends Screen {
         g.drawString(font,
             preview.isEmpty() ? "§8Aperçu — tapez votre annonce…" : "§6§l[ANNONCE] §r§f" + preview,
             contentX + 6, previewY + 3, 0xFFFFFFFF);
+        g.drawString(font, "§8MOTD connexion : " + (motd.isEmpty() ? "§8aucun" : "§7" + truncate(motd, 40)),
+            contentX, previewY + 17, 0xFF555555);
 
         // ── Divider ──────────────────────────────────────────────────────────────
-        int divY = previewY + 22;
+        int divY = previewY + 29;
         g.fill(contentX, divY, contentX + contentW, divY + 1, C_DIV);
 
         // ── Section BROADCASTS ───────────────────────────────────────────────────
@@ -1216,6 +1224,16 @@ public class AdminScreen extends Screen {
         if (Minecraft.getInstance().getConnection() == null) return;
         java.util.Collection<net.minecraft.client.multiplayer.PlayerInfo> players =
             Minecraft.getInstance().getConnection().getOnlinePlayers();
+
+        // Historique du chat public du serveur (réutilise le visualiseur de logs)
+        addRenderableWidget(btn("Chat global".equals(selPlayer) ? "§b§lCHAT GLOBAL" : "§bCHAT GLOBAL", b -> {
+            selPlayer   = "Chat global";
+            logsPlayer  = null;
+            logsEntries = new java.util.ArrayList<>();
+            logsScroll  = 0;
+            send("GET_CHAT", "", "");
+            init();
+        }).bounds(cx + 4, py + 28, 90, 14).build());
 
         int yOff = py + 48;
         for (net.minecraft.client.multiplayer.PlayerInfo info : players) {

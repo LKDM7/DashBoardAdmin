@@ -59,6 +59,8 @@ public class Test {
     private static volatile int    maxHomes         = 3;
     private static volatile String webhookReports   = "";
     private static volatile String webhookSanctions = "";
+    private static volatile String motd             = "";
+    private static final java.util.List<String> chatHistory = new java.util.ArrayList<>();
     private static final java.util.Map<java.util.UUID, Integer>        hostileMobKills = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, PlayerSettings> playerSettings  = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, Long>           lastSeenTimestamps = new java.util.HashMap<>();
@@ -200,6 +202,19 @@ public class Test {
     public static void   setWebhookReports(String v)      { webhookReports   = v == null ? "" : v; }
     public static String getWebhookSanctions()            { return webhookSanctions; }
     public static void   setWebhookSanctions(String v)    { webhookSanctions = v == null ? "" : v; }
+    public static String getMotd()                        { return motd; }
+    public static void   setMotd(String v)                { motd = v == null ? "" : v.replace("|", " ").trim(); }
+    /** Historique du chat public (300 derniers messages), consultable depuis l'onglet LOGS. */
+    public static void addChatHistory(String playerName, String message) {
+        String time = java.time.LocalTime.now().format(LOG_FMT);
+        synchronized (chatHistory) {
+            chatHistory.add("[" + time + "] <" + playerName + "> " + message);
+            while (chatHistory.size() > 300) chatHistory.remove(0);
+        }
+    }
+    public static String getChatHistorySerialized() {
+        synchronized (chatHistory) { return String.join("\n", chatHistory); }
+    }
     public static boolean isFrozen(java.util.UUID uuid)   { return frozenPlayers.getOrDefault(uuid, false); }
     public static boolean isMuted(java.util.UUID uuid)    { return mutedPlayers.contains(uuid); }
     public static boolean isVanished(java.util.UUID uuid) { return vanishedPlayers.contains(uuid); }
@@ -240,7 +255,7 @@ public class Test {
              + "|" + fastLeafDecayEnabled + "|" + doubleDoorEnabled + "|" + getAfkDelayMinutes()
              + "|" + rightClickHarvestEnabled + "|" + dispenserHarvestEnabled
              + "|" + cropTrampleEnabled + "|" + maxHomes
-             + "|" + webhookReports + "|" + webhookSanctions;
+             + "|" + webhookReports + "|" + webhookSanctions + "|" + motd;
     }
     public static String getMutedPlayerNames(net.minecraft.server.MinecraftServer server) {
         return mutedPlayers.stream().map(uuid -> server.getPlayerList().getPlayer(uuid)).filter(p -> p != null).map(p -> p.getName().getString()).collect(java.util.stream.Collectors.joining(";"));

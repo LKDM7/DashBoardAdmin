@@ -519,12 +519,22 @@ public class DashGameEvents {
     public static void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
         ServerPlayer player = (ServerPlayer) event.getEntity();
         MinecraftServer server = player.getServer();
+        // Première connexion : jamais vu déconnecté (persisté) ni en mémoire — à tester AVANT le put.
+        boolean firstJoin = !Test.getLastSeenTimestamps().containsKey(player.getUUID())
+                         && !Test.getPlayerNameCache().containsKey(player.getUUID());
         Test.getPlayerNameCache().put(player.getUUID(), player.getName().getString());
         Test.getLastActivityTime().put(player.getUUID(), System.currentTimeMillis());
-        Component joinMsg = Component.literal("§a[+] §f" + player.getName().getString() + " §7a rejoint le serveur.");
-        for (ServerPlayer p : server.getPlayerList().getPlayers())
-            if (Test.getPlayerSettings(p.getUUID()).showConnectionAlerts && !p.getUUID().equals(player.getUUID()))
-                p.sendSystemMessage(joinMsg);
+        if (firstJoin) {
+            server.getPlayerList().broadcastSystemMessage(Component.literal(
+                "§6✦ §e" + player.getName().getString() + " §6rejoint le serveur pour la première fois !"), false);
+        } else {
+            Component joinMsg = Component.literal("§a[+] §f" + player.getName().getString() + " §7a rejoint le serveur.");
+            for (ServerPlayer p : server.getPlayerList().getPlayers())
+                if (Test.getPlayerSettings(p.getUUID()).showConnectionAlerts && !p.getUUID().equals(player.getUUID()))
+                    p.sendSystemMessage(joinMsg);
+        }
+        if (!Test.getMotd().isEmpty())
+            player.sendSystemMessage(Component.literal("§7" + Test.getMotd()));
     }
 
     @SubscribeEvent
@@ -663,6 +673,7 @@ public class DashGameEvents {
             return;
         }
         Test.addLog(sender.getUUID(), "Chat: " + raw);
+        Test.addChatHistory(sender.getName().getString(), raw);
         Test.getLastActivityTime().put(sender.getUUID(), System.currentTimeMillis());
 
         // Per-player ignore: cancel and re-broadcast only to non-ignoring players

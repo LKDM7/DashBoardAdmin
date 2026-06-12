@@ -69,6 +69,26 @@ public class ZoneCommand {
 
     public static Map<String, Zone> getZones() { return zones; }
 
+    /** Dernière zone connue de chaque joueur, pour les messages d'entrée/sortie. */
+    private static final Map<UUID, String> lastZoneOf = new HashMap<>();
+
+    /**
+     * Évaluation centrale d'un flag à une position. En cas de chevauchement, la zone de
+     * priorité la plus haute décide ; à priorité égale, le blocage l'emporte (comportement
+     * historique). Pour un flag d'accès, un joueur autorisé sur la zone décisive est exempté.
+     */
+    public static boolean isAllowed(ZoneFlag f, double x, double y, double z, UUID who) {
+        int best = Integer.MIN_VALUE;
+        boolean allowed = true;
+        for (Zone zo : zones.values()) {
+            if (!zo.enabled || !zo.contains(x, y, z)) continue;
+            boolean zoneAllows = zo.flag(f) || (!f.areaRule && who != null && zo.isAuthorized(who));
+            if (zo.priority > best) { best = zo.priority; allowed = zoneAllows; }
+            else if (zo.priority == best) allowed = allowed && zoneAllows;
+        }
+        return allowed;
+    }
+
     public static boolean isInBuildMode(UUID uuid) {
         return buildZone.containsKey(uuid);
     }
@@ -236,6 +256,9 @@ public class ZoneCommand {
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onZonePvp);
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onZoneMobSpawn);
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onZoneExplosion);
+        NeoForge.EVENT_BUS.addListener(ZoneCommand::onItemToss);
+        NeoForge.EVENT_BUS.addListener(ZoneCommand::onItemPickup);
+        NeoForge.EVENT_BUS.addListener(ZoneCommand::onCropTrample);
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onPlayerLogin);
         NeoForge.EVENT_BUS.addListener((ServerStartingEvent e) -> loadBuildState(e.getServer()));
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent e) -> saveBuildState(e.getServer()));
@@ -284,16 +307,21 @@ public class ZoneCommand {
             return;
         }
 
-        // Zone INTERACT protection — block right-clicking blocks for non-authorized players
+        // Zone INTERACT / CONTAINER protection — block right-clicks for non-authorized players
         if (!sp.hasPermissions(2) && !buildZone.containsKey(sp.getUUID())) {
             BlockPos hit = event.getHitVec().getBlockPos();
             double cx = hit.getX() + 0.5, cy = hit.getY() + 0.5, cz = hit.getZ() + 0.5;
-            for (Zone z : zones.values())
-                if (z.enabled && !z.flag(ZoneFlag.INTERACT) && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
-                    sp.sendSystemMessage(Component.literal("§cInteraction interdite dans cette zone."), true);
-                    event.setCanceled(true);
-                    return;
-                }
+            if (!isAllowed(ZoneFlag.INTERACT, cx, cy, cz, sp.getUUID())) {
+                sp.sendSystemMessage(Component.literal("§cInteraction interdite dans cette zone."), true);
+                event.setCanceled(true);
+                return;
+            }
+            boolean isContainer = event.getLevel().getBlockEntity(hit) instanceof net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
+            if (isContainer && !isAllowed(ZoneFlag.CONTAINER, cx, cy, cz, sp.getUUID())) {
+                sp.sendSystemMessage(Component.literal("§cConteneurs interdits dans cette zone."), true);
+                event.setCanceled(true);
+                return;
+            }
         }
 
         // Build mode anti-glitch
@@ -339,13 +367,9 @@ public class ZoneCommand {
         if (buildZone.containsKey(sp.getUUID())) return; // builders are always allowed
         if (sp.hasPermissions(2)) return;                 // admins bypass passive protection
         BlockPos pos = event.getPos();
-        double cx = pos.getX() + 0.5, cy = pos.getY() + 0.5, cz = pos.getZ() + 0.5;
-        for (Zone z : zones.values()) {
-            if (z.enabled && !z.flag(ZoneFlag.BUILD) && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
-                sp.sendSystemMessage(Component.literal("§cZone protégée."), true);
-                event.setCanceled(true);
-                return;
-            }
+        if (!isAllowed(ZoneFlag.BUILD, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, sp.getUUID())) {
+            sp.sendSystemMessage(Component.literal("§cZone protégée."), true);
+            event.setCanceled(true);
         }
     }
 
@@ -355,45 +379,55 @@ public class ZoneCommand {
         if (buildZone.containsKey(sp.getUUID())) return;
         if (sp.hasPermissions(2)) return;
         BlockPos pos = event.getPos();
-        double cx = pos.getX() + 0.5, cy = pos.getY() + 0.5, cz = pos.getZ() + 0.5;
-        for (Zone z : zones.values()) {
-            if (z.enabled && !z.flag(ZoneFlag.BUILD) && z.contains(cx, cy, cz) && !z.isAuthorized(sp.getUUID())) {
-                sp.sendSystemMessage(Component.literal("§cZone protégée."), true);
-                event.setCanceled(true);
-                return;
-            }
+        if (!isAllowed(ZoneFlag.BUILD, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, sp.getUUID())) {
+            sp.sendSystemMessage(Component.literal("§cZone protégée."), true);
+            event.setCanceled(true);
         }
     }
 
-    // ─── Zone flag enforcement (PvP / mob spawns / explosions) ────────────────
+    // ─── Zone flag enforcement (PvP / mob spawns / explosions / items / cultures) ──
 
     private static void onZonePvp(net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer target)) return;
         if (!(event.getSource().getEntity() instanceof ServerPlayer)) return;
-        for (Zone z : zones.values())
-            if (z.enabled && !z.flag(ZoneFlag.PVP) && z.contains(target.getX(), target.getY(), target.getZ())) {
-                event.setCanceled(true);
-                return;
-            }
+        if (!isAllowed(ZoneFlag.PVP, target.getX(), target.getY(), target.getZ(), null))
+            event.setCanceled(true);
     }
 
     private static void onZoneMobSpawn(net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent event) {
         if (!(event.getEntity() instanceof net.minecraft.world.entity.monster.Monster mob)) return;
-        for (Zone z : zones.values())
-            if (z.enabled && !z.flag(ZoneFlag.MOB_SPAWN) && z.contains(mob.getX(), mob.getY(), mob.getZ())) {
-                event.setSpawnCancelled(true);
-                return;
-            }
+        if (!isAllowed(ZoneFlag.MOB_SPAWN, mob.getX(), mob.getY(), mob.getZ(), null))
+            event.setSpawnCancelled(true);
     }
 
     private static void onZoneExplosion(net.neoforged.neoforge.event.level.ExplosionEvent.Detonate event) {
         if (event.getLevel().isClientSide()) return;
-        event.getAffectedBlocks().removeIf(pos -> {
-            double cx = pos.getX() + 0.5, cy = pos.getY() + 0.5, cz = pos.getZ() + 0.5;
-            for (Zone z : zones.values())
-                if (z.enabled && !z.flag(ZoneFlag.EXPLOSIONS) && z.contains(cx, cy, cz)) return true;
-            return false;
-        });
+        event.getAffectedBlocks().removeIf(pos ->
+            !isAllowed(ZoneFlag.EXPLOSIONS, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, null));
+    }
+
+    private static void onItemToss(net.neoforged.neoforge.event.entity.item.ItemTossEvent event) {
+        if (!(event.getPlayer() instanceof ServerPlayer sp)) return;
+        if (sp.hasPermissions(2) || buildZone.containsKey(sp.getUUID())) return;
+        if (isAllowed(ZoneFlag.ITEM_DROP, sp.getX(), sp.getY(), sp.getZ(), sp.getUUID())) return;
+        // Annuler détruit l'entité item : on restitue le stack au joueur.
+        sp.getInventory().add(event.getEntity().getItem());
+        sp.sendSystemMessage(Component.literal("§cJeter des items est interdit dans cette zone."), true);
+        event.setCanceled(true);
+    }
+
+    private static void onItemPickup(net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent.Pre event) {
+        if (!(event.getPlayer() instanceof ServerPlayer sp)) return;
+        if (sp.hasPermissions(2) || buildZone.containsKey(sp.getUUID())) return;
+        var item = event.getItemEntity();
+        if (!isAllowed(ZoneFlag.ITEM_PICKUP, item.getX(), item.getY(), item.getZ(), sp.getUUID()))
+            event.setCanPickup(net.neoforged.neoforge.common.util.TriState.FALSE);
+    }
+
+    private static void onCropTrample(BlockEvent.FarmlandTrampleEvent event) {
+        BlockPos pos = event.getPos();
+        if (!isAllowed(ZoneFlag.CROP_TRAMPLE, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, null))
+            event.setCanceled(true);
     }
 
     // ─── Tick (called every server tick from Test) ────────────────────────────
@@ -417,6 +451,43 @@ public class ZoneCommand {
                 Zone z = zones.get(bEntry.getValue());
                 if (z == null) continue;
                 sendBoxParticles(player, z.min, z.max, (ServerLevel) player.level(), ParticleTypes.SOUL_FIRE_FLAME);
+            }
+        }
+
+        // Entry/exit action-bar messages — every 10 ticks
+        if (tick % 10 == 0) {
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                Zone cur = null;
+                for (Zone z : zones.values())
+                    if (z.enabled && z.contains(player.getX(), player.getY(), player.getZ())
+                        && (cur == null || z.priority > cur.priority)) cur = z;
+                String curName = cur == null ? null : cur.name;
+                String prev = lastZoneOf.get(player.getUUID());
+                if (!Objects.equals(prev, curName)) {
+                    Zone prevZone = prev != null ? zones.get(prev) : null;
+                    if (prevZone != null && !prevZone.farewell.isEmpty())
+                        player.sendSystemMessage(Component.literal("§7" + prevZone.farewell), true);
+                    if (cur != null && !cur.greeting.isEmpty())
+                        player.sendSystemMessage(Component.literal("§e" + cur.greeting), true);
+                    if (curName == null) lastZoneOf.remove(player.getUUID());
+                    else lastZoneOf.put(player.getUUID(), curName);
+                }
+            }
+        }
+
+        // ENTRY flag — push non-authorized players out of forbidden zones — every 5 ticks
+        if (tick % 5 == 0) {
+            for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+                if (player.hasPermissions(2) || buildZone.containsKey(player.getUUID())) continue;
+                if (player.isSpectator()) continue;
+                if (isAllowed(ZoneFlag.ENTRY, player.getX(), player.getY(), player.getZ(), player.getUUID())) continue;
+                Zone z = null;
+                for (Zone zo : zones.values())
+                    if (zo.enabled && !zo.flag(ZoneFlag.ENTRY)
+                        && zo.contains(player.getX(), player.getY(), player.getZ())
+                        && !zo.isAuthorized(player.getUUID())) { z = zo; break; }
+                if (z == null) continue;
+                pushOutOfZone(player, z);
             }
         }
 
@@ -458,6 +529,22 @@ public class ZoneCommand {
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+    /** Téléporte le joueur juste au-delà de la face horizontale (x/z) la plus proche de la zone. */
+    private static void pushOutOfZone(ServerPlayer player, Zone z) {
+        double west  = player.getX() - (z.min.getX() - 1.0);
+        double east  = (z.max.getX() + 2.0) - player.getX();
+        double north = player.getZ() - (z.min.getZ() - 1.0);
+        double south = (z.max.getZ() + 2.0) - player.getZ();
+        double min = Math.min(Math.min(west, east), Math.min(north, south));
+        double tx = player.getX(), tz = player.getZ();
+        if      (min == west)  tx = z.min.getX() - 1.0;
+        else if (min == east)  tx = z.max.getX() + 2.0;
+        else if (min == north) tz = z.min.getZ() - 1.0;
+        else                   tz = z.max.getZ() + 2.0;
+        player.connection.teleport(tx, player.getY(), tz, player.getYRot(), player.getXRot());
+        player.sendSystemMessage(Component.literal("§c⚠ L'accès à la zone §e" + z.name + " §cest interdit."), true);
+    }
 
     private static void sendBoxParticles(ServerPlayer player, BlockPos a, BlockPos b, ServerLevel level) {
         sendBoxParticles(player, a, b, level, ParticleTypes.FLAME);
@@ -715,7 +802,8 @@ public class ZoneCommand {
             sb.append(z.name).append("|")
               .append(z.min.getX()).append(",").append(z.min.getY()).append(",").append(z.min.getZ()).append("|")
               .append(z.max.getX()).append(",").append(z.max.getY()).append(",").append(z.max.getZ()).append("|")
-              .append(z.enabled);
+              .append(z.enabled).append("|")
+              .append(z.colorIdx);
         }
         PacketDistributor.sendToPlayer(player, new ZoneSyncPayload(sb.toString()));
     }
@@ -756,8 +844,12 @@ public class ZoneCommand {
             StringJoiner flagJoiner = new StringJoiner(";");
             for (ZoneFlag f : ZoneFlag.values()) flagJoiner.add(f.name() + ":" + (z.flag(f) ? "1" : "0"));
             sb.append(flagJoiner);
-            // Field 7 = enabled (zone active / désactivée).
+            // Field 7 = enabled, 8 = couleur, 9 = priorité, 10 = greeting, 11 = farewell.
             sb.append("|").append(z.enabled);
+            sb.append("|").append(z.colorIdx);
+            sb.append("|").append(z.priority);
+            sb.append("|").append(sanitizeMsg(z.greeting));
+            sb.append("|").append(sanitizeMsg(z.farewell));
         }
         String online = server.getPlayerList().getPlayers().stream()
             .map(p -> p.getName().getString())
@@ -765,9 +857,46 @@ public class ZoneCommand {
         PacketDistributor.sendToPlayer(player, new OpenZonePayload(sb.toString(), online));
     }
 
+    /** Les messages voyagent dans des formats délimités par | / \n / \t : on neutralise. */
+    private static String sanitizeMsg(String s) {
+        if (s == null) return "";
+        return s.replace("|", " ").replace("\n", " ").replace("\t", " ").trim();
+    }
+
     public static void handleAction(ZoneActionPayload payload, ServerPlayer admin, MinecraftServer server) {
         Zone z = zones.get(payload.zoneName());
         switch (payload.action()) {
+            case "CYCLE_COLOR" -> {
+                if (z != null) {
+                    z.colorIdx = Math.floorMod(z.colorIdx + 1, Zone.COLORS.length);
+                    Fabric.test.ZonePersistence.save();
+                    sendZoneScreen(admin, server);
+                    syncZonesAll(server);   // la couleur du wireframe change en direct
+                }
+            }
+            case "SET_PRIORITY" -> {
+                if (z != null) {
+                    try {
+                        z.priority = Math.max(-99, Math.min(99, Integer.parseInt(payload.value().trim())));
+                        Fabric.test.ZonePersistence.save();
+                        admin.sendSystemMessage(Component.literal(
+                            "§aPriorité de §e" + z.name + " §a→ §e" + z.priority + "§a."));
+                    } catch (NumberFormatException ignored) {
+                        admin.sendSystemMessage(Component.literal("§cPriorité invalide."));
+                    }
+                    sendZoneScreen(admin, server);
+                }
+            }
+            case "SET_MESSAGES" -> {
+                if (z != null) {
+                    String[] parts = payload.value().split("\t", -1);
+                    z.greeting = sanitizeMsg(parts.length > 0 ? parts[0] : "");
+                    z.farewell = sanitizeMsg(parts.length > 1 ? parts[1] : "");
+                    Fabric.test.ZonePersistence.save();
+                    admin.sendSystemMessage(Component.literal("§aMessages de §e" + z.name + " §amis à jour."));
+                    sendZoneScreen(admin, server);
+                }
+            }
             case "TP_ZONE" -> {
                 if (z != null) {
                     BlockPos c = z.center();

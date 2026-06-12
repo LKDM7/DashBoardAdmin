@@ -82,13 +82,15 @@ public class AdminScreen extends Screen {
     // Zones tab state
     private record ZoneData(int x1, int y1, int z1, int x2, int y2, int z2,
                              java.util.List<String[]> members, boolean nightVision,
-                             java.util.Map<Fabric.test.ZoneFlag, Boolean> flags, boolean enabled) {}
+                             java.util.Map<Fabric.test.ZoneFlag, Boolean> flags, boolean enabled,
+                             int colorIdx, int priority, String greeting, String farewell) {}
     private final java.util.Map<String, ZoneData> zoneMap      = new java.util.LinkedHashMap<>();
     private final java.util.List<String>          zoneOnline   = new java.util.ArrayList<>();
     private String  selectedZone   = null;
     private int     zoneListScroll = 0;
-    private int     zoneDetailTab  = 0; // 0=MEMBRES 1=COORDS 2=OPTIONS
-    private EditBox zMinXBox, zMinYBox, zMinZBox, zMaxXBox, zMaxYBox, zMaxZBox;
+    private int     zoneDetailTab  = 0; // 0=MEMBRES 1=COORDS 2=OPTIONS 3=MSG
+    private EditBox zMinXBox, zMinYBox, zMinZBox, zMaxXBox, zMaxYBox, zMaxZBox, zPriorityBox;
+    private EditBox zGreetingBox, zFarewellBox;
 
     // Layout (computed in init)
     private int px, py, pw, ph;
@@ -1228,7 +1230,7 @@ public class AdminScreen extends Screen {
         zoneOnline.clear();
         if (!payload.zonesSerialized().isEmpty()) {
             for (String line : payload.zonesSerialized().split("\n")) {
-                String[] f = line.split("\\|");
+                String[] f = line.split("\\|", -1);
                 if (f.length < 5) continue;
                 try {
                     String[] mn = f[1].split(","), mx = f[2].split(",");
@@ -1248,10 +1250,15 @@ public class AdminScreen extends Screen {
                             }
                         }
                     boolean enabled = f.length <= 7 || !"false".equals(f[7]); // défaut : activée
+                    int colorIdx    = f.length > 8 ? Integer.parseInt(f[8]) : 0;
+                    int priority    = f.length > 9 ? Integer.parseInt(f[9]) : 0;
+                    String greeting = f.length > 10 ? f[10] : "";
+                    String farewell = f.length > 11 ? f[11] : "";
                     zoneMap.put(f[0], new ZoneData(
                         Integer.parseInt(mn[0]), Integer.parseInt(mn[1]), Integer.parseInt(mn[2]),
                         Integer.parseInt(mx[0]), Integer.parseInt(mx[1]), Integer.parseInt(mx[2]),
-                        members, Boolean.parseBoolean(f[4]), flags, enabled));
+                        members, Boolean.parseBoolean(f[4]), flags, enabled,
+                        colorIdx, priority, greeting, farewell));
                 } catch (Exception ignored) {}
             }
         }
@@ -1295,9 +1302,9 @@ public class AdminScreen extends Screen {
         if (z == null) return;
 
         // Sub-tabs
-        int tabW = znDetW / 3;
-        String[] tabLabels = { "MEMBRES", "COORDS", "OPTIONS" };
-        for (int i = 0; i < 3; i++) {
+        int tabW = znDetW / 4;
+        String[] tabLabels = { "MEMBRES", "COORDS", "OPTIONS", "MSG" };
+        for (int i = 0; i < tabLabels.length; i++) {
             final int ti = i;
             boolean active = zoneDetailTab == i;
             Component lbl = Component.literal(tabLabels[i]).withStyle(
@@ -1312,6 +1319,7 @@ public class AdminScreen extends Screen {
             case 0 -> buildZoneMembers(z, znDetX, znDetW, contentTop, contentBot);
             case 1 -> buildZoneCoords(z, znDetX, znDetW, contentTop, contentBot);
             case 2 -> buildZoneOptions(z, znDetX, znDetW, contentTop, contentBot);
+            case 3 -> buildZoneMessages(z, znDetX, znDetW, contentTop, contentBot);
         }
     }
 
@@ -1356,6 +1364,13 @@ public class AdminScreen extends Screen {
                     zMaxXBox.getValue() + "," + zMaxYBox.getValue() + "," + zMaxZBox.getValue());
             } catch (Exception ignored) {}
         }).bounds(detX + detW - 106, top + 80, 98, 18).build());
+
+        // Priorité (zones superposées : la plus haute décide)
+        zPriorityBox = zBox(lx, top + 112, 36, String.valueOf(z.priority()));
+        zPriorityBox.setMaxLength(3);
+        addRenderableWidget(zPriorityBox);
+        addRenderableWidget(btn("§aOK", b -> sendZone("SET_PRIORITY", selectedZone, zPriorityBox.getValue()))
+            .bounds(lx + 42, top + 112, 30, 16).build());
     }
 
     private EditBox zBox(int x, int y, int w, String value) {
@@ -1368,7 +1383,7 @@ public class AdminScreen extends Screen {
     private void buildZoneOptions(ZoneData z, int detX, int detW, int top, int bot) {
         int w = detW - 8, lx = detX + 4;
         // Row height derived from available height so the list fits at any GUI scale.
-        int rows = 4 + Fabric.test.ZoneFlag.values().length;
+        int rows = 5 + Fabric.test.ZoneFlag.values().length;
         int rowH = Math.max(13, Math.min(20, (bot - top) / rows));
         int bh   = Math.max(12, rowH - 2);
         int y = top;
@@ -1379,6 +1394,11 @@ public class AdminScreen extends Screen {
 
         addRenderableWidget(btn("Vision nocturne : " + (z.nightVision() ? "§aON" : "§cOFF"),
             b -> sendZone("TOGGLE_NIGHT_VISION", selectedZone, "")).bounds(lx, y, w, bh).build());
+        y += rowH;
+
+        int cIdx = Math.floorMod(z.colorIdx(), Fabric.test.Zone.COLORS.length);
+        addRenderableWidget(btn("Couleur : " + Fabric.test.Zone.COLOR_NAMES[cIdx],
+            b -> sendZone("CYCLE_COLOR", selectedZone, "")).bounds(lx, y, w, bh).build());
         y += rowH;
 
         for (Fabric.test.ZoneFlag fl : Fabric.test.ZoneFlag.values()) {
@@ -1394,6 +1414,24 @@ public class AdminScreen extends Screen {
         addRenderableWidget(btn("§c§lSUPPRIMER LA ZONE",
             b -> { sendZone("DELETE_ZONE", selectedZone, ""); selectedZone = null; init(); })
             .bounds(lx, y, w, bh).build());
+    }
+
+    private void buildZoneMessages(ZoneData z, int detX, int detW, int top, int bot) {
+        int lx = detX + 8, w = detW - 16;
+
+        zGreetingBox = new EditBox(font, lx, top + 14, w, 16, Component.empty());
+        zGreetingBox.setMaxLength(100);
+        zGreetingBox.setValue(z.greeting());
+        addRenderableWidget(zGreetingBox);
+
+        zFarewellBox = new EditBox(font, lx, top + 52, w, 16, Component.empty());
+        zFarewellBox.setMaxLength(100);
+        zFarewellBox.setValue(z.farewell());
+        addRenderableWidget(zFarewellBox);
+
+        addRenderableWidget(btn("§aSAUVEGARDER", b ->
+            sendZone("SET_MESSAGES", selectedZone, zGreetingBox.getValue() + "\t" + zFarewellBox.getValue()))
+            .bounds(detX + detW - 106, top + 78, 98, 18).build());
     }
 
     private void renderZones(GuiGraphics g) {
@@ -1447,7 +1485,7 @@ public class AdminScreen extends Screen {
         g.fill(znDetX, py + 43, px + pw, py + 44, C_DIV);
 
         // Sub-tab highlight
-        int tabW = znDetW / 3;
+        int tabW = znDetW / 4;
         int tx = znDetX + tabW * zoneDetailTab;
         g.fill(tx, py + 44, tx + tabW - 1, py + 62, C_TABSEL);
         g.fill(tx, py + 60, tx + tabW - 1, py + 62, C_ACCENT);
@@ -1457,6 +1495,14 @@ public class AdminScreen extends Screen {
         int contentBot = py + ph - 5;
         if (zoneDetailTab == 0) renderZoneMembers(g, z, znDetX, znDetW, contentTop, contentBot);
         else if (zoneDetailTab == 1) renderZoneCoords(g, z, znDetX, znDetW, contentTop, contentBot);
+        else if (zoneDetailTab == 3) renderZoneMessages(g, z, znDetX, znDetW, contentTop, contentBot);
+    }
+
+    private void renderZoneMessages(GuiGraphics g, ZoneData z, int detX, int detW, int top, int bot) {
+        int lx = detX + 8;
+        g.drawString(font, "§7MESSAGE D'ENTRÉE", lx, top + 4, 0xFF888888);
+        g.drawString(font, "§7MESSAGE DE SORTIE", lx, top + 42, 0xFF888888);
+        g.drawString(font, "§8Affiché en action-bar. Vide = aucun message.", lx, top + 102, 0xFF444444);
     }
 
     private void renderZoneMembers(GuiGraphics g, ZoneData z, int detX, int detW, int top, int bot) {
@@ -1505,6 +1551,8 @@ public class AdminScreen extends Screen {
         g.drawString(font, "§8X", lx,               top + 50, 0xFF555555);
         g.drawString(font, "§8Y", lx + boxW + gap,  top + 50, 0xFF555555);
         g.drawString(font, "§8Z", lx+(boxW+gap)*2,  top + 50, 0xFF555555);
+
+        g.drawString(font, "§7PRIORITÉ §8(la plus haute décide)", lx, top + 101, 0xFF888888);
     }
 
     @Override public void renderBackground(net.minecraft.client.gui.GuiGraphics g, int mx, int my, float delta) {}

@@ -24,17 +24,19 @@ public class ZoneScreen extends Screen {
     private static final int LIST_W   = 118;
 
     private record ZoneData(int x1, int y1, int z1, int x2, int y2, int z2,
-                             List<String[]> members, boolean nightVision, Map<ZoneFlag, Boolean> flags) {}
+                             List<String[]> members, boolean nightVision, Map<ZoneFlag, Boolean> flags,
+                             int colorIdx, int priority, String greeting, String farewell) {}
 
     private final Map<String, ZoneData> zones         = new LinkedHashMap<>();
     private final List<String>          onlinePlayers = new ArrayList<>();
 
     private String  selected   = null;
     private int     listScroll = 0;
-    private int     detailTab  = 0; // 0=MEMBRES  1=COORDS  2=OPTIONS
+    private int     detailTab  = 0; // 0=MEMBRES  1=COORDS  2=OPTIONS  3=MSG
 
     // Coord edit boxes (created in buildCoords, read in SAUVEGARDER handler)
-    private EditBox minXBox, minYBox, minZBox, maxXBox, maxYBox, maxZBox;
+    private EditBox minXBox, minYBox, minZBox, maxXBox, maxYBox, maxZBox, priorityBox;
+    private EditBox greetingBox, farewellBox;
 
     // Layout — computed in init()
     private int px, py, pw, ph;
@@ -55,7 +57,7 @@ public class ZoneScreen extends Screen {
         onlinePlayers.clear();
         if (!payload.zonesSerialized().isEmpty()) {
             for (String line : payload.zonesSerialized().split("\n")) {
-                String[] f = line.split("\\|");
+                String[] f = line.split("\\|", -1);
                 if (f.length < 5) continue;
                 try {
                     String[] mn = f[1].split(","), mx = f[2].split(",");
@@ -75,10 +77,14 @@ public class ZoneScreen extends Screen {
                                 if (fl != null) flags.put(fl, kv[1].equals("1"));
                             }
                         }
+                    int colorIdx    = f.length > 8 ? Integer.parseInt(f[8]) : 0;
+                    int priority    = f.length > 9 ? Integer.parseInt(f[9]) : 0;
+                    String greeting = f.length > 10 ? f[10] : "";
+                    String farewell = f.length > 11 ? f[11] : "";
                     zones.put(f[0], new ZoneData(
                         Integer.parseInt(mn[0]), Integer.parseInt(mn[1]), Integer.parseInt(mn[2]),
                         Integer.parseInt(mx[0]), Integer.parseInt(mx[1]), Integer.parseInt(mx[2]),
-                        members, nightVision, flags));
+                        members, nightVision, flags, colorIdx, priority, greeting, farewell));
                 } catch (Exception ignored) {}
             }
         }
@@ -116,9 +122,9 @@ public class ZoneScreen extends Screen {
         if (z == null) return;
 
         // Sub-tabs
-        int tabW = detW / 3;
-        String[] tabLabels = { "MEMBRES", "COORDS", "OPTIONS" };
-        for (int i = 0; i < 3; i++) {
+        int tabW = detW / 4;
+        String[] tabLabels = { "MEMBRES", "COORDS", "OPTIONS", "MSG" };
+        for (int i = 0; i < tabLabels.length; i++) {
             final int ti = i;
             boolean active = detailTab == i;
             Component lbl = Component.literal(tabLabels[i]).withStyle(
@@ -134,6 +140,7 @@ public class ZoneScreen extends Screen {
             case 0 -> buildMembers(z, contentTop, contentBot);
             case 1 -> buildCoords(z, contentTop, contentBot);
             case 2 -> buildOptions(z, contentTop, contentBot);
+            case 3 -> buildMessages(z, contentTop, contentBot);
         }
     }
 
@@ -209,6 +216,13 @@ public class ZoneScreen extends Screen {
                     maxXBox.getValue() + "," + maxYBox.getValue() + "," + maxZBox.getValue());
             } catch (Exception ignored) {}
         }).bounds(detX + detW - 112, top + 84, 104, 18).build());
+
+        // Priorité (zones superposées : la plus haute décide)
+        priorityBox = box(lx, top + 112, 36, String.valueOf(z.priority()));
+        priorityBox.setMaxLength(3);
+        addRenderableWidget(priorityBox);
+        addRenderableWidget(btn("§aOK", b -> send("SET_PRIORITY", selected, priorityBox.getValue()))
+            .bounds(lx + 42, top + 112, 30, 16).build());
     }
 
     private EditBox box(int x, int y, int w, String value) {
@@ -222,15 +236,20 @@ public class ZoneScreen extends Screen {
 
     private void buildOptions(ZoneData z, int top, int bot) {
         int lx = detX + 4, w = detW - 8;
-        // 8 rows total (nightVision + flags + TP + delete). Row height is derived from the
+        // nightVision + couleur + flags + TP + delete. Row height is derived from the
         // available height so the list always fits the panel, whatever the GUI scale.
-        int rows = 3 + ZoneFlag.values().length;
+        int rows = 4 + ZoneFlag.values().length;
         int rowH = Math.max(13, Math.min(20, (bot - top) / rows));
         int bh   = Math.max(12, rowH - 2);
         int y = top;
 
         addRenderableWidget(btn("Vision nocturne : " + (z.nightVision() ? "§aON" : "§cOFF"),
             b -> send("TOGGLE_NIGHT_VISION", selected, "")).bounds(lx, y, w, bh).build());
+        y += rowH;
+
+        int cIdx = Math.floorMod(z.colorIdx(), Fabric.test.Zone.COLORS.length);
+        addRenderableWidget(btn("Couleur : " + Fabric.test.Zone.COLOR_NAMES[cIdx],
+            b -> send("CYCLE_COLOR", selected, "")).bounds(lx, y, w, bh).build());
         y += rowH;
 
         for (ZoneFlag fl : ZoneFlag.values()) {
@@ -245,6 +264,33 @@ public class ZoneScreen extends Screen {
         y += rowH;
         addRenderableWidget(btn("§c§lSUPPRIMER LA ZONE",
             b -> { send("DELETE_ZONE", selected, ""); selected = null; init(); }).bounds(lx, y, w, bh).build());
+    }
+
+    // ── MSG (messages d'entrée/sortie) ──────────────────────────────────────────
+
+    private void buildMessages(ZoneData z, int top, int bot) {
+        int lx = detX + 8, w = detW - 16;
+
+        greetingBox = new EditBox(font, lx, top + 14, w, 16, Component.empty());
+        greetingBox.setMaxLength(100);
+        greetingBox.setValue(z.greeting());
+        addRenderableWidget(greetingBox);
+
+        farewellBox = new EditBox(font, lx, top + 52, w, 16, Component.empty());
+        farewellBox.setMaxLength(100);
+        farewellBox.setValue(z.farewell());
+        addRenderableWidget(farewellBox);
+
+        addRenderableWidget(btn("§aSAUVEGARDER", b ->
+            send("SET_MESSAGES", selected, greetingBox.getValue() + "\t" + farewellBox.getValue()))
+            .bounds(detX + detW - 112, top + 78, 104, 18).build());
+    }
+
+    private void renderMessages(GuiGraphics g, ZoneData z, int top, int bot) {
+        int lx = detX + 8;
+        g.drawString(font, "§7MESSAGE D'ENTRÉE", lx, top + 4, 0xFF888888);
+        g.drawString(font, "§7MESSAGE DE SORTIE", lx, top + 42, 0xFF888888);
+        g.drawString(font, "§8Affiché en action-bar. Vide = aucun message.", lx, top + 102, 0xFF444444);
     }
 
     // ─── render ───────────────────────────────────────────────────────────────────
@@ -329,8 +375,8 @@ public class ZoneScreen extends Screen {
         g.fill(detX, py + 43, px + pw, py + 44, C_DIV);
 
         // Sub-tab highlight
-        int tabW = detW / 3;
-        if (detailTab >= 0 && detailTab < 3) {
+        int tabW = detW / 4;
+        if (detailTab >= 0 && detailTab < 4) {
             int tx = detX + tabW * detailTab;
             g.fill(tx, py + 46, tx + tabW - 1, py + 64, C_SEL);
             g.fill(tx, py + 62, tx + tabW - 1, py + 64, C_ACCENT);
@@ -344,6 +390,7 @@ public class ZoneScreen extends Screen {
             case 0 -> renderMembers(g, z, contentTop, contentBot);
             case 1 -> renderCoords(g, z, contentTop, contentBot);
             case 2 -> {} // buttons rendered via super.render()
+            case 3 -> renderMessages(g, z, contentTop, contentBot);
         }
     }
 
@@ -407,6 +454,8 @@ public class ZoneScreen extends Screen {
         g.drawString(font, "§8X", lx,               top + 50, 0xFF555555);
         g.drawString(font, "§8Y", lx + boxW + gap,  top + 50, 0xFF555555);
         g.drawString(font, "§8Z", lx+(boxW+gap)*2,  top + 50, 0xFF555555);
+
+        g.drawString(font, "§7PRIORITÉ §8(chevauchements : la plus haute décide)", lx, top + 101, 0xFF888888);
     }
 
     // ─── misc ─────────────────────────────────────────────────────────────────────

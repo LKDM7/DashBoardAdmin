@@ -801,12 +801,18 @@ public class SettingsScreen extends Screen {
         g.drawString(font, "§8RÈGLES DE LA ZONE", x, y, C_SEC);
         g.fill(x, y + 10, px + pw - 12, y + 11, C_DIV);
         y += 16;
-        for (String[] fl : buildFlags) {
+        // 2 colonnes pour que la liste (10 flags) tienne dans le panneau à toute échelle GUI
+        int perCol = (buildFlags.size() + 1) / 2;
+        int colW   = (px + pw - 12 - x) / 2;
+        int baseY  = y;
+        for (int i = 0; i < buildFlags.size(); i++) {
+            String[] fl = buildFlags.get(i);
             Fabric.test.ZoneFlag zf = Fabric.test.ZoneFlag.byName(fl[0]);
             String label = zf != null ? zf.label : fl[0];
-            g.drawString(font, "§7• " + label, x + 2, y, 0xFFAAAAAA);
-            g.drawString(font, "1".equals(fl[1]) ? "§aautorisé" : "§cbloqué", x + 134, y, 0xFFFFFFFF);
-            y += 12;
+            int fx = x + 2 + (i / perCol) * colW;
+            int fy = baseY + (i % perCol) * 12;
+            g.drawString(font, "§7• " + label, fx, fy, 0xFFAAAAAA);
+            g.drawString(font, "1".equals(fl[1]) ? "§aautorisé" : "§cbloqué", fx + colW - 52, fy, 0xFFFFFFFF);
         }
     }
 

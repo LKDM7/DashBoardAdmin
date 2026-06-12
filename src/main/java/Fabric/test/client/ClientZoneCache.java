@@ -22,9 +22,12 @@ import java.util.List;
 public final class ClientZoneCache {
 
     public record ClientZone(String name, int minX, int minY, int minZ,
-                             int maxX, int maxY, int maxZ, boolean enabled) {
+                             int maxX, int maxY, int maxZ, boolean enabled, int colorIdx) {
         public BlockPos center() {
             return new BlockPos((minX + maxX) / 2, (minY + maxY) / 2, (minZ + maxZ) / 2);
+        }
+        public int color() {
+            return Fabric.test.Zone.COLORS[Math.floorMod(colorIdx, Fabric.test.Zone.COLORS.length)];
         }
     }
 
@@ -52,10 +55,11 @@ public final class ClientZoneCache {
             try {
                 String[] mn = f[1].split(",");
                 String[] mx = f[2].split(",");
+                int colorIdx = f.length > 4 ? Integer.parseInt(f[4]) : 0;
                 parsed.add(new ClientZone(f[0],
                     Integer.parseInt(mn[0]), Integer.parseInt(mn[1]), Integer.parseInt(mn[2]),
                     Integer.parseInt(mx[0]), Integer.parseInt(mx[1]), Integer.parseInt(mx[2]),
-                    Boolean.parseBoolean(f[3])));
+                    Boolean.parseBoolean(f[3]), colorIdx));
             } catch (NumberFormatException | ArrayIndexOutOfBoundsException ignored) {}
         }
         zones = List.copyOf(parsed);

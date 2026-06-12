@@ -70,10 +70,13 @@ public final class ZoneOverlayRenderer {
             AABB box = new AABB(z.minX(), z.minY(), z.minZ(),
                                 z.maxX() + 1, z.maxY() + 1, z.maxZ() + 1);
             if (z.enabled()) {
-                LevelRenderer.renderLineBox(pose, lines, box, 0.30f, 1.00f, 0.40f, 0.90f);
+                int c = z.color();
+                LevelRenderer.renderLineBox(pose, lines, box,
+                    ((c >> 16) & 0xFF) / 255f, ((c >> 8) & 0xFF) / 255f, (c & 0xFF) / 255f, 0.90f);
             } else {
                 LevelRenderer.renderLineBox(pose, lines, box, 0.55f, 0.55f, 0.55f, 0.70f);
             }
+            renderZoneName(mc, pose, buffers, evt, z);
         }
 
         // ─── Sélection baguette en cours (jaune) ───────────────────────────────
@@ -91,6 +94,30 @@ public final class ZoneOverlayRenderer {
         }
 
         buffers.endBatch(RenderType.lines());
+        pose.popPose();
+    }
+
+    /** Nom de la zone en billboard au centre de la boîte (taille proportionnelle à la distance). */
+    private static void renderZoneName(Minecraft mc, PoseStack pose, MultiBufferSource buffers,
+                                       RenderLevelStageEvent evt, ClientZoneCache.ClientZone z) {
+        double nx = (z.minX() + z.maxX() + 1) / 2.0;
+        double ny = (z.minY() + z.maxY() + 1) / 2.0;
+        double nz = (z.minZ() + z.maxZ() + 1) / 2.0;
+        Vec3 cam = evt.getCamera().getPosition();
+        double dist = Math.sqrt(cam.distanceToSqr(nx, ny, nz));
+        if (dist < 2) return; // trop près : le texte gênerait
+        float scale = 0.025f * (float) Math.max(1.0, dist / 12.0);
+
+        pose.pushPose();
+        pose.translate(nx, ny, nz);
+        pose.mulPose(evt.getCamera().rotation());
+        pose.scale(scale, -scale, scale);
+        net.minecraft.client.gui.Font font = mc.font;
+        String label = z.name();
+        int color = 0xFF000000 | (z.enabled() ? z.color() : 0x8C8C8C);
+        font.drawInBatch(label, -font.width(label) / 2f, -4f, color, false,
+            pose.last().pose(), buffers, net.minecraft.client.gui.Font.DisplayMode.SEE_THROUGH,
+            0x55000000, net.minecraft.client.renderer.LightTexture.FULL_BRIGHT);
         pose.popPose();
     }
 

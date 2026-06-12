@@ -14,11 +14,16 @@ package Fabric.test;
  * </ul>
  */
 public enum ZoneFlag {
-    BUILD     ("Construction", true,  false),
-    INTERACT  ("Interaction",  true,  false),
-    PVP       ("PvP",          true,  true),
-    MOB_SPAWN ("Spawn mobs",   true,  true),
-    EXPLOSIONS("Explosions",   true,  true);
+    BUILD       ("Construction",   true,  false),
+    INTERACT    ("Interaction",    true,  false),
+    CONTAINER   ("Conteneurs",     true,  false),
+    ENTRY       ("Entrée",         true,  false),
+    ITEM_DROP   ("Jeter items",    true,  false),
+    ITEM_PICKUP ("Ramasser items", true,  false),
+    PVP         ("PvP",            true,  true),
+    MOB_SPAWN   ("Spawn mobs",     true,  true),
+    EXPLOSIONS  ("Explosions",     true,  true),
+    CROP_TRAMPLE("Piétinement",    true,  true);
 
     /** Short label shown in the admin GUI. */
     public final String  label;

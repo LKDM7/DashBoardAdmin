@@ -36,6 +36,10 @@ public class AdminScreen extends Screen {
     private java.util.Set<String>         mutedPlayers    = new java.util.HashSet<>();
     private java.util.Set<String>         frozenPlayers   = new java.util.HashSet<>();
     private java.util.Set<String>         keepInvPlayers  = new java.util.HashSet<>();
+    private java.util.Set<String>         afkPlayers      = new java.util.HashSet<>();
+    private final java.util.List<String[]> offlinePlayers = new java.util.ArrayList<>(); // [nom, lastSeenMs]
+    private String[] serverStats = null; // tps|mspt|ramU|ramM|entités|chunks|uptimeSec
+    private boolean  selOffline  = false;
     private java.util.Map<String, String> reports         = new java.util.LinkedHashMap<>();
     private java.util.Map<String, String> acceptedReports = new java.util.LinkedHashMap<>();
     private java.util.Map<String, String> closedReports   = new java.util.LinkedHashMap<>();
@@ -106,7 +110,27 @@ public class AdminScreen extends Screen {
 
     public AdminScreen(AdminCommand.OpenAdminGuiPayload payload) {
         super(Component.literal("ADMIN DASHBOARD"));
+        applyPayload(payload);
+    }
+
+    /** Rafraîchissement en place (action REFRESH_ADMIN) : recharge les données, garde l'onglet. */
+    public void onAdminRefresh(AdminCommand.OpenAdminGuiPayload payload) {
+        mutedPlayers.clear(); frozenPlayers.clear(); keepInvPlayers.clear(); afkPlayers.clear();
+        reports.clear(); acceptedReports.clear(); closedReports.clear();
+        schedBroadcasts.clear(); bannedPlayers.clear(); availableGroups.clear(); offlinePlayers.clear();
+        applyPayload(payload);
+        init();
+    }
+
+    private void applyPayload(AdminCommand.OpenAdminGuiPayload payload) {
         this.pvpEnabled = payload.pvpEnabled();
+        parseList(payload.afkPlayers(),          afkPlayers);
+        if (!payload.offlinePlayers().isEmpty())
+            for (String entry : payload.offlinePlayers().split(";")) {
+                int ci = entry.lastIndexOf(':');
+                if (ci > 0) offlinePlayers.add(new String[]{ entry.substring(0, ci), entry.substring(ci + 1) });
+            }
+        serverStats = payload.serverStats().isEmpty() ? null : payload.serverStats().split("\\|");
         parseList(payload.mutedPlayers(),        mutedPlayers);
         parseList(payload.frozenPlayers(),        frozenPlayers);
         parseList(payload.keepInventoryPlayers(), keepInvPlayers);
@@ -346,9 +370,31 @@ public class AdminScreen extends Screen {
         addRenderableWidget(btn("REMOVE MOBS", b -> { isRemovingMobs = true; init(); }).bounds(lx + 96,  oy, 92, 20).build());
         addRenderableWidget(btn("SET SPAWN",   b -> send("SET_SPAWN", "", "")).bounds(lx,      oy + 26, 92, 20).build());
         addRenderableWidget(btn("VANISH",      b -> send("VANISH",    "", "")).bounds(lx + 96, oy + 26, 92, 20).build());
+
+        // Santé serveur — bouton de rafraîchissement (les stats sont un instantané)
+        addRenderableWidget(btn("§b⟳", b -> send("REFRESH_ADMIN", "", ""))
+            .bounds(px + pw - 26, oy + 56, 18, 14).build());
     }
 
     // ─── JOUEURS ─────────────────────────────────────────────────────────────────
+
+    /** Y du haut de la section HORS LIGNE — formule partagée entre init() et render(). */
+    private int offlineSectionTop() {
+        return py + 48 + filteredPlayers().size() * 16 + 8 + bannedPlayers.size() * 18
+            + (bannedPlayers.isEmpty() ? 0 : 6);
+    }
+
+    /** Réplique client de Test.formatTimeAgo (la fiche Activité reçoit des timestamps bruts). */
+    private static String timeAgo(long timestamp) {
+        long sec = (System.currentTimeMillis() - timestamp) / 1000;
+        if (sec < 60)   return sec + "s";
+        long min = sec / 60;
+        if (min < 60)   return min + " min";
+        long hr = min / 60;
+        if (hr < 24)    return hr + "h" + (min % 60 > 0 ? min % 60 : "");
+        long day = hr / 24;
+        return day + "j" + (hr % 24 > 0 ? " " + hr % 24 + "h" : "");
+    }
 
     /** Joueurs en ligne filtrés par la recherche — même liste pour init() et render() (têtes). */
     private java.util.List<PlayerInfo> filteredPlayers() {
@@ -376,11 +422,14 @@ public class AdminScreen extends Screen {
             boolean sel = name.equals(selPlayer);
             String dot = mutedPlayers.contains(name)   ? "§c■" :
                          frozenPlayers.contains(name)  ? "§b■" :
+                         afkPlayers.contains(name)     ? "§e■" :
                          keepInvPlayers.contains(name) ? "§a■" : "";
             Component lbl = Component.literal((sel ? "§f§l" : "§7") + name + (dot.isEmpty() ? "" : " " + dot));
             addRenderableWidget(Button.builder(lbl, b -> {
                 selPlayer   = name;
+                selOffline  = false;
                 selGamemode = info.getGameMode().getName().toUpperCase();
+                send("GET_SANCTIONS", "", ""); // alimente la fiche Activité
                 init();
             }).bounds(cx + 16, yOff, 78, 14).build());
             yOff += 16;
@@ -398,7 +447,39 @@ public class AdminScreen extends Screen {
             yOff += 18;
         }
 
+        // Section HORS LIGNE (consultation logs / sanctions / dernière connexion)
+        if (!offlinePlayers.isEmpty()) {
+            int offY = offlineSectionTop() + 12;
+            int maxBottom = py + ph - 8;
+            for (String[] off : offlinePlayers) {
+                if (offY + 13 > maxBottom) break;
+                final String name = off[0];
+                boolean sel = name.equals(selPlayer);
+                addRenderableWidget(Button.builder(
+                    Component.literal((sel ? "§f§l" : "§8") + truncate(name, 11)), b -> {
+                        selPlayer   = name;
+                        selOffline  = true;
+                        selGamemode = "HORS LIGNE";
+                        send("GET_SANCTIONS", "", "");
+                        init();
+                    }).bounds(cx + 4, offY, 90, 12).build());
+                offY += 14;
+            }
+        }
+
         if (selPlayer == null) return;
+
+        if (selOffline) {
+            // Joueur hors ligne : seules les consultations ont un sens.
+            int divX2 = cx + 98;
+            int areaW2 = px + pw - divX2 - 6;
+            int bw2 = Math.max(60, Math.min(120, areaW2 - 16));
+            addRenderableWidget(btn("§eLOGS", b -> {
+                logsPlayer = null; logsEntries = new java.util.ArrayList<>(); logsScroll = 0;
+                send("GET_LOGS", selPlayer, ""); currentTab = 5; init();
+            }).bounds(divX2 + 2 + (areaW2 - bw2) / 2, py + 68, bw2, 20).build());
+            return;
+        }
 
         int divX = cx + 98;
         int areaW = px + pw - divX - 6;
@@ -822,6 +903,45 @@ public class AdminScreen extends Screen {
         lbl(g, "MÉTÉO",  lx, py + 90); g.fill(lx, py + 100, px + pw - 12, py + 101, C_DIV);
         g.fill(cx, py + 150, px + pw, py + 167, 0x0AFFFFFF);
         lbl(g, "OUTILS", lx, py + 155); g.fill(lx, py + 165, px + pw - 12, py + 166, C_DIV);
+
+        // ── Santé serveur ────────────────────────────────────────────────────
+        int oy = py + 168;
+        int sY = oy + 54;
+        g.fill(cx, sY, px + pw, sY + 17, 0x0AFFFFFF);
+        lbl(g, "SANTÉ SERVEUR", lx, sY + 5); g.fill(lx, sY + 15, px + pw - 12, sY + 16, C_DIV);
+        if (serverStats == null || serverStats.length < 7) {
+            g.drawString(font, "§8Indisponible", lx, sY + 22, 0xFF444444);
+            return;
+        }
+        double tps = 0, mspt = 0;
+        long ramU = 0, ramM = 1;
+        try {
+            tps  = Double.parseDouble(serverStats[0]);
+            mspt = Double.parseDouble(serverStats[1]);
+            ramU = Long.parseLong(serverStats[2]);
+            ramM = Long.parseLong(serverStats[3]);
+        } catch (NumberFormatException ignored) {}
+        String tpsCol = tps >= 18 ? "§a" : tps >= 14 ? "§e" : "§c";
+        long upSec = 0;
+        try { upSec = Long.parseLong(serverStats[6]); } catch (NumberFormatException ignored) {}
+        String uptime = upSec >= 3600 ? (upSec / 3600) + "h" + (upSec % 3600) / 60 + "m"
+                                       : (upSec / 60) + "m" + (upSec % 60) + "s";
+
+        int line = sY + 22;
+        g.drawString(font, "§7TPS : " + tpsCol + serverStats[0] + " §8(" + serverStats[1] + " ms/tick)", lx, line, 0xFFAAAAAA);
+        line += 12;
+        // RAM : texte + barre de progression
+        g.drawString(font, "§7RAM : §f" + ramU + " §7/ " + ramM + " Mo", lx, line, 0xFFAAAAAA);
+        int barX = lx + 130, barW = px + pw - 40 - barX;
+        if (barW > 30) {
+            float frac = Math.min(1f, (float) ramU / Math.max(1, ramM));
+            int fillCol = frac < 0.7f ? 0xFF00CC44 : frac < 0.9f ? 0xFFFFAA00 : 0xFFFF4444;
+            g.fill(barX, line + 1, barX + barW, line + 7, 0x33FFFFFF);
+            g.fill(barX, line + 1, barX + (int)(barW * frac), line + 7, fillCol);
+        }
+        line += 12;
+        g.drawString(font, "§7Entités : §f" + serverStats[4] + "   §7Chunks : §f" + serverStats[5]
+            + "   §7Uptime : §f" + uptime, lx, line, 0xFFAAAAAA);
     }
 
     private void renderJoueurs(GuiGraphics g) {
@@ -855,6 +975,13 @@ public class AdminScreen extends Screen {
             }
         }
 
+        // Section HORS LIGNE (en-tête + dernière connexion en sous-texte des boutons)
+        if (!offlinePlayers.isEmpty()) {
+            int offTop = offlineSectionTop();
+            g.drawString(font, "HORS LIGNE", cx + 6, offTop, 0xFF888888);
+            g.fill(cx + 4, offTop + 8, cx + 94, offTop + 9, C_DIV);
+        }
+
         if (selPlayer == null) {
             g.drawCenteredString(font, "§8← Sélectionnez", cx + 49, py + ph / 2, 0xFF555555);
             return;
@@ -873,15 +1000,52 @@ public class AdminScreen extends Screen {
         g.drawString(font, " §8[" + selGamemode + "]", gmX, py + 31, 0xFFFFFFFF);
         g.fill(divX + 1, py + 45, px + pw, py + 46, C_DIV);
 
-        // Mirror the adaptive column layout from buildPlayerActions so the labels stay above their columns.
-        int areaW  = px + pw - divX - 6;
-        int gap    = 8;
-        int bw     = Math.max(60, Math.min(100, (areaW - gap) / 2));
-        int totalW = bw * 2 + gap;
-        int lCol   = divX + 2 + (areaW - totalW) / 2;
-        int rCol   = lCol + bw + gap;
-        lbl(g, "ACTIONS",    lCol, py + 53);
-        lbl(g, "MODÉRATION", rCol, py + 53);
+        if (!selOffline) {
+            // Mirror the adaptive column layout from buildPlayerActions so the labels stay above their columns.
+            int areaW  = px + pw - divX - 6;
+            int gap    = 8;
+            int bw     = Math.max(60, Math.min(100, (areaW - gap) / 2));
+            int totalW = bw * 2 + gap;
+            int lCol   = divX + 2 + (areaW - totalW) / 2;
+            int rCol   = lCol + bw + gap;
+            lbl(g, "ACTIONS",    lCol, py + 53);
+            lbl(g, "MODÉRATION", rCol, py + 53);
+        }
+
+        renderActivityCard(g, divX);
+    }
+
+    /** Fiche Activité du joueur sélectionné : dernière connexion, sanctions, reports déposés. */
+    private void renderActivityCard(GuiGraphics g, int divX) {
+        int top = py + ph - 46;
+        g.fill(divX + 1, top - 2, px + pw, top - 1, C_DIV);
+        g.fill(divX + 1, top - 1, px + pw, py + ph - 3, 0x0DFFFFFF);
+        lbl(g, "ACTIVITÉ", divX + 8, top + 2);
+
+        String seen = "§aen ligne";
+        if (selOffline) {
+            seen = "§7?";
+            for (String[] off : offlinePlayers)
+                if (off[0].equals(selPlayer)) {
+                    try { seen = "§7il y a " + timeAgo(Long.parseLong(off[1])); } catch (NumberFormatException ignored) {}
+                    break;
+                }
+        }
+
+        long sanctionCount = sanctionsEntries.stream().filter(e -> e[2].equalsIgnoreCase(selPlayer)).count();
+        String lastSanction = sanctionsEntries.stream().filter(e -> e[2].equalsIgnoreCase(selPlayer))
+            .findFirst().map(e -> e[1] + " " + e[0]).orElse(null); // entries arrivent du plus récent au plus ancien
+        long reportCount = java.util.stream.Stream.of(reports, acceptedReports, closedReports)
+            .flatMap(m -> m.keySet().stream()).filter(n -> n.equalsIgnoreCase(selPlayer)).count();
+
+        g.drawString(font, "§7Vu : " + seen, divX + 8, top + 13, 0xFFAAAAAA);
+        String sancTxt = sanctionsEntries.isEmpty() && sanctionCount == 0
+            ? "§7Sanctions : §8—"
+            : "§7Sanctions : " + (sanctionCount == 0 ? "§a0" : "§c" + sanctionCount
+                + (lastSanction != null ? " §8(dernier : " + lastSanction + ")" : ""));
+        g.drawString(font, sancTxt, divX + 8, top + 24, 0xFFAAAAAA);
+        g.drawString(font, "§7Reports déposés : " + (reportCount == 0 ? "§80" : "§e" + reportCount),
+            divX + 8, top + 35, 0xFFAAAAAA);
     }
 
     private void renderChat(GuiGraphics g) {

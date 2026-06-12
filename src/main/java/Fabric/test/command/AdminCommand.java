@@ -7,6 +7,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -16,24 +17,30 @@ public class AdminCommand {
         dispatcher.register(Commands.literal("admin")
             .requires(source -> source.hasPermission(2))
             .executes(context -> {
-                ServerPlayer player = context.getSource().getPlayerOrException();
-                net.minecraft.server.MinecraftServer server = context.getSource().getServer();
-                PacketDistributor.sendToPlayer(player, new OpenAdminGuiPayload(
-                    Fabric.test.Test.isPvpEnabled(),
-                    Fabric.test.Test.getMutedPlayerNames(server),
-                    Fabric.test.Test.getFrozenPlayerNames(server),
-                    Fabric.test.Test.getReportsSerialized(),
-                    Fabric.test.Test.getKeepInventoryPlayerNames(server),
-                    Fabric.test.Test.getAcceptedReportsSerialized(),
-                    Fabric.test.Test.getClosedReportsSerialized(),
-                    Fabric.test.Test.getScheduledBroadcastsSerialized(),
-                    Fabric.test.Test.getCooldownsSerialized(),
-                    Fabric.test.Test.getFeaturesSerialized(),
-                    Fabric.test.Test.getBannedPlayersSerialized(server),
-                    Fabric.test.GroupManager.getGroupsSerialized(server)
-                ));
+                sendAdminGui(context.getSource().getPlayerOrException(), context.getSource().getServer());
                 return 1;
             }));
+    }
+
+    /** Construit et envoie le payload du dashboard admin (utilisé par /admin et REFRESH_ADMIN). */
+    public static void sendAdminGui(ServerPlayer player, MinecraftServer server) {
+        PacketDistributor.sendToPlayer(player, new OpenAdminGuiPayload(
+            Fabric.test.Test.isPvpEnabled(),
+            Fabric.test.Test.getMutedPlayerNames(server),
+            Fabric.test.Test.getFrozenPlayerNames(server),
+            Fabric.test.Test.getReportsSerialized(),
+            Fabric.test.Test.getKeepInventoryPlayerNames(server),
+            Fabric.test.Test.getAcceptedReportsSerialized(),
+            Fabric.test.Test.getClosedReportsSerialized(),
+            Fabric.test.Test.getScheduledBroadcastsSerialized(),
+            Fabric.test.Test.getCooldownsSerialized(),
+            Fabric.test.Test.getFeaturesSerialized(),
+            Fabric.test.Test.getBannedPlayersSerialized(server),
+            Fabric.test.GroupManager.getGroupsSerialized(server),
+            Fabric.test.Test.getAfkPlayerNames(server),
+            Fabric.test.Test.getOfflinePlayersSerialized(server),
+            Fabric.test.Test.getServerStatsSerialized(server)
+        ));
     }
 
     public record OpenAdminGuiPayload(
@@ -48,7 +55,10 @@ public class AdminCommand {
         String cooldowns,
         String features,
         String bannedPlayers,
-        String groupsSerialized
+        String groupsSerialized,
+        String afkPlayers,
+        String offlinePlayers,
+        String serverStats
     ) implements CustomPacketPayload {
         public static final Type<OpenAdminGuiPayload> TYPE = new Type<>(ModMessages.OPEN_ADMIN_GUI);
         public static final StreamCodec<FriendlyByteBuf, OpenAdminGuiPayload> CODEC = StreamCodec.of(
@@ -65,11 +75,15 @@ public class AdminCommand {
                 buf.writeUtf(p.features);
                 buf.writeUtf(p.bannedPlayers);
                 buf.writeUtf(p.groupsSerialized);
+                buf.writeUtf(p.afkPlayers);
+                buf.writeUtf(p.offlinePlayers);
+                buf.writeUtf(p.serverStats);
             },
             buf -> new OpenAdminGuiPayload(
                 buf.readBoolean(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
                 buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
-                buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf()
+                buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
+                buf.readUtf(), buf.readUtf(), buf.readUtf()
             )
         );
         @Override

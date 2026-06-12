@@ -207,7 +207,20 @@ public class DashNetworking {
             }
             case "SET_MAX_HOMES"  -> { try { Test.setMaxHomes(Integer.parseInt(payload.value())); ServerConfig.save(); admin.sendSystemMessage(Component.literal("§aMax homes fixé à §e" + Test.getMaxHomes() + "§a.")); } catch (NumberFormatException ignored) {} }
             case "SET_WEBHOOKS"   -> { Test.setWebhookReports(payload.target()); Test.setWebhookSanctions(payload.value()); ServerConfig.save(); admin.sendSystemMessage(Component.literal("§aWebhooks Discord mis à jour.")); }
-            case "GET_LOGS"       -> { if (target != null) { java.util.List<String> logs = Test.getPlayerLogs().getOrDefault(target.getUUID(), java.util.Collections.emptyList()); int from = Math.max(0, logs.size() - 100); String serialized = logs.isEmpty() ? "" : String.join("\n", logs.subList(from, logs.size())); PacketDistributor.sendToPlayer(admin, new PlayerLogsPayload(target.getName().getString(), serialized)); } }
+            case "GET_LOGS" -> {
+                // Fonctionne aussi pour un joueur hors ligne (résolution via le cache de noms).
+                java.util.UUID logsUuid = target != null ? target.getUUID()
+                    : Test.getPlayerNameCache().entrySet().stream()
+                        .filter(e -> e.getValue().equalsIgnoreCase(payload.target()))
+                        .map(java.util.Map.Entry::getKey).findFirst().orElse(null);
+                if (logsUuid != null) {
+                    java.util.List<String> logs = Test.getPlayerLogs().getOrDefault(logsUuid, java.util.Collections.emptyList());
+                    int from = Math.max(0, logs.size() - 100);
+                    String serialized = logs.isEmpty() ? "" : String.join("\n", logs.subList(from, logs.size()));
+                    PacketDistributor.sendToPlayer(admin, new PlayerLogsPayload(payload.target(), serialized));
+                }
+            }
+            case "REFRESH_ADMIN" -> AdminCommand.sendAdminGui(admin, admin.getServer());
             case "BAN" -> {
                 if (target != null) {
                     String[] banParts = payload.value().split("\t", 2);

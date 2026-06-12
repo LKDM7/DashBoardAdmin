@@ -18,8 +18,11 @@ public class DashClientNetworking {
         PayloadRegistrar reg = event.registrar("1");
 
         reg.playToClient(AdminCommand.OpenAdminGuiPayload.TYPE, AdminCommand.OpenAdminGuiPayload.CODEC,
-            (payload, ctx) -> ctx.enqueueWork(() ->
-                Minecraft.getInstance().setScreen(new AdminScreen(payload))));
+            (payload, ctx) -> ctx.enqueueWork(() -> {
+                Screen cur = Minecraft.getInstance().screen;
+                if (cur instanceof AdminScreen as) as.onAdminRefresh(payload); // garde l'onglet courant
+                else Minecraft.getInstance().setScreen(new AdminScreen(payload));
+            }));
 
         reg.playToClient(OpenSettingsPayload.TYPE, OpenSettingsPayload.CODEC,
             (payload, ctx) -> ctx.enqueueWork(() -> {

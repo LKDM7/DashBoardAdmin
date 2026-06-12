@@ -264,6 +264,35 @@ public class Test {
         }
         return sb.toString();
     }
+    public static String getAfkPlayerNames(net.minecraft.server.MinecraftServer server) {
+        return afkPlayers.entrySet().stream().filter(java.util.Map.Entry::getValue).map(e -> server.getPlayerList().getPlayer(e.getKey())).filter(p -> p != null).map(p -> p.getName().getString()).collect(java.util.stream.Collectors.joining(";"));
+    }
+    /** Joueurs connus mais hors ligne : "nom:lastSeenMs;..." triés du plus récent au plus ancien (20 max). */
+    public static String getOfflinePlayersSerialized(net.minecraft.server.MinecraftServer server) {
+        java.util.Set<java.util.UUID> online = new java.util.HashSet<>();
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) online.add(p.getUUID());
+        return lastSeenTimestamps.entrySet().stream()
+            .filter(e -> !online.contains(e.getKey()) && playerNameCache.containsKey(e.getKey()))
+            .sorted(java.util.Map.Entry.<java.util.UUID, Long>comparingByValue().reversed())
+            .limit(20)
+            .map(e -> playerNameCache.get(e.getKey()) + ":" + e.getValue())
+            .collect(java.util.stream.Collectors.joining(";"));
+    }
+    /** Santé serveur : "tps|mspt|ramUsedMo|ramMaxMo|entités|chunks|uptimeSec". */
+    public static String getServerStatsSerialized(net.minecraft.server.MinecraftServer server) {
+        double mspt = server.getAverageTickTimeNanos() / 1.0e6;
+        double tps  = Math.min(20.0, 1000.0 / Math.max(mspt, 0.001));
+        long ramUsed = (Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()) / (1024 * 1024);
+        long ramMax  = Runtime.getRuntime().maxMemory() / (1024 * 1024);
+        int entities = 0, chunks = 0;
+        for (ServerLevel level : server.getAllLevels()) {
+            for (Entity ignored : level.getAllEntities()) entities++;
+            chunks += level.getChunkSource().getLoadedChunksCount();
+        }
+        long uptimeSec = server.getTickCount() / 20L;
+        return String.format(java.util.Locale.ROOT, "%.1f|%.1f|%d|%d|%d|%d|%d",
+            tps, mspt, ramUsed, ramMax, entities, chunks, uptimeSec);
+    }
     public static String getKeepInventoryPlayerNames(net.minecraft.server.MinecraftServer server) {
         return playerSettings.entrySet().stream().filter(e -> e.getValue().keepInventory).map(e -> server.getPlayerList().getPlayer(e.getKey())).filter(p -> p != null).map(p -> p.getName().getString()).collect(java.util.stream.Collectors.joining(";"));
     }

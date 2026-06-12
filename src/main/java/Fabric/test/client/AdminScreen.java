@@ -933,6 +933,15 @@ public class AdminScreen extends Screen {
     public void render(GuiGraphics g, int mx, int my, float delta) {
         g.fill(0, 0, this.width, this.height, 0xB0000000);
 
+        // L'overlay NOTES remplace tout l'écran : dessiner le contenu en dessous ferait
+        // remonter ses textes au-dessus du panneau (les fills sont rendus avant les
+        // textes dans le batch GUI, quel que soit l'ordre d'appel).
+        if (showNotesList) {
+            renderNotesOverlay(g);
+            super.render(g, mx, my, delta);
+            return;
+        }
+
         g.fill(cx, py, px + pw, py + ph, C_BG);
         g.fill(px, py, cx,      py + ph, C_SIDE);
 
@@ -967,16 +976,23 @@ public class AdminScreen extends Screen {
             midX, py + 9, 0xFFFFFFFF);
         g.fill(cx, py + 25, px + pw, py + 26, C_DIV);
 
-        switch (currentTab) {
-            case 0 -> renderMonde(g);
-            case 1 -> renderJoueurs(g);
-            case 2 -> renderChat(g);
-            case 3 -> renderFeatures(g);
-            case 4 -> renderReports(g);
-            case 5 -> renderLogs(g);
-            case 6 -> renderZones(g);
-            case 7 -> renderSanctions(g);
-            case 8 -> renderWarps(g);
+        // Texte du contenu masqué quand un dialogue/overlay est ouvert : le batching GUI
+        // rend les textes après les fills, ils traverseraient sinon le panneau du dialogue.
+        boolean dialogOpen = confirmUnbanPlayer != null || isBanning || isKicking
+            || isRemovingMobs || isRestarting
+            || (reportImagePlayer != null && reportOverlayTexLoc != null);
+        if (!dialogOpen) {
+            switch (currentTab) {
+                case 0 -> renderMonde(g);
+                case 1 -> renderJoueurs(g);
+                case 2 -> renderChat(g);
+                case 3 -> renderFeatures(g);
+                case 4 -> renderReports(g);
+                case 5 -> renderLogs(g);
+                case 6 -> renderZones(g);
+                case 7 -> renderSanctions(g);
+                case 8 -> renderWarps(g);
+            }
         }
 
         // Dialog overlays
@@ -1005,54 +1021,6 @@ public class AdminScreen extends Screen {
             }
             if (isRestarting) {
                 g.drawString(font, "§8Délai avant arrêt (annonces auto) :", dx + 10, dy + 26, 0xFF555555);
-            }
-        }
-
-        // Notes admin overlay
-        if (showNotesList) {
-            int ow = Math.min(380, width - 40), oh = ph - 16;
-            int ox = (width - ow) / 2, ot = py + 8;
-            g.fill(0, 0, this.width, this.height, 0xAA000000);
-            g.fill(ox, ot, ox + ow, ot + oh, 0xFF1A1A1A);
-            g.fill(ox, ot, ox + ow, ot + 2, C_ACCENT);
-            g.drawCenteredString(font,
-                Component.literal("NOTES ADMIN").withStyle(s -> s.withColor(0x00E5FF).withBold(true)),
-                ox + ow / 2, ot + 8, 0xFFFFFFFF);
-
-            int listTop = ot + 22, listBot = ot + oh - 26;
-            if (adminNotes.isEmpty()) {
-                g.drawCenteredString(font, "§8Aucune note enregistrée", ox + ow / 2, (listTop + listBot) / 2 - 4, 0xFF444444);
-                g.drawCenteredString(font, "§8Sélectionnez un joueur puis remplissez le champ Note.", ox + ow / 2, (listTop + listBot) / 2 + 8, 0xFF333333);
-            } else {
-                java.util.List<String> names = new java.util.ArrayList<>(adminNotes.keySet());
-                java.util.Collections.sort(names);
-                int entryH = 24;
-                int maxVis = Math.max(1, (listBot - listTop) / entryH);
-                int maxScroll = Math.max(0, names.size() - maxVis);
-                notesScroll = Math.max(0, Math.min(notesScroll, maxScroll));
-
-                g.enableScissor(ox + 2, listTop, ox + ow - 8, listBot);
-                int y = listTop;
-                for (int i = notesScroll; i < names.size() && i < notesScroll + maxVis; i++) {
-                    String name = names.get(i);
-                    if (i % 2 == 0) g.fill(ox + 4, y, ox + ow - 10, y + entryH - 2, C_ROW);
-                    g.fill(ox + 4, y, ox + 5, y + entryH - 2, 0xFFFFAA00);
-                    g.drawString(font, "§e" + name, ox + 10, y + 2, 0xFFFFFFFF);
-                    String note = adminNotes.get(name);
-                    while (font.width("§7" + note) > ow - 24 && note.length() > 1)
-                        note = note.substring(0, note.length() - 1);
-                    g.drawString(font, "§7" + note + (note.equals(adminNotes.get(name)) ? "" : "…"), ox + 10, y + 12, 0xFFAAAAAA);
-                    y += entryH;
-                }
-                g.disableScissor();
-
-                if (names.size() > maxVis) {
-                    int sbX = ox + ow - 7, sbH = listBot - listTop;
-                    int thumbH = Math.max(8, sbH * maxVis / names.size());
-                    int thumbY = maxScroll > 0 ? listTop + (sbH - thumbH) * notesScroll / maxScroll : listTop;
-                    g.fill(sbX, listTop, sbX + 3, listBot, 0x33FFFFFF);
-                    g.fill(sbX, thumbY, sbX + 3, thumbY + thumbH, C_ACCENT);
-                }
             }
         }
 
@@ -1195,6 +1163,54 @@ public class AdminScreen extends Screen {
         }
 
         renderActivityCard(g, divX);
+    }
+
+    /** Overlay plein écran listant toutes les notes admin (bouton NOTES de l'onglet JOUEURS). */
+    private void renderNotesOverlay(GuiGraphics g) {
+        int ow = Math.min(380, width - 40), oh = ph - 16;
+        int ox = (width - ow) / 2, ot = py + 8;
+        g.fill(ox, ot, ox + ow, ot + oh, 0xFF1A1A1A);
+        g.fill(ox, ot, ox + ow, ot + 2, C_ACCENT);
+        g.drawCenteredString(font,
+            Component.literal("NOTES ADMIN").withStyle(s -> s.withColor(0x00E5FF).withBold(true)),
+            ox + ow / 2, ot + 8, 0xFFFFFFFF);
+
+        int listTop = ot + 22, listBot = ot + oh - 30;
+        if (adminNotes.isEmpty()) {
+            g.drawCenteredString(font, "§8Aucune note enregistrée", ox + ow / 2, (listTop + listBot) / 2 - 4, 0xFF444444);
+            g.drawCenteredString(font, "§8Sélectionnez un joueur puis remplissez le champ Note.", ox + ow / 2, (listTop + listBot) / 2 + 8, 0xFF333333);
+            return;
+        }
+
+        java.util.List<String> names = new java.util.ArrayList<>(adminNotes.keySet());
+        java.util.Collections.sort(names);
+        int entryH = 24;
+        int maxVis = Math.max(1, (listBot - listTop) / entryH);
+        int maxScroll = Math.max(0, names.size() - maxVis);
+        notesScroll = Math.max(0, Math.min(notesScroll, maxScroll));
+
+        g.enableScissor(ox + 2, listTop, ox + ow - 8, listBot);
+        int y = listTop;
+        for (int i = notesScroll; i < names.size() && i < notesScroll + maxVis; i++) {
+            String name = names.get(i);
+            if (i % 2 == 0) g.fill(ox + 4, y, ox + ow - 10, y + entryH - 2, C_ROW);
+            g.fill(ox + 4, y, ox + 5, y + entryH - 2, 0xFFFFAA00);
+            g.drawString(font, "§e" + name, ox + 10, y + 2, 0xFFFFFFFF);
+            String note = adminNotes.get(name);
+            while (font.width("§7" + note) > ow - 24 && note.length() > 1)
+                note = note.substring(0, note.length() - 1);
+            g.drawString(font, "§7" + note + (note.equals(adminNotes.get(name)) ? "" : "…"), ox + 10, y + 12, 0xFFAAAAAA);
+            y += entryH;
+        }
+        g.disableScissor();
+
+        if (names.size() > maxVis) {
+            int sbX = ox + ow - 7, sbH = listBot - listTop;
+            int thumbH = Math.max(8, sbH * maxVis / names.size());
+            int thumbY = maxScroll > 0 ? listTop + (sbH - thumbH) * notesScroll / maxScroll : listTop;
+            g.fill(sbX, listTop, sbX + 3, listBot, 0x33FFFFFF);
+            g.fill(sbX, thumbY, sbX + 3, thumbY + thumbH, C_ACCENT);
+        }
     }
 
     /** Fiche Activité du joueur sélectionné : dernière connexion, sanctions, reports, note admin. */

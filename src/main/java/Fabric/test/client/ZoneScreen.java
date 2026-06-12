@@ -117,7 +117,7 @@ public class ZoneScreen extends Screen {
             .bounds(px + pw - 18, py + 3, 14, 14).build());
 
         // Give-tool button — always at the bottom of the list panel
-        addRenderableWidget(btn("§6✦ Baguette", b -> send("GIVE_TOOL", "", ""))
+        addRenderableWidget(btn(Lang.t("§6✦ Baguette", "§6✦ Wand"), b -> send("GIVE_TOOL", "", ""))
             .bounds(px + 4, py + ph - 24, LIST_W - 8, 18).build());
 
         buildZoneList();
@@ -128,7 +128,7 @@ public class ZoneScreen extends Screen {
 
         // Sub-tabs
         int tabW = detW / 4;
-        String[] tabLabels = { "MEMBRES", "COORDS", "OPTIONS", "MSG" };
+        String[] tabLabels = { Lang.t("MEMBRES", "MEMBERS"), "COORDS", "OPTIONS", "MSG" };
         for (int i = 0; i < tabLabels.length; i++) {
             final int ti = i;
             boolean active = detailTab == i;
@@ -216,7 +216,7 @@ public class ZoneScreen extends Screen {
         for (EditBox b : new EditBox[]{minXBox,minYBox,minZBox,maxXBox,maxYBox,maxZBox})
             addRenderableWidget(b);
 
-        addRenderableWidget(btn("§aSAUVEGARDER", b -> {
+        addRenderableWidget(btn(Lang.t("§aSAUVEGARDER", "§aSAVE"), b -> {
             try {
                 send("UPDATE_COORDS", selected,
                     minXBox.getValue() + "," + minYBox.getValue() + "," + minZBox.getValue() + "," +
@@ -250,14 +250,14 @@ public class ZoneScreen extends Screen {
         int bh   = Math.max(12, rowH - 2);
         int y = top;
 
-        addRenderableWidget(btn("Vision nocturne : " + (z.nightVision() ? "§aON" : "§cOFF"),
+        addRenderableWidget(btn(Lang.t("Vision nocturne : ", "Night vision: ") + (z.nightVision() ? "§aON" : "§cOFF"),
             b -> send("TOGGLE_NIGHT_VISION", selected, "")).bounds(lx, y, w, bh).build());
         y += rowH;
 
         int cIdx = Math.floorMod(z.colorIdx(), Fabric.test.Zone.COLORS.length);
-        Component colorLbl = Component.literal("Couleur : ")
+        Component colorLbl = Component.literal(Lang.t("Couleur : ", "Color: "))
             .append(Component.literal("■ ").withStyle(s -> s.withColor(z.color())))
-            .append(Fabric.test.Zone.COLOR_NAMES[cIdx]);
+            .append(Lang.t(Fabric.test.Zone.COLOR_NAMES[cIdx], Fabric.test.Zone.COLOR_NAMES_EN[cIdx]));
         addRenderableWidget(Button.builder(colorLbl,
             b -> send("CYCLE_COLOR", selected, "")).bounds(lx, y, w, bh).build());
         y += rowH;
@@ -266,7 +266,7 @@ public class ZoneScreen extends Screen {
         int pw3 = (w - 8) / 3;
         addRenderableWidget(btn("§bSpawn", b -> send("APPLY_PRESET", selected, "SPAWN"))
             .bounds(lx, y, pw3, bh).build());
-        addRenderableWidget(btn("§cArène", b -> send("APPLY_PRESET", selected, "ARENA"))
+        addRenderableWidget(btn(Lang.t("§cArène", "§cArena"), b -> send("APPLY_PRESET", selected, "ARENA"))
             .bounds(lx + pw3 + 4, y, pw3, bh).build());
         addRenderableWidget(btn("§6VIP", b -> send("APPLY_PRESET", selected, "VIP"))
             .bounds(lx + (pw3 + 4) * 2, y, pw3, bh).build());
@@ -274,15 +274,16 @@ public class ZoneScreen extends Screen {
 
         for (ZoneFlag fl : ZoneFlag.values()) {
             boolean allowed = z.flags().getOrDefault(fl, fl.defaultAllowed);
-            addRenderableWidget(btn(fl.label + " : " + (allowed ? "§aautorisé" : "§cbloqué"),
+            addRenderableWidget(btn(Lang.t(fl.label, fl.labelEn) + Lang.t(" : ", ": ")
+                    + (allowed ? Lang.t("§aautorisé", "§aallowed") : Lang.t("§cbloqué", "§cblocked")),
                 b -> send("TOGGLE_FLAG", selected, fl.name())).bounds(lx, y, w, bh).build());
             y += rowH;
         }
 
-        addRenderableWidget(btn("§eTéléporter vers la zone",
+        addRenderableWidget(btn(Lang.t("§eTéléporter vers la zone", "§eTeleport to zone"),
             b -> { send("TP_ZONE", selected, ""); onClose(); }).bounds(lx, y, w, bh).build());
         y += rowH;
-        addRenderableWidget(btn("§c§lSUPPRIMER LA ZONE",
+        addRenderableWidget(btn(Lang.t("§c§lSUPPRIMER LA ZONE", "§c§lDELETE ZONE"),
             b -> { send("DELETE_ZONE", selected, ""); selected = null; init(); }).bounds(lx, y, w, bh).build());
     }
 
@@ -301,16 +302,17 @@ public class ZoneScreen extends Screen {
         farewellBox.setValue(z.farewell());
         addRenderableWidget(farewellBox);
 
-        addRenderableWidget(btn("§aSAUVEGARDER", b ->
+        addRenderableWidget(btn(Lang.t("§aSAUVEGARDER", "§aSAVE"), b ->
             send("SET_MESSAGES", selected, greetingBox.getValue() + "\t" + farewellBox.getValue()))
             .bounds(detX + detW - 112, top + 78, 104, 18).build());
     }
 
     private void renderMessages(GuiGraphics g, ZoneData z, int top, int bot) {
         int lx = detX + 8;
-        g.drawString(font, "§7MESSAGE D'ENTRÉE", lx, top + 4, 0xFF888888);
-        g.drawString(font, "§7MESSAGE DE SORTIE", lx, top + 42, 0xFF888888);
-        g.drawString(font, "§8Affiché en action-bar. Vide = aucun message.", lx, top + 102, 0xFF444444);
+        g.drawString(font, Lang.t("§7MESSAGE D'ENTRÉE", "§7ENTRY MESSAGE"), lx, top + 4, 0xFF888888);
+        g.drawString(font, Lang.t("§7MESSAGE DE SORTIE", "§7EXIT MESSAGE"), lx, top + 42, 0xFF888888);
+        g.drawString(font, Lang.t("§8Affiché en action-bar. Vide = aucun message.",
+            "§8Shown in the action bar. Empty = no message."), lx, top + 102, 0xFF444444);
     }
 
     // ─── render ───────────────────────────────────────────────────────────────────
@@ -335,7 +337,7 @@ public class ZoneScreen extends Screen {
         g.fill(px + 4, py + ph - 28, px + LIST_W - 4, py + ph - 27, C_DIV);
 
         if (zones.isEmpty()) {
-            g.drawCenteredString(font, "§8Aucune zone", px + LIST_W / 2, py + ph / 2 - 8, 0xFF444444);
+            g.drawCenteredString(font, Lang.t("§8Aucune zone", "§8No zones"), px + LIST_W / 2, py + ph / 2 - 8, 0xFF444444);
             g.drawCenteredString(font, "§8/zone create", px + LIST_W / 2, py + ph / 2 + 4, 0xFF333333);
         }
 
@@ -375,7 +377,7 @@ public class ZoneScreen extends Screen {
             ZoneData z = zones.get(selected);
             if (z != null) renderDetail(g, z);
         } else if (!zones.isEmpty()) {
-            g.drawCenteredString(font, "§8Sélectionnez une zone", detX + detW / 2, py + ph / 2, 0xFF444444);
+            g.drawCenteredString(font, Lang.t("§8Sélectionnez une zone", "§8Select a zone"), detX + detW / 2, py + ph / 2, 0xFF444444);
         }
 
         g.drawString(font, "@LKDM", px + pw - font.width("@LKDM") - 4, py + ph - 10, 0x55AAAAAA, false);
@@ -389,7 +391,7 @@ public class ZoneScreen extends Screen {
         int sx = z.x2()-z.x1()+1, sy = z.y2()-z.y1()+1, sz = z.z2()-z.z1()+1;
         g.drawString(font, "§e§l" + selected, detX + 6, py + 25, 0xFFFFFFFF);
         if (!z.inside().isEmpty())
-            g.drawString(font, "§a◉ " + z.inside().size() + " présent" + (z.inside().size() > 1 ? "s" : ""),
+            g.drawString(font, "§a◉ " + z.inside().size() + Lang.t(" présent" + (z.inside().size() > 1 ? "s" : ""), " inside"),
                 detX + 12 + font.width("§e§l" + selected), py + 25, 0xFF55FF55);
         g.drawString(font, "§8" + sx + "×" + sy + "×" + sz
             + "  (" + z.x1() + "," + z.y1() + "," + z.z1()
@@ -427,12 +429,12 @@ public class ZoneScreen extends Screen {
 
         // Headers
         g.fill(detX, top - 14, px + pw, top - 13, C_DIV);
-        g.drawString(font, "MEMBRES §7(" + z.members().size() + ")", detX + 4, top - 11, 0xFF888888);
-        g.drawString(font, "JOUEURS EN LIGNE", rightX + 4, top - 11, 0xFF888888);
+        g.drawString(font, Lang.t("MEMBRES", "MEMBERS") + " §7(" + z.members().size() + ")", detX + 4, top - 11, 0xFF888888);
+        g.drawString(font, Lang.t("JOUEURS EN LIGNE", "ONLINE PLAYERS"), rightX + 4, top - 11, 0xFF888888);
 
         // Left: current members
         if (z.members().isEmpty()) {
-            g.drawString(font, "§8Ouvert — tous autorisés", detX + 6, top + 3, 0xFF3A3A3A);
+            g.drawString(font, Lang.t("§8Ouvert — tous autorisés", "§8Open — everyone allowed"), detX + 6, top + 3, 0xFF3A3A3A);
         } else {
             for (int i = 0; i < z.members().size() && i < maxRows; i++) {
                 int ry = top + i * 18;
@@ -445,7 +447,7 @@ public class ZoneScreen extends Screen {
 
         // Right: online players (non-members in full colour, members dimmed, no button)
         if (onlinePlayers.isEmpty()) {
-            g.drawString(font, "§8Aucun joueur en ligne", rightX + 4, top + 3, 0xFF3A3A3A);
+            g.drawString(font, Lang.t("§8Aucun joueur en ligne", "§8No players online"), rightX + 4, top + 3, 0xFF3A3A3A);
         } else {
             int ri = 0;
             for (String playerName : onlinePlayers) {
@@ -470,17 +472,18 @@ public class ZoneScreen extends Screen {
         int boxW = 50, gap = 6;
 
         // Labels
-        g.drawString(font, "§7POINT MIN §8(A)", lx, top + 4,  0xFF888888);
+        g.drawString(font, Lang.t("§7POINT MIN §8(A)", "§7MIN POINT §8(A)"), lx, top + 4,  0xFF888888);
         g.drawString(font, "§8X", lx,               top + 12, 0xFF555555);
         g.drawString(font, "§8Y", lx + boxW + gap,  top + 12, 0xFF555555);
         g.drawString(font, "§8Z", lx+(boxW+gap)*2,  top + 12, 0xFF555555);
 
-        g.drawString(font, "§7POINT MAX §8(B)", lx, top + 42, 0xFF888888);
+        g.drawString(font, Lang.t("§7POINT MAX §8(B)", "§7MAX POINT §8(B)"), lx, top + 42, 0xFF888888);
         g.drawString(font, "§8X", lx,               top + 50, 0xFF555555);
         g.drawString(font, "§8Y", lx + boxW + gap,  top + 50, 0xFF555555);
         g.drawString(font, "§8Z", lx+(boxW+gap)*2,  top + 50, 0xFF555555);
 
-        g.drawString(font, "§7PRIORITÉ §8(chevauchements : la plus haute décide)", lx, top + 101, 0xFF888888);
+        g.drawString(font, Lang.t("§7PRIORITÉ §8(chevauchements : la plus haute décide)",
+            "§7PRIORITY §8(overlaps: highest wins)"), lx, top + 101, 0xFF888888);
     }
 
     // ─── misc ─────────────────────────────────────────────────────────────────────

@@ -40,7 +40,8 @@ public class ReportScreen extends Screen {
     private DynamicTexture   previewTex     = null;         // aperçu 240×135 → GUI uniquement
     private ResourceLocation previewTexLoc  = null;
     private boolean          hasImage       = false;
-    private String           hintText       = "§8Ctrl+V pour coller le dernier screenshot (F2)";
+    private String           hintText       = Lang.t("§8Ctrl+V pour coller le dernier screenshot (F2)",
+                                                     "§8Ctrl+V to paste your latest screenshot (F2)");
 
     public ReportScreen() {
         super(Component.literal("Envoyer un signalement"));
@@ -56,21 +57,21 @@ public class ReportScreen extends Screen {
         messageBox = new EditBox(font, bx + 10, by + 163, POP_W - 20, 18,
             Component.literal(""));
         messageBox.setMaxLength(256);
-        messageBox.setHint(Component.literal("§8Décrivez le problème..."));
+        messageBox.setHint(Component.literal(Lang.t("§8Décrivez le problème...", "§8Describe the issue...")));
         addRenderableWidget(messageBox);
         setFocused(messageBox);
 
         if (hasImage) {
             addRenderableWidget(Button.builder(
-                Component.literal("§7Retirer l'image"), b -> removeImage()
+                Component.literal(Lang.t("§7Retirer l'image", "§7Remove image")), b -> removeImage()
             ).bounds(bx + 10, by + 190, 130, 16).build());
         }
 
-        addRenderableWidget(Button.builder(Component.literal("§cAnnuler"), b -> onClose())
+        addRenderableWidget(Button.builder(Component.literal(Lang.t("§cAnnuler", "§cCancel")), b -> onClose())
             .bounds(bx + POP_W - 80, by + 190, 70, 16).build());
 
         addRenderableWidget(Button.builder(
-            Component.literal("§aEnvoyer"), b -> submit()
+            Component.literal(Lang.t("§aEnvoyer", "§aSend")), b -> submit()
         ).bounds(bx + 10, by + 212, POP_W - 20, 20).build());
     }
 
@@ -124,14 +125,15 @@ public class ReportScreen extends Screen {
                 pasteInFlight = false;
                 if (Minecraft.getInstance().screen != this) return; // écran fermé entre-temps
                 if (fSend == null || fPreview == null) {
-                    if (!hasImage) hintText = "§cAucune image — prenez un screenshot F2 puis Ctrl+V";
+                    if (!hasImage) hintText = Lang.t("§cAucune image — prenez un screenshot F2 puis Ctrl+V",
+                        "§cNo image — take an F2 screenshot then Ctrl+V");
                     return;
                 }
                 try {
                     NativeImage preview = NativeImage.read(fPreview);
                     sendImageBytes = fSend;
                     applyPreviewTexture(preview);
-                    hintText = "§a✔ Image collée";
+                    hintText = Lang.t("§a✔ Image collée", "§a✔ Image pasted");
                     hasImage = true;
                     init();
                 } catch (Exception ignored) {}
@@ -234,7 +236,8 @@ public class ReportScreen extends Screen {
         previewTex    = null;
         previewTexLoc = null;
         hasImage      = false;
-        hintText      = "§8Ctrl+V pour coller le dernier screenshot (F2)";
+        hintText      = Lang.t("§8Ctrl+V pour coller le dernier screenshot (F2)",
+                               "§8Ctrl+V to paste your latest screenshot (F2)");
         init();
     }
 
@@ -260,7 +263,7 @@ public class ReportScreen extends Screen {
         g.fill(bx, by, bx + POP_W, by + 2, C_ACCENT);
 
         g.drawCenteredString(font,
-            Component.literal("§bEnvoyer un signalement"),
+            Component.literal(Lang.t("§bEnvoyer un signalement", "§bSend a report")),
             bx + POP_W / 2, by + 7, 0xFFFFFFFF);
 
         g.fill(bx + 12, by + 20, bx + 12 + PREVIEW_W, by + 20 + PREVIEW_H, C_PANEL);
@@ -272,7 +275,7 @@ public class ReportScreen extends Screen {
                 bx + 12 + PREVIEW_W / 2, by + 20 + PREVIEW_H / 2 - 4, 0xFF333333);
         }
 
-        g.drawString(font, "§7Message :", bx + 10, by + 155, 0xFF888888);
+        g.drawString(font, Lang.t("§7Message :", "§7Message:"), bx + 10, by + 155, 0xFF888888);
 
         super.render(g, mx, my, delta);
     }

@@ -14,26 +14,29 @@ package Fabric.test;
  * </ul>
  */
 public enum ZoneFlag {
-    BUILD       ("Construction",   true,  false),
-    INTERACT    ("Interaction",    true,  false),
-    CONTAINER   ("Conteneurs",     true,  false),
-    ENTRY       ("Entrée",         true,  false),
-    ITEM_DROP   ("Jeter items",    true,  false),
-    ITEM_PICKUP ("Ramasser items", true,  false),
-    PVP         ("PvP",            true,  true),
-    MOB_SPAWN   ("Spawn mobs",     true,  true),
-    EXPLOSIONS  ("Explosions",     true,  true),
-    CROP_TRAMPLE("Piétinement",    true,  true);
+    BUILD       ("Construction",   "Building",      true,  false),
+    INTERACT    ("Interaction",    "Interaction",   true,  false),
+    CONTAINER   ("Conteneurs",     "Containers",    true,  false),
+    ENTRY       ("Entrée",         "Entry",         true,  false),
+    ITEM_DROP   ("Jeter items",    "Item drop",     true,  false),
+    ITEM_PICKUP ("Ramasser items", "Item pickup",   true,  false),
+    PVP         ("PvP",            "PvP",           true,  true),
+    MOB_SPAWN   ("Spawn mobs",     "Mob spawning",  true,  true),
+    EXPLOSIONS  ("Explosions",     "Explosions",    true,  true),
+    CROP_TRAMPLE("Piétinement",    "Crop trample",  true,  true);
 
-    /** Short label shown in the admin GUI. */
+    /** Short label shown in the admin GUI (French). */
     public final String  label;
+    /** Short label shown in the admin GUI (English). */
+    public final String  labelEn;
     /** Default value when a zone has never set this flag explicitly. */
     public final boolean defaultAllowed;
     /** {@code true} = applies to everyone; {@code false} = only non-authorized players. */
     public final boolean areaRule;
 
-    ZoneFlag(String label, boolean defaultAllowed, boolean areaRule) {
+    ZoneFlag(String label, String labelEn, boolean defaultAllowed, boolean areaRule) {
         this.label          = label;
+        this.labelEn        = labelEn;
         this.defaultAllowed = defaultAllowed;
         this.areaRule       = areaRule;
     }

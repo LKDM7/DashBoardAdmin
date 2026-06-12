@@ -10,6 +10,8 @@ public class Zone {
                                                  0xFF4444, 0xFF66CC, 0xAA66FF, 0x4477FF, 0xFFFFFF };
     public static final String[] COLOR_NAMES = { "Vert", "Cyan", "Jaune", "Orange",
                                                  "Rouge", "Rose", "Violet", "Bleu", "Blanc" };
+    public static final String[] COLOR_NAMES_EN = { "Green", "Cyan", "Yellow", "Orange",
+                                                    "Red", "Pink", "Purple", "Blue", "White" };
 
     public String  name;
     public BlockPos min, max;

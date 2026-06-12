@@ -240,7 +240,7 @@ public class AdminScreen extends Screen {
         // ── Report image overlay ─────────────────────────────────────────────────
         if (reportImagePlayer != null && reportOverlayTexLoc != null) {
             int closeBtnY = Math.min(height / 2 + 110, height - 30);
-            addRenderableWidget(btn("§cFermer", b -> {
+            addRenderableWidget(btn(Lang.t("§cFermer", "§cClose"), b -> {
                 reportImagePlayer = null;
                 init();
             }).bounds(width / 2 - 40, closeBtnY, 80, 20).build());
@@ -250,7 +250,7 @@ public class AdminScreen extends Screen {
         // ── Liste des notes admin (overlay) ──────────────────────────────────────
         if (showNotesList) {
             int closeBtnY = py + ph - 28;
-            addRenderableWidget(btn("§cFermer", b -> { showNotesList = false; init(); })
+            addRenderableWidget(btn(Lang.t("§cFermer", "§cClose"), b -> { showNotesList = false; init(); })
                 .bounds(width / 2 - 40, closeBtnY, 80, 20).build());
             return;
         }
@@ -259,14 +259,14 @@ public class AdminScreen extends Screen {
         if (confirmUnbanPlayer != null) {
             int dw = 240, dh = 80, dx = (width - dw) / 2, dy = (height - dh) / 2;
             final String pname = confirmUnbanPlayer;
-            addRenderableWidget(btn("§aCONFIRMER DÉBAN", b -> {
+            addRenderableWidget(btn(Lang.t("§aCONFIRMER DÉBAN", "§aCONFIRM UNBAN"), b -> {
                 send("UNBAN", pname, "");
                 bannedPlayers.removeIf(e -> e[0].equalsIgnoreCase(pname));
                 sanctionsEntries.removeIf(e -> "BAN".equals(e[1]) && e[2].equalsIgnoreCase(pname));
                 confirmUnbanPlayer = null;
                 init();
             }).bounds(dx + 10, dy + 48, 105, 20).build());
-            addRenderableWidget(btn("ANNULER", b -> { confirmUnbanPlayer = null; init(); })
+            addRenderableWidget(btn(Lang.t("ANNULER", "CANCEL"), b -> { confirmUnbanPlayer = null; init(); })
                 .bounds(dx + 125, dy + 48, 105, 20).build());
             return;
         }
@@ -285,7 +285,7 @@ public class AdminScreen extends Screen {
             addRenderableWidget(banReasonBox);
 
             long[] durations = {86400L, 259200L, 604800L, 0L};
-            String[] durLabels = {"1j", "3j", "7j", "∞"};
+            String[] durLabels = Lang.fr() ? new String[]{"1j", "3j", "7j", "∞"} : new String[]{"1d", "3d", "7d", "∞"};
             for (int i = 0; i < 4; i++) {
                 final long dur = durations[i];
                 boolean sel = banDurationSecs == dur;
@@ -300,28 +300,28 @@ public class AdminScreen extends Screen {
             banMinBox  = banUnitBox(dx + 122, dy + 106, prevM);
             banSecBox  = banUnitBox(dx + 178, dy + 106, prevS);
 
-            addRenderableWidget(btn("§aVALIDER", b -> {
+            addRenderableWidget(btn(Lang.t("§aVALIDER", "§aCONFIRM"), b -> {
                 long custom = banBoxVal(banDayBox) * 86400L + banBoxVal(banHourBox) * 3600L
                             + banBoxVal(banMinBox) * 60L + banBoxVal(banSecBox);
                 long secs = custom > 0 ? custom : banDurationSecs;
                 send("BAN", selPlayer, secs + "\t" + banReasonBox.getValue());
                 isBanning = false; banDurationSecs = 0; init();
             }).bounds(dx + 10, dy + 144, 105, 20).build());
-            addRenderableWidget(btn("§cANNULER", b -> {
+            addRenderableWidget(btn(Lang.t("§cANNULER", "§cCANCEL"), b -> {
                 isBanning = false; banDurationSecs = 0; init();
             }).bounds(dx + 125, dy + 144, 105, 20).build());
             return;
         }
         if (isKicking) {
             int dw = 240, dh = 80, dx = (width - dw) / 2, dy = (height - dh) / 2;
-            addRenderableWidget(btn("§cCONFIRMER KICK", b -> { send("KICK", selPlayer, ""); isKicking = false; init(); }).bounds(dx + 10,  dy + 48, 105, 20).build());
-            addRenderableWidget(btn("ANNULER",           b -> { isKicking = false; init(); }).bounds(dx + 125, dy + 48, 105, 20).build());
+            addRenderableWidget(btn(Lang.t("§cCONFIRMER KICK", "§cCONFIRM KICK"), b -> { send("KICK", selPlayer, ""); isKicking = false; init(); }).bounds(dx + 10,  dy + 48, 105, 20).build());
+            addRenderableWidget(btn(Lang.t("ANNULER", "CANCEL"), b -> { isKicking = false; init(); }).bounds(dx + 125, dy + 48, 105, 20).build());
             return;
         }
         if (isRemovingMobs) {
             int dw = 240, dh = 80, dx = (width - dw) / 2, dy = (height - dh) / 2;
-            addRenderableWidget(btn("§cSUPPRIMER MOBS", b -> { send("REMOVE_MOBS", "", ""); isRemovingMobs = false; init(); }).bounds(dx + 10,  dy + 48, 105, 20).build());
-            addRenderableWidget(btn("ANNULER",           b -> { isRemovingMobs = false; init(); }).bounds(dx + 125, dy + 48, 105, 20).build());
+            addRenderableWidget(btn(Lang.t("§cSUPPRIMER MOBS", "§cREMOVE MOBS"), b -> { send("REMOVE_MOBS", "", ""); isRemovingMobs = false; init(); }).bounds(dx + 10,  dy + 48, 105, 20).build());
+            addRenderableWidget(btn(Lang.t("ANNULER", "CANCEL"), b -> { isRemovingMobs = false; init(); }).bounds(dx + 125, dy + 48, 105, 20).build());
             return;
         }
         if (isRestarting) {
@@ -334,11 +334,11 @@ public class AdminScreen extends Screen {
                     b -> { restartMinutes = dur; init(); })
                     .bounds(dx + 10 + i * 56, dy + 38, 50, 16).build());
             }
-            addRenderableWidget(btn("§cPROGRAMMER", b -> {
+            addRenderableWidget(btn(Lang.t("§cPROGRAMMER", "§cSCHEDULE"), b -> {
                 send("SCHEDULE_RESTART", "", String.valueOf(restartMinutes));
                 isRestarting = false; init();
             }).bounds(dx + 10, dy + 74, 105, 20).build());
-            addRenderableWidget(btn("ANNULER", b -> { isRestarting = false; init(); })
+            addRenderableWidget(btn(Lang.t("ANNULER", "CANCEL"), b -> { isRestarting = false; init(); })
                 .bounds(dx + 125, dy + 74, 105, 20).build());
             return;
         }
@@ -359,7 +359,7 @@ public class AdminScreen extends Screen {
         int y = navTop;
         // ─ SERVEUR group ─
         navServeurLabelY = y; y += labelH;
-        tabYMap[0] = y; tab("MONDE",    0, y); y += tabSlot;
+        tabYMap[0] = y; tab(Lang.t("MONDE", "WORLD"), 0, y); y += tabSlot;
         tabYMap[3] = y; tab("FEATURES", 3, y); y += tabSlot;
         tabYMap[6] = y;
         boolean zonesActive = currentTab == 6;
@@ -375,7 +375,7 @@ public class AdminScreen extends Screen {
 
         // ─ JOUEURS group ─
         navJoueursLabelY = y; y += labelH;
-        tabYMap[1] = y; tab("JOUEURS",  1, y); y += tabSlot;
+        tabYMap[1] = y; tab(Lang.t("JOUEURS", "PLAYERS"), 1, y); y += tabSlot;
         tabYMap[5] = y; tab("LOGS",     5, y); y += tabSlot;
         tabYMap[7] = y;
         boolean sancActive = currentTab == 7;
@@ -394,7 +394,7 @@ public class AdminScreen extends Screen {
         tabYMap[4] = y;
         tab("REPORTS" + (unresolved == 0 ? "" : " §c(" + unresolved + ")"), 4, y);
 
-        addRenderableWidget(btn("FERMER", b -> onClose()).bounds(px + 5, py + ph - 6 - fermerH, SIDE_W - 10, fermerH).build());
+        addRenderableWidget(btn(Lang.t("FERMER", "CLOSE"), b -> onClose()).bounds(px + 5, py + ph - 6 - fermerH, SIDE_W - 10, fermerH).build());
 
         // ── Tab content ──────────────────────────────────────────────────────────
         switch (currentTab) {
@@ -441,16 +441,16 @@ public class AdminScreen extends Screen {
     private void buildMonde() {
         int lx = cx + 12;
         int ty = py + 56;
-        addRenderableWidget(btn("MATIN",  b -> send("SET_MORNING",         "", "")).bounds(lx,       ty, 58, 20).build());
-        addRenderableWidget(btn("JOUR",   b -> send("SET_DAY",             "", "")).bounds(lx + 62,  ty, 58, 20).build());
-        addRenderableWidget(btn("SOIR",   b -> send("SET_EVENING",         "", "")).bounds(lx + 124, ty, 58, 20).build());
-        addRenderableWidget(btn("NUIT",   b -> send("SET_NIGHT",           "", "")).bounds(lx + 186, ty, 58, 20).build());
+        addRenderableWidget(btn(Lang.t("MATIN", "MORNING"),  b -> send("SET_MORNING",  "", "")).bounds(lx,       ty, 58, 20).build());
+        addRenderableWidget(btn(Lang.t("JOUR", "DAY"),       b -> send("SET_DAY",      "", "")).bounds(lx + 62,  ty, 58, 20).build());
+        addRenderableWidget(btn(Lang.t("SOIR", "EVENING"),   b -> send("SET_EVENING",  "", "")).bounds(lx + 124, ty, 58, 20).build());
+        addRenderableWidget(btn(Lang.t("NUIT", "NIGHT"),     b -> send("SET_NIGHT",    "", "")).bounds(lx + 186, ty, 58, 20).build());
 
         int my = py + 103;
-        addRenderableWidget(btn("SOLEIL", b -> send("SET_WEATHER_CLEAR",   "", "")).bounds(lx,       my, 72, 20).build());
-        addRenderableWidget(btn("PLUIE",  b -> send("SET_WEATHER_RAIN",    "", "")).bounds(lx + 76,  my, 72, 20).build());
-        addRenderableWidget(btn("ORAGE",  b -> send("SET_WEATHER_THUNDER", "", "")).bounds(lx + 152, my, 72, 20).build());
-        addRenderableWidget(btn("CYCLE MÉTÉO: " + (weatherCycleEnabled ? "§aON" : "§cOFF"),
+        addRenderableWidget(btn(Lang.t("SOLEIL", "CLEAR"),   b -> send("SET_WEATHER_CLEAR",   "", "")).bounds(lx,       my, 72, 20).build());
+        addRenderableWidget(btn(Lang.t("PLUIE", "RAIN"),     b -> send("SET_WEATHER_RAIN",    "", "")).bounds(lx + 76,  my, 72, 20).build());
+        addRenderableWidget(btn(Lang.t("ORAGE", "THUNDER"),  b -> send("SET_WEATHER_THUNDER", "", "")).bounds(lx + 152, my, 72, 20).build());
+        addRenderableWidget(btn(Lang.t("CYCLE MÉTÉO: ", "WEATHER CYCLE: ") + (weatherCycleEnabled ? "§aON" : "§cOFF"),
             b -> { send("TOGGLE_WEATHER_CYCLE", "", ""); weatherCycleEnabled = !weatherCycleEnabled; init(); })
             .bounds(lx, my + 26, 162, 20).build());
 
@@ -461,7 +461,7 @@ public class AdminScreen extends Screen {
         addRenderableWidget(btn("SET SPAWN",   b -> send("SET_SPAWN", "", "")).bounds(lx + (bw3 + 4) * 2, oy, bw3, 20).build());
         addRenderableWidget(btn("VANISH",      b -> send("VANISH",    "", "")).bounds(lx,                oy + 26, bw3, 20).build());
         addRenderableWidget(btn("§cRESTART",   b -> { isRestarting = true; init(); }).bounds(lx + bw3 + 4,      oy + 26, bw3, 20).build());
-        addRenderableWidget(btn("§7ANNULER R.", b -> send("CANCEL_RESTART", "", "")).bounds(lx + (bw3 + 4) * 2, oy + 26, bw3, 20).build());
+        addRenderableWidget(btn(Lang.t("§7ANNULER R.", "§7CANCEL R."), b -> send("CANCEL_RESTART", "", "")).bounds(lx + (bw3 + 4) * 2, oy + 26, bw3, 20).build());
 
         // Santé serveur — bouton de rafraîchissement (les stats sont un instantané)
         addRenderableWidget(btn("§b⟳", b -> send("REFRESH_ADMIN", "", ""))
@@ -536,7 +536,7 @@ public class AdminScreen extends Screen {
         yOff += 8;
         for (String[] ban : bannedPlayers) {
             final String banName = ban[0];
-            addRenderableWidget(btn("§aDÉBAN", b -> {
+            addRenderableWidget(btn(Lang.t("§aDÉBAN", "§aUNBAN"), b -> {
                 send("UNBAN", banName, "");
                 bannedPlayers.removeIf(e -> e[0].equalsIgnoreCase(banName));
                 init();
@@ -556,7 +556,7 @@ public class AdminScreen extends Screen {
                     Component.literal((sel ? "§f§l" : "§8") + truncate(name, 11)), b -> {
                         selPlayer   = name;
                         selOffline  = true;
-                        selGamemode = "HORS LIGNE";
+                        selGamemode = Lang.t("HORS LIGNE", "OFFLINE");
                         send("GET_SANCTIONS", "", "");
                         init();
                     }).bounds(cx + 4, offY, 90, 12).build());
@@ -606,10 +606,10 @@ public class AdminScreen extends Screen {
         int rCol  = lCol + bw + gap;
         int aY    = py + 68;
 
-        addRenderableWidget(btn("INVENTAIRE", b -> send("OPEN_INV",     selPlayer, "")).bounds(lCol, aY,       bw, 20).build());
+        addRenderableWidget(btn(Lang.t("INVENTAIRE", "INVENTORY"), b -> send("OPEN_INV",     selPlayer, "")).bounds(lCol, aY,       bw, 20).build());
         addRenderableWidget(btn("ENDERCHEST", b -> send("ENDERCHEST",   selPlayer, "")).bounds(lCol, aY + 24,  bw, 20).build());
         addRenderableWidget(btn("BRING",      b -> send("BRING",        selPlayer, "")).bounds(lCol, aY + 48,  bw, 20).build());
-        addRenderableWidget(btn("TP VERS",    b -> send("TELEPORT_TO",  selPlayer, "")).bounds(lCol, aY + 72,  bw, 20).build());
+        addRenderableWidget(btn(Lang.t("TP VERS", "TP TO"), b -> send("TELEPORT_TO",  selPlayer, "")).bounds(lCol, aY + 72,  bw, 20).build());
         addRenderableWidget(btn("§aHEAL",     b -> send("HEAL",         selPlayer, "")).bounds(lCol, aY + 96,  bw, 20).build());
         addRenderableWidget(btn("§eLOGS",     b -> { logsPlayer = null; logsEntries = new java.util.ArrayList<>(); logsScroll = 0; send("GET_LOGS", selPlayer, ""); currentTab = 5; init(); }).bounds(lCol, aY + 120, bw, 20).build());
 
@@ -639,9 +639,10 @@ public class AdminScreen extends Screen {
 
         // Chips: TOUS / joueur / groupe
         int chipY = aY + 26, chipX = contentX, chipMaxX = contentX + contentW;
-        int tousW = font.width("TOUS") + 8;
+        String tousLbl = Lang.t("TOUS", "ALL");
+        int tousW = font.width(tousLbl) + 8;
         boolean tousSel = broadcastTarget.isEmpty();
-        addRenderableWidget(btn((tousSel ? "§a" : "§7") + "TOUS",
+        addRenderableWidget(btn((tousSel ? "§a" : "§7") + tousLbl,
             b -> { broadcastTarget = ""; init(); }).bounds(chipX, chipY, tousW, 14).build());
         chipX += tousW + 3;
         if (Minecraft.getInstance().getConnection() != null) {
@@ -668,20 +669,20 @@ public class AdminScreen extends Screen {
         }
 
         int btnW = (contentW - 12) / 3;
-        addRenderableWidget(btn("§a▶ DIFFUSER",
+        addRenderableWidget(btn(Lang.t("§a▶ DIFFUSER", "§a▶ BROADCAST"),
             b -> { if (!announceBox.getValue().isEmpty()) { send("ANNOUNCE", broadcastTarget, announceBox.getValue()); announceBox.setValue(""); } })
             .bounds(contentX, aY + 44, btnW, 20).build());
         // Définit le texte saisi comme MOTD (message de connexion) ; champ vide = MOTD supprimé.
-        addRenderableWidget(btn("§eDÉFINIR MOTD",
+        addRenderableWidget(btn(Lang.t("§eDÉFINIR MOTD", "§eSET MOTD"),
             b -> { motd = announceBox.getValue().trim(); send("SET_MOTD", "", motd); announceBox.setValue(""); init(); })
             .bounds(contentX + btnW + 6, aY + 44, btnW, 20).build());
-        addRenderableWidget(btn("CHAT " + (chatLocked ? "§c🔒 VERROUILLÉ" : "§a🔓 OUVERT"),
+        addRenderableWidget(btn("CHAT " + (chatLocked ? Lang.t("§c🔒 VERROUILLÉ", "§c🔒 LOCKED") : Lang.t("§a🔓 OUVERT", "§a🔓 OPEN")),
             b -> { send("LOCK_CHAT", "", ""); chatLocked = !chatLocked; init(); })
             .bounds(contentX + (btnW + 6) * 2, aY + 44, btnW, 20).build());
 
         // Spy des messages privés (les MP sont relayés aux admins en ligne).
         // Posé sur la ligne du label BROADCASTS (divY+2 côté droit, libre) — voir renderChat.
-        addRenderableWidget(btn("SPY MP : " + (mailSpyEnabled ? "§aON" : "§cOFF"),
+        addRenderableWidget(btn(Lang.t("SPY MP : ", "PM SPY: ") + (mailSpyEnabled ? "§aON" : "§cOFF"),
             b -> { send("TOGGLE_MAIL_SPY", "", ""); mailSpyEnabled = !mailSpyEnabled; init(); })
             .bounds(contentX + contentW - 90, aY + 101, 90, 14).build());
 
@@ -692,7 +693,7 @@ public class AdminScreen extends Screen {
         broadcastIntervalBox.setMaxLength(4);
         addRenderableWidget(broadcastMsgBox);
         addRenderableWidget(broadcastIntervalBox);
-        addRenderableWidget(btn("§aAJOUTER", b -> {
+        addRenderableWidget(btn(Lang.t("§aAJOUTER", "§aADD"), b -> {
             String msg    = broadcastMsgBox.getValue().trim();
             String minStr = broadcastIntervalBox.getValue().trim();
             if (!msg.isEmpty() && !minStr.isEmpty()) {
@@ -713,10 +714,10 @@ public class AdminScreen extends Screen {
         for (int i = 0; i < schedBroadcasts.size(); i++) {
             final int idx = i;
             if (deletingBroadcastIdx == i) {
-                addRenderableWidget(btn("§a✔ OUI",
+                addRenderableWidget(btn(Lang.t("§a✔ OUI", "§a✔ YES"),
                     b -> { schedBroadcasts.remove(idx); send("SCHEDULE_REMOVE", "", String.valueOf(idx)); deletingBroadcastIdx = -1; init(); })
                     .bounds(px + pw - 82, listY + i * 20 + 3, 36, 14).build());
-                addRenderableWidget(btn("§c✖ NON", b -> { deletingBroadcastIdx = -1; init(); })
+                addRenderableWidget(btn(Lang.t("§c✖ NON", "§c✖ NO"), b -> { deletingBroadcastIdx = -1; init(); })
                     .bounds(px + pw - 42, listY + i * 20 + 3, 36, 14).build());
             } else {
                 addRenderableWidget(btn("§c✕", b -> { deletingBroadcastIdx = idx; init(); })
@@ -735,7 +736,7 @@ public class AdminScreen extends Screen {
         int fy = py + 34;
 
         // Row 1
-        addRenderableWidget(btn("PIÉTINEMENT: " + (cropTrampleEnabled ? "§aON" : "§cOFF"),
+        addRenderableWidget(btn(Lang.t("PIÉTINEMENT: ", "TRAMPLING: ") + (cropTrampleEnabled ? "§aON" : "§cOFF"),
             b -> { send("TOGGLE_CROP_TRAMPLE", "", ""); cropTrampleEnabled = !cropTrampleEnabled; init(); })
             .bounds(bx, fy, hw, 20).build());
         addRenderableWidget(btn("AFK AUTO: " + (afkAutoEnabled ? "§aON" : "§cOFF"),
@@ -743,10 +744,10 @@ public class AdminScreen extends Screen {
             .bounds(bx + hw + 4, fy, hw, 20).build());
 
         // Row 2
-        addRenderableWidget(btn("SOMMEIL PROPORTIONNEL: " + (proportionalSleepEnabled ? "§aON" : "§cOFF"),
+        addRenderableWidget(btn(Lang.t("SOMMEIL PROPORTIONNEL: ", "PROPORTIONAL SLEEP: ") + (proportionalSleepEnabled ? "§aON" : "§cOFF"),
             b -> { send("TOGGLE_PROPORTIONAL_SLEEP", "", ""); proportionalSleepEnabled = !proportionalSleepEnabled; init(); })
             .bounds(bx, fy + 24, hw, 20).build());
-        addRenderableWidget(btn("BÛCHERON INTELLIGENT: " + (treeCapitatorEnabled ? "§aON" : "§cOFF"),
+        addRenderableWidget(btn(Lang.t("BÛCHERON INTELLIGENT: ", "TREE CAPITATOR: ") + (treeCapitatorEnabled ? "§aON" : "§cOFF"),
             b -> { send("TOGGLE_TREE_CAPITATOR", "", ""); treeCapitatorEnabled = !treeCapitatorEnabled; init(); })
             .bounds(bx + hw + 4, fy + 24, hw, 20).build());
 
@@ -759,10 +760,10 @@ public class AdminScreen extends Screen {
             .bounds(bx + hw + 4, fy + 48, hw, 20).build());
 
         // Row 4
-        addRenderableWidget(btn("RÉCOLTE CLIC DROIT: " + (rightClickHarvestEnabled ? "§aON" : "§cOFF"),
+        addRenderableWidget(btn(Lang.t("RÉCOLTE CLIC DROIT: ", "RIGHT-CLICK HARVEST: ") + (rightClickHarvestEnabled ? "§aON" : "§cOFF"),
             b -> { send("TOGGLE_RIGHT_CLICK_HARVEST", "", ""); rightClickHarvestEnabled = !rightClickHarvestEnabled; init(); })
             .bounds(bx, fy + 72, hw, 20).build());
-        addRenderableWidget(btn("DISTRIBUTEUR RÉCOLTE: " + (dispenserHarvestEnabled ? "§aON" : "§cOFF"),
+        addRenderableWidget(btn(Lang.t("DISTRIBUTEUR RÉCOLTE: ", "DISPENSER HARVEST: ") + (dispenserHarvestEnabled ? "§aON" : "§cOFF"),
             b -> { send("TOGGLE_DISPENSER_HARVEST", "", ""); dispenserHarvestEnabled = !dispenserHarvestEnabled; init(); })
             .bounds(bx + hw + 4, fy + 72, hw, 20).build());
 
@@ -790,7 +791,7 @@ public class AdminScreen extends Screen {
         addRenderableWidget(cdTpaBox);
         addRenderableWidget(afkDelayBox);
 
-        addRenderableWidget(btn("§aSAUVEGARDER", b -> {
+        addRenderableWidget(btn(Lang.t("§aSAUVEGARDER", "§aSAVE"), b -> {
             try {
                 int h = Integer.parseInt(cdHomeBox.getValue().trim());
                 int bk = Integer.parseInt(cdBackBox.getValue().trim());
@@ -830,7 +831,7 @@ public class AdminScreen extends Screen {
         webhookSanctionsBox.setValue(webhookSanctions);
         addRenderableWidget(webhookReportsBox);
         addRenderableWidget(webhookSanctionsBox);
-        addRenderableWidget(btn("§aSAUVEGARDER WEBHOOKS", b -> {
+        addRenderableWidget(btn(Lang.t("§aSAUVEGARDER WEBHOOKS", "§aSAVE WEBHOOKS"), b -> {
             webhookReports   = webhookReportsBox.getValue().trim();
             webhookSanctions = webhookSanctionsBox.getValue().trim();
             send("SET_WEBHOOKS", webhookReports, webhookSanctions);
@@ -858,7 +859,7 @@ public class AdminScreen extends Screen {
                 send("ACCEPT_REPORT", pn, "");
                 init();
             }).bounds(rx1 - 112, y + 8, 50, 14).build());
-            addRenderableWidget(btn("§cREFUSER", b -> {
+            addRenderableWidget(btn(Lang.t("§cREFUSER", "§cDENY"), b -> {
                 reports.remove(pn);
                 send("REFUSE_REPORT", pn, "");
                 init();
@@ -878,7 +879,7 @@ public class AdminScreen extends Screen {
         for (java.util.Map.Entry<String, String> e : new java.util.LinkedHashMap<>(acceptedReports).entrySet()) {
             String pn  = e.getKey();
             String msg = e.getValue();
-            addRenderableWidget(btn("§eCLÔTURER", b -> {
+            addRenderableWidget(btn(Lang.t("§eCLÔTURER", "§eCLOSE"), b -> {
                 String m = acceptedReports.remove(pn);
                 if (m != null) {
                     if (closedReports.size() >= 15) closedReports.remove(closedReports.keySet().iterator().next());
@@ -953,8 +954,8 @@ public class AdminScreen extends Screen {
         g.fill(px + 6, py + 29, cx - 6, py + 30, C_ACCENT);
 
         // Sidebar section labels (positions computed in init, adaptive to ph)
-        g.drawString(font, "SERVEUR",  px + 7, navServeurLabelY, 0xFF666666);
-        g.drawString(font, "JOUEURS",  px + 7, navJoueursLabelY, 0xFF666666);
+        g.drawString(font, Lang.t("SERVEUR", "SERVER"),  px + 7, navServeurLabelY, 0xFF666666);
+        g.drawString(font, Lang.t("JOUEURS", "PLAYERS"), px + 7, navJoueursLabelY, 0xFF666666);
         g.drawString(font, "CHAT",     px + 7, navChatLabelY,    0xFF666666);
         // Group dividers
         g.fill(px + 5, navDiv1Y, cx - 5, navDiv1Y + 1, 0x33FFFFFF);
@@ -969,7 +970,9 @@ public class AdminScreen extends Screen {
         g.fill(cx - 1, py, cx, py + ph, C_ACCENT);
 
         // Content header
-        String[] titles = { "GESTION DU MONDE", "JOUEURS EN LIGNE", "CHAT & ANNONCES", "FONCTIONNALITÉS", "REPORTS", "LOGS JOUEURS", "GESTION DES ZONES", "HISTORIQUE SANCTIONS", "WARPS" };
+        String[] titles = Lang.fr()
+            ? new String[]{ "GESTION DU MONDE", "JOUEURS EN LIGNE", "CHAT & ANNONCES", "FONCTIONNALITÉS", "REPORTS", "LOGS JOUEURS", "GESTION DES ZONES", "HISTORIQUE SANCTIONS", "WARPS" }
+            : new String[]{ "WORLD MANAGEMENT", "ONLINE PLAYERS", "CHAT & ANNOUNCEMENTS", "FEATURES", "REPORTS", "PLAYER LOGS", "ZONE MANAGEMENT", "SANCTIONS HISTORY", "WARPS" };
         g.fill(cx, py, px + pw, py + 26, C_HBAR);
         g.drawCenteredString(font,
             Component.literal(titles[currentTab]).withStyle(s -> s.withColor(0x00E5FF).withBold(true)),
@@ -1002,25 +1005,27 @@ public class AdminScreen extends Screen {
             g.fill(0, 0, this.width, this.height, 0x88000000);
             g.fill(dx, dy, dx + dw, dy + dh, 0xFF1A1A1A);
             g.fill(dx, dy, dx + dw, dy + 2, C_ACCENT);
-            String title = isBanning     ? "BAN : " + selPlayer
-                : isKicking              ? "KICK : " + selPlayer + " ?"
-                : isRemovingMobs         ? "Supprimer les mobs ?"
-                : isRestarting           ? "Redémarrer le serveur ?"
-                : "Déban : " + confirmUnbanPlayer + " ?";
+            String title = isBanning     ? "BAN" + Lang.t(" : ", ": ") + selPlayer
+                : isKicking              ? "KICK" + Lang.t(" : ", ": ") + selPlayer + Lang.t(" ?", "?")
+                : isRemovingMobs         ? Lang.t("Supprimer les mobs ?", "Remove mobs?")
+                : isRestarting           ? Lang.t("Redémarrer le serveur ?", "Restart the server?")
+                : Lang.t("Déban : ", "Unban: ") + confirmUnbanPlayer + Lang.t(" ?", "?");
             g.drawCenteredString(font,
                 Component.literal("§c⚠ §f" + title).withStyle(s -> s.withBold(true)),
                 dx + dw / 2, dy + 8, 0xFFFFFFFF);
             if (isBanning) {
-                g.drawString(font, "§8Raison :", dx + 10, dy + 24, 0xFF555555);
-                g.drawString(font, "§8Durée :",  dx + 10, dy + 60, 0xFF555555);
-                g.drawString(font, "§8Durée perso §7(prioritaire si renseignée) §8:", dx + 10, dy + 94, 0xFF555555);
-                g.drawString(font, "§7j", dx + 46,  dy + 109, 0xFF888888);
+                g.drawString(font, Lang.t("§8Raison :", "§8Reason:"), dx + 10, dy + 24, 0xFF555555);
+                g.drawString(font, Lang.t("§8Durée :", "§8Duration:"),  dx + 10, dy + 60, 0xFF555555);
+                g.drawString(font, Lang.t("§8Durée perso §7(prioritaire si renseignée) §8:",
+                    "§8Custom duration §7(overrides presets) §8:"), dx + 10, dy + 94, 0xFF555555);
+                g.drawString(font, Lang.t("§7j", "§7d"), dx + 46,  dy + 109, 0xFF888888);
                 g.drawString(font, "§7h", dx + 102, dy + 109, 0xFF888888);
                 g.drawString(font, "§7m", dx + 158, dy + 109, 0xFF888888);
                 g.drawString(font, "§7s", dx + 214, dy + 109, 0xFF888888);
             }
             if (isRestarting) {
-                g.drawString(font, "§8Délai avant arrêt (annonces auto) :", dx + 10, dy + 26, 0xFF555555);
+                g.drawString(font, Lang.t("§8Délai avant arrêt (annonces auto) :",
+                    "§8Delay before shutdown (auto announcements):"), dx + 10, dy + 26, 0xFF555555);
             }
         }
 
@@ -1034,7 +1039,7 @@ public class AdminScreen extends Screen {
             g.fill(ix - 4, iy - 22, ix + imgW + 4, iy + imgH + 26, 0xFF1A1A1A);
             g.fill(ix - 4, iy - 22, ix + imgW + 4, iy - 20, 0xFF00E5FF);
             g.drawCenteredString(font,
-                Component.literal("§bCapture : §f" + reportImagePlayer),
+                Component.literal(Lang.t("§bCapture : §f", "§bScreenshot: §f") + reportImagePlayer),
                 ix + imgW / 2, iy - 15, 0xFFFFFFFF);
             g.blit(reportOverlayTexLoc,
                 ix, iy, 0f, 0f, imgW, imgH, imgW, imgH);
@@ -1048,19 +1053,19 @@ public class AdminScreen extends Screen {
     private void renderMonde(GuiGraphics g) {
         int lx = cx + 12;
         g.fill(cx, py + 38, px + pw, py + 55, 0x0AFFFFFF);
-        lbl(g, "TEMPS",  lx, py + 43); g.fill(lx, py + 53, px + pw - 12, py + 54, C_DIV);
+        lbl(g, Lang.t("TEMPS", "TIME"),  lx, py + 43); g.fill(lx, py + 53, px + pw - 12, py + 54, C_DIV);
         g.fill(cx, py + 85, px + pw, py + 102, 0x0AFFFFFF);
-        lbl(g, "MÉTÉO",  lx, py + 90); g.fill(lx, py + 100, px + pw - 12, py + 101, C_DIV);
+        lbl(g, Lang.t("MÉTÉO", "WEATHER"),  lx, py + 90); g.fill(lx, py + 100, px + pw - 12, py + 101, C_DIV);
         g.fill(cx, py + 150, px + pw, py + 167, 0x0AFFFFFF);
-        lbl(g, "OUTILS", lx, py + 155); g.fill(lx, py + 165, px + pw - 12, py + 166, C_DIV);
+        lbl(g, Lang.t("OUTILS", "TOOLS"), lx, py + 155); g.fill(lx, py + 165, px + pw - 12, py + 166, C_DIV);
 
         // ── Santé serveur ────────────────────────────────────────────────────
         int oy = py + 168;
         int sY = oy + 54;
         g.fill(cx, sY, px + pw, sY + 17, 0x0AFFFFFF);
-        lbl(g, "SANTÉ SERVEUR", lx, sY + 5); g.fill(lx, sY + 15, px + pw - 12, sY + 16, C_DIV);
+        lbl(g, Lang.t("SANTÉ SERVEUR", "SERVER HEALTH"), lx, sY + 5); g.fill(lx, sY + 15, px + pw - 12, sY + 16, C_DIV);
         if (serverStats == null || serverStats.length < 7) {
-            g.drawString(font, "§8Indisponible", lx, sY + 22, 0xFF444444);
+            g.drawString(font, Lang.t("§8Indisponible", "§8Unavailable"), lx, sY + 22, 0xFF444444);
             return;
         }
         double tps = 0, mspt = 0;
@@ -1078,10 +1083,10 @@ public class AdminScreen extends Screen {
                                        : (upSec / 60) + "m" + (upSec % 60) + "s";
 
         int line = sY + 22;
-        g.drawString(font, "§7TPS : " + tpsCol + serverStats[0] + " §8(" + serverStats[1] + " ms/tick)", lx, line, 0xFFAAAAAA);
+        g.drawString(font, "§7TPS" + Lang.t(" : ", ": ") + tpsCol + serverStats[0] + " §8(" + serverStats[1] + " ms/tick)", lx, line, 0xFFAAAAAA);
         line += 12;
         // RAM : texte + barre de progression
-        g.drawString(font, "§7RAM : §f" + ramU + " §7/ " + ramM + " Mo", lx, line, 0xFFAAAAAA);
+        g.drawString(font, "§7RAM" + Lang.t(" : ", ": ") + "§f" + ramU + " §7/ " + ramM + Lang.t(" Mo", " MB"), lx, line, 0xFFAAAAAA);
         int barX = lx + 130, barW = px + pw - 40 - barX;
         if (barW > 30) {
             float frac = Math.min(1f, (float) ramU / Math.max(1, ramM));
@@ -1090,8 +1095,9 @@ public class AdminScreen extends Screen {
             g.fill(barX, line + 1, barX + (int)(barW * frac), line + 7, fillCol);
         }
         line += 12;
-        g.drawString(font, "§7Entités : §f" + serverStats[4] + "   §7Chunks : §f" + serverStats[5]
-            + "   §7Uptime : §f" + uptime, lx, line, 0xFFAAAAAA);
+        g.drawString(font, Lang.t("§7Entités : §f", "§7Entities: §f") + serverStats[4]
+            + Lang.t("   §7Chunks : §f", "   §7Chunks: §f") + serverStats[5]
+            + Lang.t("   §7Uptime : §f", "   §7Uptime: §f") + uptime, lx, line, 0xFFAAAAAA);
     }
 
     private void renderJoueurs(GuiGraphics g) {
@@ -1112,7 +1118,7 @@ public class AdminScreen extends Screen {
         if (!bannedPlayers.isEmpty()) {
             int searchCount = shown.size();
             int banY = py + 48 + searchCount * 16 + 8;
-            g.drawString(font, "BANNIS", cx + 6, banY - 2, 0xFF888888);
+            g.drawString(font, Lang.t("BANNIS", "BANNED"), cx + 6, banY - 2, 0xFF888888);
             g.fill(cx + 4, banY + 6, cx + 94, banY + 7, C_DIV);
             for (int i = 0; i < bannedPlayers.size(); i++) {
                 String bname  = bannedPlayers.get(i)[0];
@@ -1128,12 +1134,12 @@ public class AdminScreen extends Screen {
         // Section HORS LIGNE (en-tête + dernière connexion en sous-texte des boutons)
         if (!offlinePlayers.isEmpty()) {
             int offTop = offlineSectionTop();
-            g.drawString(font, "HORS LIGNE", cx + 6, offTop, 0xFF888888);
+            g.drawString(font, Lang.t("HORS LIGNE", "OFFLINE"), cx + 6, offTop, 0xFF888888);
             g.fill(cx + 4, offTop + 8, cx + 94, offTop + 9, C_DIV);
         }
 
         if (selPlayer == null) {
-            g.drawCenteredString(font, "§8← Sélectionnez", cx + 49, py + ph / 2, 0xFF555555);
+            g.drawCenteredString(font, Lang.t("§8← Sélectionnez", "§8← Select"), cx + 49, py + ph / 2, 0xFF555555);
             return;
         }
 
@@ -1159,7 +1165,7 @@ public class AdminScreen extends Screen {
             int lCol   = divX + 2 + (areaW - totalW) / 2;
             int rCol   = lCol + bw + gap;
             lbl(g, "ACTIONS",    lCol, py + 53);
-            lbl(g, "MODÉRATION", rCol, py + 53);
+            lbl(g, Lang.t("MODÉRATION", "MODERATION"), rCol, py + 53);
         }
 
         renderActivityCard(g, divX);
@@ -1172,13 +1178,14 @@ public class AdminScreen extends Screen {
         g.fill(ox, ot, ox + ow, ot + oh, 0xFF1A1A1A);
         g.fill(ox, ot, ox + ow, ot + 2, C_ACCENT);
         g.drawCenteredString(font,
-            Component.literal("NOTES ADMIN").withStyle(s -> s.withColor(0x00E5FF).withBold(true)),
+            Component.literal(Lang.t("NOTES ADMIN", "ADMIN NOTES")).withStyle(s -> s.withColor(0x00E5FF).withBold(true)),
             ox + ow / 2, ot + 8, 0xFFFFFFFF);
 
         int listTop = ot + 22, listBot = ot + oh - 30;
         if (adminNotes.isEmpty()) {
-            g.drawCenteredString(font, "§8Aucune note enregistrée", ox + ow / 2, (listTop + listBot) / 2 - 4, 0xFF444444);
-            g.drawCenteredString(font, "§8Sélectionnez un joueur puis remplissez le champ Note.", ox + ow / 2, (listTop + listBot) / 2 + 8, 0xFF333333);
+            g.drawCenteredString(font, Lang.t("§8Aucune note enregistrée", "§8No notes recorded"), ox + ow / 2, (listTop + listBot) / 2 - 4, 0xFF444444);
+            g.drawCenteredString(font, Lang.t("§8Sélectionnez un joueur puis remplissez le champ Note.",
+                "§8Select a player and fill in the Note field."), ox + ow / 2, (listTop + listBot) / 2 + 8, 0xFF333333);
             return;
         }
 
@@ -1218,14 +1225,17 @@ public class AdminScreen extends Screen {
         int top = py + ph - 58;
         g.fill(divX + 1, top - 2, px + pw, top - 1, C_DIV);
         g.fill(divX + 1, top - 1, px + pw, py + ph - 3, 0x0DFFFFFF);
-        lbl(g, "ACTIVITÉ", divX + 8, top + 2);
+        lbl(g, Lang.t("ACTIVITÉ", "ACTIVITY"), divX + 8, top + 2);
 
-        String seen = "§aen ligne";
+        String seen = Lang.t("§aen ligne", "§aonline");
         if (selOffline) {
             seen = "§7?";
             for (String[] off : offlinePlayers)
                 if (off[0].equals(selPlayer)) {
-                    try { seen = "§7il y a " + timeAgo(Long.parseLong(off[1])); } catch (NumberFormatException ignored) {}
+                    try {
+                        String ago = timeAgo(Long.parseLong(off[1]));
+                        seen = "§7" + Lang.t("il y a " + ago, ago + " ago");
+                    } catch (NumberFormatException ignored) {}
                     break;
                 }
         }
@@ -1236,15 +1246,16 @@ public class AdminScreen extends Screen {
         long reportCount = java.util.stream.Stream.of(reports, acceptedReports, closedReports)
             .flatMap(m -> m.keySet().stream()).filter(n -> n.equalsIgnoreCase(selPlayer)).count();
 
-        g.drawString(font, "§7Vu : " + seen, divX + 8, top + 13, 0xFFAAAAAA);
+        g.drawString(font, Lang.t("§7Vu : ", "§7Seen: ") + seen, divX + 8, top + 13, 0xFFAAAAAA);
+        String sancLbl = Lang.t("§7Sanctions : ", "§7Sanctions: ");
         String sancTxt = sanctionsEntries.isEmpty() && sanctionCount == 0
-            ? "§7Sanctions : §8—"
-            : "§7Sanctions : " + (sanctionCount == 0 ? "§a0" : "§c" + sanctionCount
-                + (lastSanction != null ? " §8(dernier : " + lastSanction + ")" : ""));
+            ? sancLbl + "§8—"
+            : sancLbl + (sanctionCount == 0 ? "§a0" : "§c" + sanctionCount
+                + (lastSanction != null ? " §8(" + Lang.t("dernier : ", "last: ") + lastSanction + ")" : ""));
         g.drawString(font, sancTxt, divX + 8, top + 24, 0xFFAAAAAA);
-        g.drawString(font, "§7Reports déposés : " + (reportCount == 0 ? "§80" : "§e" + reportCount),
+        g.drawString(font, Lang.t("§7Reports déposés : ", "§7Reports filed: ") + (reportCount == 0 ? "§80" : "§e" + reportCount),
             divX + 8, top + 35, 0xFFAAAAAA);
-        g.drawString(font, "§7Note :", divX + 8, py + ph - 14, 0xFFAAAAAA);
+        g.drawString(font, Lang.t("§7Note :", "§7Note:"), divX + 8, py + ph - 14, 0xFFAAAAAA);
     }
 
     private void renderChat(GuiGraphics g) {
@@ -1253,7 +1264,7 @@ public class AdminScreen extends Screen {
         int aY       = py + 50;
 
         // ── Section ANNONCE ──────────────────────────────────────────────────────
-        lbl(g, "ANNONCE GLOBALE", contentX, aY - 12);
+        lbl(g, Lang.t("ANNONCE GLOBALE", "GLOBAL ANNOUNCEMENT"), contentX, aY - 12);
 
         // Preview box under the buttons
         String preview = announceBox != null ? announceBox.getValue() : "";
@@ -1261,9 +1272,11 @@ public class AdminScreen extends Screen {
         g.fill(contentX, previewY, contentX + contentW, previewY + 14, 0x22FFFFFF);
         g.fill(contentX, previewY, contentX + 2, previewY + 14, C_ACCENT);
         g.drawString(font,
-            preview.isEmpty() ? "§8Aperçu — tapez votre annonce…" : "§6§l[ANNONCE] §r§f" + preview,
+            preview.isEmpty() ? Lang.t("§8Aperçu — tapez votre annonce…", "§8Preview — type your announcement…")
+                              : "§6§l[ANNONCE] §r§f" + preview,
             contentX + 6, previewY + 3, 0xFFFFFFFF);
-        g.drawString(font, "§8MOTD connexion : " + (motd.isEmpty() ? "§8aucun" : "§7" + truncate(motd, 40)),
+        g.drawString(font, Lang.t("§8MOTD connexion : ", "§8Login MOTD: ")
+            + (motd.isEmpty() ? Lang.t("§8aucun", "§8none") : "§7" + truncate(motd, 40)),
             contentX, previewY + 17, 0xFF555555);
 
         // ── Divider ──────────────────────────────────────────────────────────────
@@ -1273,11 +1286,11 @@ public class AdminScreen extends Screen {
         // ── Section BROADCASTS ───────────────────────────────────────────────────
         int bY    = py + 168;
         int listY = bY + 26;
-        lbl(g, "BROADCASTS PROGRAMMÉS", contentX, divY + 6);
+        lbl(g, Lang.t("BROADCASTS PROGRAMMÉS", "SCHEDULED BROADCASTS"), contentX, divY + 6);
         g.drawString(font, "§8min", contentX + contentW - 68, bY + 3, 0xFF444444);
 
         if (schedBroadcasts.isEmpty()) {
-            g.drawString(font, "§8Aucun broadcast programmé", contentX + 2, listY + 2, 0xFF444444);
+            g.drawString(font, Lang.t("§8Aucun broadcast programmé", "§8No scheduled broadcasts"), contentX + 2, listY + 2, 0xFF444444);
         } else {
             for (int i = 0; i < schedBroadcasts.size(); i++) {
                 String[] entry = schedBroadcasts.get(i);
@@ -1285,7 +1298,7 @@ public class AdminScreen extends Screen {
                 g.fill(cx + 8, listY + i * 20 - 2, px + pw - 8, listY + i * 20 + 12,
                        confirming ? 0x33FF4444 : 0x11FFFFFF);
                 if (confirming) {
-                    g.drawString(font, "§cSupprimer ? §7" + truncate(entry[0], 20) + " §8(" + entry[1] + "min)",
+                    g.drawString(font, Lang.t("§cSupprimer ? §7", "§cDelete? §7") + truncate(entry[0], 20) + " §8(" + entry[1] + "min)",
                                  cx + 12, listY + i * 20, 0xFFFFFFFF);
                 } else {
                     g.drawString(font, "§6[Annonce] §f" + truncate(entry[0], 30) + " §8— §e" + entry[1] + "min",
@@ -1324,6 +1337,7 @@ public class AdminScreen extends Screen {
         // Section divider
         g.fill(bx, fy + 100, bx + bw, fy + 101, C_DIV);
         lbl(g, "COOLDOWNS (s) / AFK (min)", bx, fy + 104);
+        // (libellé identique dans les deux langues)
 
         // Box labels
         int[] xs = { bx, bx + boxW + boxGap, bx + (boxW + boxGap) * 2, bx + (boxW + boxGap) * 3 };
@@ -1334,7 +1348,7 @@ public class AdminScreen extends Screen {
         // Max Homes section
         int hmY = cy + 50;
         g.fill(bx, hmY - 10, bx + bw, hmY - 9, C_DIV);
-        lbl(g, "MAX HOMES PAR JOUEUR  (1-10)", bx, hmY - 7);
+        lbl(g, Lang.t("MAX HOMES PAR JOUEUR  (1-10)", "MAX HOMES PER PLAYER  (1-10)"), bx, hmY - 7);
 
         // Discord Webhooks section — labels vertically centred on their boxes (left column)
         int whY = hmY + 36;
@@ -1357,12 +1371,12 @@ public class AdminScreen extends Screen {
         g.fill(cx + 2, bottomY + 1, px + pw - 2, py + ph - 3, 0x0DFFFFFF);
 
         // Column headers
-        lbl(g, "EN ATTENTE" + (reports.isEmpty() ? "" : " (" + reports.size() + ")"),         lx1 + 5, py + 30);
-        lbl(g, "EN COURS"   + (acceptedReports.isEmpty() ? "" : " (" + acceptedReports.size() + ")"), lx2 + 5, py + 30);
+        lbl(g, Lang.t("EN ATTENTE", "PENDING") + (reports.isEmpty() ? "" : " (" + reports.size() + ")"),         lx1 + 5, py + 30);
+        lbl(g, Lang.t("EN COURS", "IN PROGRESS") + (acceptedReports.isEmpty() ? "" : " (" + acceptedReports.size() + ")"), lx2 + 5, py + 30);
 
         // Left — pending
         if (reports.isEmpty()) {
-            g.drawCenteredString(font, "§8Aucun", (lx1 + rx1) / 2, (py + 26 + bottomY) / 2, 0xFF444444);
+            g.drawCenteredString(font, Lang.t("§8Aucun", "§8None"), (lx1 + rx1) / 2, (py + 26 + bottomY) / 2, 0xFF444444);
         } else {
             int y = py + 48;
             for (java.util.Map.Entry<String, String> e : reports.entrySet()) {
@@ -1373,14 +1387,14 @@ public class AdminScreen extends Screen {
                 String msg = truncate(hasImg ? rawMsg.substring(1) : rawMsg, 22);
                 g.drawString(font, "§e" + e.getKey(), lx1 + 8, y + 3,  0xFFFFFFFF);
                 g.drawString(font, "§7» " + msg,      lx1 + 8, y + 15, 0xFFAAAAAA);
-                if (hasImg) g.drawString(font, "§b[capture jointe]", lx1 + 8, y + 27, 0xFF4499FF);
+                if (hasImg) g.drawString(font, Lang.t("§b[capture jointe]", "§b[screenshot attached]"), lx1 + 8, y + 27, 0xFF4499FF);
                 y += 44;
             }
         }
 
         // Right — in-progress
         if (acceptedReports.isEmpty()) {
-            g.drawCenteredString(font, "§8Aucun", (lx2 + rx2) / 2, (py + 26 + bottomY) / 2, 0xFF444444);
+            g.drawCenteredString(font, Lang.t("§8Aucun", "§8None"), (lx2 + rx2) / 2, (py + 26 + bottomY) / 2, 0xFF444444);
         } else {
             int y = py + 48;
             for (java.util.Map.Entry<String, String> e : acceptedReports.entrySet()) {
@@ -1397,9 +1411,9 @@ public class AdminScreen extends Screen {
         }
 
         // Bottom — closed history
-        lbl(g, "CLÔTURÉS", cx + 6, bottomY + 8);
+        lbl(g, Lang.t("CLÔTURÉS", "CLOSED"), cx + 6, bottomY + 8);
         if (closedReports.isEmpty()) {
-            g.drawString(font, "§8aucun", cx + 65, bottomY + 8, 0xFF444444);
+            g.drawString(font, Lang.t("§8aucun", "§8none"), cx + 65, bottomY + 8, 0xFF444444);
         } else {
             int x = cx + 65;
             for (String name : closedReports.keySet()) {
@@ -1419,7 +1433,8 @@ public class AdminScreen extends Screen {
             Minecraft.getInstance().getConnection().getOnlinePlayers();
 
         // Historique du chat public du serveur (réutilise le visualiseur de logs)
-        addRenderableWidget(btn("Chat global".equals(selPlayer) ? "§b§lCHAT GLOBAL" : "§bCHAT GLOBAL", b -> {
+        String chatLbl = Lang.t("CHAT GLOBAL", "GLOBAL CHAT");
+        addRenderableWidget(btn(("Chat global".equals(selPlayer) ? "§b§l" : "§b") + chatLbl, b -> {
             selPlayer   = "Chat global";
             logsPlayer  = null;
             logsEntries = new java.util.ArrayList<>();
@@ -1461,7 +1476,7 @@ public class AdminScreen extends Screen {
         }
 
         if (selPlayer == null) {
-            g.drawCenteredString(font, "§8← Sélectionnez un joueur", (divX + px + pw) / 2, py + ph / 2, 0xFF555555);
+            g.drawCenteredString(font, Lang.t("§8← Sélectionnez un joueur", "§8← Select a player"), (divX + px + pw) / 2, py + ph / 2, 0xFF555555);
             return;
         }
 
@@ -1471,12 +1486,12 @@ public class AdminScreen extends Screen {
         g.fill(divX + 1, py + 45, px + pw, py + 46, C_DIV);
 
         if (logsPlayer == null) {
-            g.drawCenteredString(font, "§8Chargement des logs...", (divX + px + pw) / 2, py + ph / 2, 0xFF666666);
+            g.drawCenteredString(font, Lang.t("§8Chargement des logs...", "§8Loading logs..."), (divX + px + pw) / 2, py + ph / 2, 0xFF666666);
             return;
         }
 
         if (logsEntries.isEmpty()) {
-            g.drawCenteredString(font, "§8Aucun log", (divX + px + pw) / 2, py + ph / 2, 0xFF444444);
+            g.drawCenteredString(font, Lang.t("§8Aucun log", "§8No logs"), (divX + px + pw) / 2, py + ph / 2, 0xFF444444);
             return;
         }
 
@@ -1524,7 +1539,7 @@ public class AdminScreen extends Screen {
                 final String playerName = e[2];
                 boolean isBanned = bannedPlayers.stream().anyMatch(b -> b[0].equalsIgnoreCase(playerName));
                 if (isBanned) {
-                    addRenderableWidget(btn("§aDÉBAN", b -> {
+                    addRenderableWidget(btn(Lang.t("§aDÉBAN", "§aUNBAN"), b -> {
                         confirmUnbanPlayer = playerName;
                         init();
                     }).bounds(px + pw - 62, y + 2, 54, 14).build());
@@ -1541,7 +1556,7 @@ public class AdminScreen extends Screen {
         int entryH   = 18;
 
         if (sanctionsEntries.isEmpty()) {
-            g.drawCenteredString(font, "§8Aucune sanction enregistrée", midX, py + ph / 2, 0xFF444444);
+            g.drawCenteredString(font, Lang.t("§8Aucune sanction enregistrée", "§8No sanctions recorded"), midX, py + ph / 2, 0xFF444444);
             return;
         }
 
@@ -1663,7 +1678,7 @@ public class AdminScreen extends Screen {
         warpNameBox = new EditBox(font, lx, py + ph - 28, 120, 18, Component.literal("nom du warp"));
         warpNameBox.setMaxLength(24);
         addRenderableWidget(warpNameBox);
-        addRenderableWidget(btn("§aCRÉER ICI", b -> {
+        addRenderableWidget(btn(Lang.t("§aCRÉER ICI", "§aCREATE HERE"), b -> {
             String n = warpNameBox.getValue().trim();
             if (!n.isEmpty()) { send("WARP_ADD", "", n); warpNameBox.setValue(""); }
         }).bounds(lx + 126, py + ph - 28, 90, 18).build());
@@ -1671,12 +1686,12 @@ public class AdminScreen extends Screen {
 
     private void renderWarps(GuiGraphics g) {
         int lx = cx + 8;
-        lbl(g, "WARPS PUBLICS" + (warpsList.isEmpty() ? "" : " (" + warpsList.size() + ")"), lx, py + 32);
+        lbl(g, Lang.t("WARPS PUBLICS", "PUBLIC WARPS") + (warpsList.isEmpty() ? "" : " (" + warpsList.size() + ")"), lx, py + 32);
         g.fill(lx, py + 42, px + pw - 12, py + 43, C_DIV);
 
         if (warpsList.isEmpty()) {
-            g.drawCenteredString(font, "§8Aucun warp défini", midX, py + ph / 2 - 6, 0xFF444444);
-            g.drawCenteredString(font, "§8Créez-en un à votre position ci-dessous", midX, py + ph / 2 + 6, 0xFF333333);
+            g.drawCenteredString(font, Lang.t("§8Aucun warp défini", "§8No warps defined"), midX, py + ph / 2 - 6, 0xFF444444);
+            g.drawCenteredString(font, Lang.t("§8Créez-en un à votre position ci-dessous", "§8Create one at your position below"), midX, py + ph / 2 + 6, 0xFF333333);
         }
 
         int y = py + 48;
@@ -1696,7 +1711,8 @@ public class AdminScreen extends Screen {
         }
 
         g.fill(lx, py + ph - 36, px + pw - 12, py + ph - 35, C_DIV);
-        g.drawString(font, "§8Le warp est créé à votre position actuelle.", lx + 222, py + ph - 23, 0xFF444444);
+        g.drawString(font, Lang.t("§8Le warp est créé à votre position actuelle.",
+            "§8The warp is created at your current position."), lx + 222, py + ph - 23, 0xFF444444);
     }
 
     // ─── ZONES ───────────────────────────────────────────────────────────────────
@@ -1755,7 +1771,7 @@ public class AdminScreen extends Screen {
         int znDetW = (px + pw) - znDetX;
 
         // Baguette button at bottom of list panel
-        addRenderableWidget(btn("§6✦ Baguette", b -> sendZone("GIVE_TOOL", "", ""))
+        addRenderableWidget(btn(Lang.t("§6✦ Baguette", "§6✦ Wand"), b -> sendZone("GIVE_TOOL", "", ""))
             .bounds(cx + 2, py + ph - 24, ZONE_LIST_W - 4, 18).build());
 
         // Zone list entries
@@ -1783,7 +1799,7 @@ public class AdminScreen extends Screen {
 
         // Sub-tabs (sous l'en-tête de 22px : nom + dimensions sans chevauchement)
         int tabW = znDetW / 4;
-        String[] tabLabels = { "MEMBRES", "COORDS", "OPTIONS", "MSG" };
+        String[] tabLabels = { Lang.t("MEMBRES", "MEMBERS"), "COORDS", "OPTIONS", "MSG" };
         for (int i = 0; i < tabLabels.length; i++) {
             final int ti = i;
             boolean active = zoneDetailTab == i;
@@ -1837,7 +1853,7 @@ public class AdminScreen extends Screen {
         zMaxZBox = zBox(lx+(boxW+gap)*2,   top + 58, boxW, String.valueOf(z.z2()));
         for (EditBox b : new EditBox[]{zMinXBox, zMinYBox, zMinZBox, zMaxXBox, zMaxYBox, zMaxZBox})
             addRenderableWidget(b);
-        addRenderableWidget(btn("§aSAUVEGARDER", b -> {
+        addRenderableWidget(btn(Lang.t("§aSAUVEGARDER", "§aSAVE"), b -> {
             try {
                 sendZone("UPDATE_COORDS", selectedZone,
                     zMinXBox.getValue() + "," + zMinYBox.getValue() + "," + zMinZBox.getValue() + "," +
@@ -1868,18 +1884,19 @@ public class AdminScreen extends Screen {
         int bh   = Math.max(12, rowH - 2);
         int y = top;
 
-        addRenderableWidget(btn("État de la zone : " + (z.enabled() ? "§aACTIVÉE" : "§cDÉSACTIVÉE"),
+        addRenderableWidget(btn(Lang.t("État de la zone : ", "Zone state: ")
+                + (z.enabled() ? Lang.t("§aACTIVÉE", "§aENABLED") : Lang.t("§cDÉSACTIVÉE", "§cDISABLED")),
             b -> sendZone("TOGGLE_ENABLED", selectedZone, "")).bounds(lx, y, w, bh).build());
         y += rowH;
 
-        addRenderableWidget(btn("Vision nocturne : " + (z.nightVision() ? "§aON" : "§cOFF"),
+        addRenderableWidget(btn(Lang.t("Vision nocturne : ", "Night vision: ") + (z.nightVision() ? "§aON" : "§cOFF"),
             b -> sendZone("TOGGLE_NIGHT_VISION", selectedZone, "")).bounds(lx, y, w, bh).build());
         y += rowH;
 
         int cIdx = Math.floorMod(z.colorIdx(), Fabric.test.Zone.COLORS.length);
-        Component colorLbl = Component.literal("Couleur : ")
+        Component colorLbl = Component.literal(Lang.t("Couleur : ", "Color: "))
             .append(Component.literal("■ ").withStyle(s -> s.withColor(z.color())))
-            .append(Fabric.test.Zone.COLOR_NAMES[cIdx]);
+            .append(Lang.t(Fabric.test.Zone.COLOR_NAMES[cIdx], Fabric.test.Zone.COLOR_NAMES_EN[cIdx]));
         addRenderableWidget(Button.builder(colorLbl,
             b -> sendZone("CYCLE_COLOR", selectedZone, "")).bounds(lx, y, w, bh).build());
         y += rowH;
@@ -1888,7 +1905,7 @@ public class AdminScreen extends Screen {
         int pw3 = (w - 8) / 3;
         addRenderableWidget(btn("§bSpawn", b -> sendZone("APPLY_PRESET", selectedZone, "SPAWN"))
             .bounds(lx, y, pw3, bh).build());
-        addRenderableWidget(btn("§cArène", b -> sendZone("APPLY_PRESET", selectedZone, "ARENA"))
+        addRenderableWidget(btn(Lang.t("§cArène", "§cArena"), b -> sendZone("APPLY_PRESET", selectedZone, "ARENA"))
             .bounds(lx + pw3 + 4, y, pw3, bh).build());
         addRenderableWidget(btn("§6VIP", b -> sendZone("APPLY_PRESET", selectedZone, "VIP"))
             .bounds(lx + (pw3 + 4) * 2, y, pw3, bh).build());
@@ -1896,15 +1913,16 @@ public class AdminScreen extends Screen {
 
         for (Fabric.test.ZoneFlag fl : Fabric.test.ZoneFlag.values()) {
             boolean allowed = z.flags().getOrDefault(fl, fl.defaultAllowed);
-            addRenderableWidget(btn(fl.label + " : " + (allowed ? "§aautorisé" : "§cbloqué"),
+            addRenderableWidget(btn(Lang.t(fl.label, fl.labelEn) + Lang.t(" : ", ": ")
+                    + (allowed ? Lang.t("§aautorisé", "§aallowed") : Lang.t("§cbloqué", "§cblocked")),
                 b -> sendZone("TOGGLE_FLAG", selectedZone, fl.name())).bounds(lx, y, w, bh).build());
             y += rowH;
         }
 
-        addRenderableWidget(btn("§eTéléporter vers la zone",
+        addRenderableWidget(btn(Lang.t("§eTéléporter vers la zone", "§eTeleport to zone"),
             b -> sendZone("TP_ZONE", selectedZone, "")).bounds(lx, y, w, bh).build());
         y += rowH;
-        addRenderableWidget(btn("§c§lSUPPRIMER LA ZONE",
+        addRenderableWidget(btn(Lang.t("§c§lSUPPRIMER LA ZONE", "§c§lDELETE ZONE"),
             b -> { sendZone("DELETE_ZONE", selectedZone, ""); selectedZone = null; init(); })
             .bounds(lx, y, w, bh).build());
     }
@@ -1922,7 +1940,7 @@ public class AdminScreen extends Screen {
         zFarewellBox.setValue(z.farewell());
         addRenderableWidget(zFarewellBox);
 
-        addRenderableWidget(btn("§aSAUVEGARDER", b ->
+        addRenderableWidget(btn(Lang.t("§aSAUVEGARDER", "§aSAVE"), b ->
             sendZone("SET_MESSAGES", selectedZone, zGreetingBox.getValue() + "\t" + zFarewellBox.getValue()))
             .bounds(detX + detW - 106, top + 78, 98, 18).build());
     }
@@ -1939,7 +1957,7 @@ public class AdminScreen extends Screen {
         g.fill(cx + 2, py + ph - 28, cx + ZONE_LIST_W - 2, py + ph - 27, C_DIV);
 
         if (zoneMap.isEmpty()) {
-            g.drawCenteredString(font, "§8Aucune zone", cx + ZONE_LIST_W / 2, py + ph / 2 - 14, 0xFF444444);
+            g.drawCenteredString(font, Lang.t("§8Aucune zone", "§8No zones"), cx + ZONE_LIST_W / 2, py + ph / 2 - 14, 0xFF444444);
             g.drawCenteredString(font, "§8/zone create", cx + ZONE_LIST_W / 2, py + ph / 2 - 2, 0xFF333333);
         }
 
@@ -1961,7 +1979,7 @@ public class AdminScreen extends Screen {
 
         if (selectedZone == null) {
             if (!zoneMap.isEmpty())
-                g.drawCenteredString(font, "§8Sélectionnez une zone", znDetX + znDetW / 2, py + ph / 2, 0xFF444444);
+                g.drawCenteredString(font, Lang.t("§8Sélectionnez une zone", "§8Select a zone"), znDetX + znDetW / 2, py + ph / 2, 0xFF444444);
             return;
         }
         ZoneData z = zoneMap.get(selectedZone);
@@ -1972,7 +1990,7 @@ public class AdminScreen extends Screen {
         int sx = z.x2()-z.x1()+1, sy = z.y2()-z.y1()+1, sz = z.z2()-z.z1()+1;
         g.drawString(font, "§e§l" + selectedZone, znDetX + 4, py + 28, 0xFFFFFFFF);
         if (!z.inside().isEmpty())
-            g.drawString(font, "§a◉ " + z.inside().size() + " présent" + (z.inside().size() > 1 ? "s" : ""),
+            g.drawString(font, "§a◉ " + z.inside().size() + Lang.t(" présent" + (z.inside().size() > 1 ? "s" : ""), " inside"),
                 znDetX + 10 + font.width("§e§l" + selectedZone), py + 28, 0xFF55FF55);
         g.drawString(font, "§8" + sx + "×" + sy + "×" + sz
             + "  (" + z.x1() + "," + z.y1() + "," + z.z1()
@@ -1996,9 +2014,10 @@ public class AdminScreen extends Screen {
 
     private void renderZoneMessages(GuiGraphics g, ZoneData z, int detX, int detW, int top, int bot) {
         int lx = detX + 8;
-        g.drawString(font, "§7MESSAGE D'ENTRÉE", lx, top + 4, 0xFF888888);
-        g.drawString(font, "§7MESSAGE DE SORTIE", lx, top + 42, 0xFF888888);
-        g.drawString(font, "§8Affiché en action-bar. Vide = aucun message.", lx, top + 102, 0xFF444444);
+        g.drawString(font, Lang.t("§7MESSAGE D'ENTRÉE", "§7ENTRY MESSAGE"), lx, top + 4, 0xFF888888);
+        g.drawString(font, Lang.t("§7MESSAGE DE SORTIE", "§7EXIT MESSAGE"), lx, top + 42, 0xFF888888);
+        g.drawString(font, Lang.t("§8Affiché en action-bar. Vide = aucun message.",
+            "§8Shown in the action bar. Empty = no message."), lx, top + 102, 0xFF444444);
     }
 
     private void renderZoneMembers(GuiGraphics g, ZoneData z, int detX, int detW, int top, int bot) {
@@ -2009,11 +2028,11 @@ public class AdminScreen extends Screen {
 
         g.fill(detX + halfW, top, detX + halfW + 1, bot, C_DIV);
         g.fill(detX, top + 12, px + pw, top + 13, C_DIV);
-        g.drawString(font, "MEMBRES §7(" + z.members().size() + ")", detX + 4, top + 2, 0xFF888888);
-        g.drawString(font, "JOUEURS EN LIGNE", rightX + 4, top + 2, 0xFF888888);
+        g.drawString(font, Lang.t("MEMBRES", "MEMBERS") + " §7(" + z.members().size() + ")", detX + 4, top + 2, 0xFF888888);
+        g.drawString(font, Lang.t("JOUEURS EN LIGNE", "ONLINE PLAYERS"), rightX + 4, top + 2, 0xFF888888);
 
         if (z.members().isEmpty()) {
-            g.drawString(font, "§8Ouvert — tous autorisés", detX + 6, entryY + 3, 0xFF3A3A3A);
+            g.drawString(font, Lang.t("§8Ouvert — tous autorisés", "§8Open — everyone allowed"), detX + 6, entryY + 3, 0xFF3A3A3A);
         } else {
             for (int i = 0; i < z.members().size() && i < maxRows; i++) {
                 int ry = entryY + i * 18;
@@ -2022,7 +2041,7 @@ public class AdminScreen extends Screen {
             }
         }
         if (zoneOnline.isEmpty()) {
-            g.drawString(font, "§8Aucun joueur en ligne", rightX + 4, entryY + 3, 0xFF3A3A3A);
+            g.drawString(font, Lang.t("§8Aucun joueur en ligne", "§8No players online"), rightX + 4, entryY + 3, 0xFF3A3A3A);
         } else {
             int ri = 0;
             for (String playerName : zoneOnline) {
@@ -2041,16 +2060,16 @@ public class AdminScreen extends Screen {
 
     private void renderZoneCoords(GuiGraphics g, ZoneData z, int detX, int detW, int top, int bot) {
         int lx = detX + 8, boxW = 40, gap = 4;
-        g.drawString(font, "§7POINT MIN §8(A)", lx, top + 4,  0xFF888888);
+        g.drawString(font, Lang.t("§7POINT MIN §8(A)", "§7MIN POINT §8(A)"), lx, top + 4,  0xFF888888);
         g.drawString(font, "§8X", lx,               top + 12, 0xFF555555);
         g.drawString(font, "§8Y", lx + boxW + gap,  top + 12, 0xFF555555);
         g.drawString(font, "§8Z", lx+(boxW+gap)*2,  top + 12, 0xFF555555);
-        g.drawString(font, "§7POINT MAX §8(B)", lx, top + 42, 0xFF888888);
+        g.drawString(font, Lang.t("§7POINT MAX §8(B)", "§7MAX POINT §8(B)"), lx, top + 42, 0xFF888888);
         g.drawString(font, "§8X", lx,               top + 50, 0xFF555555);
         g.drawString(font, "§8Y", lx + boxW + gap,  top + 50, 0xFF555555);
         g.drawString(font, "§8Z", lx+(boxW+gap)*2,  top + 50, 0xFF555555);
 
-        g.drawString(font, "§7PRIORITÉ §8(la plus haute décide)", lx, top + 101, 0xFF888888);
+        g.drawString(font, Lang.t("§7PRIORITÉ §8(la plus haute décide)", "§7PRIORITY §8(highest wins)"), lx, top + 101, 0xFF888888);
     }
 
     @Override public void renderBackground(net.minecraft.client.gui.GuiGraphics g, int mx, int my, float delta) {}

@@ -101,14 +101,14 @@ public class DealScreen extends Screen {
 
         // Accept button — disabled (grayed) when already accepted
         Button acceptBtn = Button.builder(
-            Component.literal(myAccepted ? "§a§l✔ ACCEPTÉ" : "§aAccepter"),
+            Component.literal(myAccepted ? Lang.t("§a§l✔ ACCEPTÉ", "§a§l✔ ACCEPTED") : Lang.t("§aAccepter", "§aAccept")),
             b -> send("ACCEPT", -1))
             .bounds(panelX + 4, btnY, panelW / 2 - 6, 20).build();
         acceptBtn.active = !myAccepted;
         addRenderableWidget(acceptBtn);
 
         // Refuse button
-        addRenderableWidget(Button.builder(Component.literal("§cRefuser"), b -> send("CANCEL", -1))
+        addRenderableWidget(Button.builder(Component.literal(Lang.t("§cRefuser", "§cDecline")), b -> send("CANCEL", -1))
             .bounds(panelX + panelW / 2 + 2, btnY, panelW / 2 - 6, 20).build());
     }
 
@@ -138,17 +138,17 @@ public class DealScreen extends Screen {
 
         if (myAccepted && theirAccepted) {
             g.drawCenteredString(font,
-                Component.literal("§a§l✔ ÉCHANGE CONFIRMÉ !").withStyle(s -> s.withBold(true)),
+                Component.literal(Lang.t("§a§l✔ ÉCHANGE CONFIRMÉ !", "§a§l✔ TRADE CONFIRMED!")).withStyle(s -> s.withBold(true)),
                 panelX + panelW / 2, panelY + 7, 0xFFFFFFFF);
         } else {
             g.drawCenteredString(font,
-                Component.literal("⇌ ÉCHANGE §8— §e" + partnerName)
+                Component.literal(Lang.t("⇌ ÉCHANGE §8— §e", "⇌ TRADE §8— §e") + partnerName)
                     .withStyle(s -> s.withColor(0x00E5FF).withBold(true)),
                 panelX + panelW / 2, panelY + 7, 0xFFFFFFFF);
         }
 
         // ── My offer ──
-        g.drawString(font, "§7MON OFFRE" + (myAccepted ? " §a✔" : ""), gridX, myGridY - 9, 0xFF666666);
+        g.drawString(font, Lang.t("§7MON OFFRE", "§7MY OFFER") + (myAccepted ? " §a✔" : ""), gridX, myGridY - 9, 0xFF666666);
         renderGrid(g, mx, my, gridX, myGridY, myItems, false);
         if (myAccepted) g.fill(gridX, myGridY, gridX + GRID_W, myGridY + GRID_H, C_ACC_OVL);
 
@@ -156,8 +156,8 @@ public class DealScreen extends Screen {
         g.fill(panelX + 4, myGridY + GRID_H + 2, panelX + panelW - 4, myGridY + GRID_H + 3, C_DIV);
 
         // ── Their offer ──
-        String theirStatus = theirAccepted ? " §a✔" : " §8(en attente…)";
-        g.drawString(font, "§7OFFRE DE §f" + partnerName + theirStatus, gridX, theirGridY - 9, 0xFF666666);
+        String theirStatus = theirAccepted ? " §a✔" : Lang.t(" §8(en attente…)", " §8(waiting…)");
+        g.drawString(font, Lang.t("§7OFFRE DE §f", "§7OFFER FROM §f") + partnerName + theirStatus, gridX, theirGridY - 9, 0xFF666666);
         renderGrid(g, mx, my, gridX, theirGridY, theirItems, true);
         if (theirAccepted) g.fill(gridX, theirGridY, gridX + GRID_W, theirGridY + GRID_H, C_ACC_OVL);
 
@@ -166,7 +166,7 @@ public class DealScreen extends Screen {
         g.fill(panelX + 4, btnY + 22, panelX + panelW - 4, btnY + 23, C_DIV);
 
         // ── Inventory ──
-        g.drawString(font, "§7INVENTAIRE", gridX, invRowY - 9, 0xFF666666);
+        g.drawString(font, Lang.t("§7INVENTAIRE", "§7INVENTORY"), gridX, invRowY - 9, 0xFF666666);
         renderInventoryRows(g, mx, my, gridX, invRowY, 9, 35);
 
         // Hotbar (with subtle separator)

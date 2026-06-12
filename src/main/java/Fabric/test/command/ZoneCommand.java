@@ -437,7 +437,15 @@ public class ZoneCommand {
 
     private static void onItemToss(net.neoforged.neoforge.event.entity.item.ItemTossEvent event) {
         if (!(event.getPlayer() instanceof ServerPlayer sp)) return;
-        if (sp.hasPermissions(2) || buildZone.containsKey(sp.getUUID())) return;
+        // Mode construction : jeter des items exfiltrerait des objets créatifs dans le monde
+        // survie (ils resteraient au sol après la restauration de l'inventaire).
+        if (buildZone.containsKey(sp.getUUID())) {
+            sp.getInventory().add(event.getEntity().getItem());
+            sp.sendSystemMessage(Component.literal("§cJeter des items est interdit en mode construction."), true);
+            event.setCanceled(true);
+            return;
+        }
+        if (sp.hasPermissions(2)) return;
         if (isAllowed(ZoneFlag.ITEM_DROP, sp.getX(), sp.getY(), sp.getZ(), sp.getUUID())) return;
         // Annuler détruit l'entité item : on restitue le stack au joueur.
         sp.getInventory().add(event.getEntity().getItem());
@@ -447,7 +455,12 @@ public class ZoneCommand {
 
     private static void onItemPickup(net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent.Pre event) {
         if (!(event.getPlayer() instanceof ServerPlayer sp)) return;
-        if (sp.hasPermissions(2) || buildZone.containsKey(sp.getUUID())) return;
+        // Mode construction : ramasser détruirait les items à la sortie (inventaire restauré).
+        if (buildZone.containsKey(sp.getUUID())) {
+            event.setCanPickup(net.neoforged.neoforge.common.util.TriState.FALSE);
+            return;
+        }
+        if (sp.hasPermissions(2)) return;
         var item = event.getItemEntity();
         if (!isAllowed(ZoneFlag.ITEM_PICKUP, item.getX(), item.getY(), item.getZ(), sp.getUUID()))
             event.setCanPickup(net.neoforged.neoforge.common.util.TriState.FALSE);

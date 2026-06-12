@@ -38,20 +38,16 @@ public class SettingsScreen extends Screen {
     private boolean showChatNotifications;
     private boolean showConnectionAlerts;
 
-    private static final String[] LABELS = {
-        "Messages privés",
-        "Demandes de TP",
-        "Échanges joueurs",
-        "Notifications chat",
-        "Alertes connexion"
-    };
-    private static final String[] DESCS = {
-        "Recevoir les messages via /mail",
-        "Recevoir les demandes /tpa",
-        "Recevoir les demandes d'échange",
-        "Notification lors d'un message reçu",
-        "Voir les connexions / déconnexions"
-    };
+    private static String[] labels() {
+        return Lang.fr()
+            ? new String[]{ "Messages privés", "Demandes de TP", "Échanges joueurs", "Notifications chat", "Alertes connexion" }
+            : new String[]{ "Private messages", "TP requests", "Player trades", "Chat notifications", "Connection alerts" };
+    }
+    private static String[] descs() {
+        return Lang.fr()
+            ? new String[]{ "Recevoir les messages via /mail", "Recevoir les demandes /tpa", "Recevoir les demandes d'échange", "Notification lors d'un message reçu", "Voir les connexions / déconnexions" }
+            : new String[]{ "Receive messages via /mail", "Receive /tpa requests", "Receive trade requests", "Notify when a message is received", "See joins / leaves" };
+    }
 
     // Tab 1 — Commandes
     private final List<String[]> commandList = new ArrayList<>();
@@ -93,10 +89,16 @@ public class SettingsScreen extends Screen {
 
     private int currentTab = 0;
 
-    private static final String[] TAB_NAMES  = { "PARAMS", "CMDS", "HOMES", "VERROUS", "GROUPE", "STATS", "BUILD" };
-    private static final String[] TAB_TITLES = {
-        "PARAMÈTRES", "COMMANDES", "HOMES", "VERROUS & CONFIANCE", "GROUPE", "STATISTIQUES", "MODE CONSTRUCTION"
-    };
+    private static String[] tabNames() {
+        return Lang.fr()
+            ? new String[]{ "PARAMS", "CMDS", "HOMES", "VERROUS", "GROUPE", "STATS", "BUILD" }
+            : new String[]{ "SETTINGS", "CMDS", "HOMES", "LOCKS", "GROUP", "STATS", "BUILD" };
+    }
+    private static String[] tabTitles() {
+        return Lang.fr()
+            ? new String[]{ "PARAMÈTRES", "COMMANDES", "HOMES", "VERROUS & CONFIANCE", "GROUPE", "STATISTIQUES", "MODE CONSTRUCTION" }
+            : new String[]{ "SETTINGS", "COMMANDS", "HOMES", "LOCKS & TRUST", "GROUP", "STATISTICS", "BUILD MODE" };
+    }
     private int tabPitch = 22, tabBtnH = 20; // espacement/hauteur des onglets, calculés en init
 
     public SettingsScreen(OpenSettingsPayload payload) {
@@ -264,12 +266,13 @@ public class SettingsScreen extends Screen {
         // quelle que soit l'échelle GUI.
         int navTop    = py + 42;
         int navBottom = py + ph - 28; // au-dessus de FERMER (py+ph-25, haut 20)
-        tabPitch = Math.max(16, Math.min(22, (navBottom - navTop) / TAB_NAMES.length));
+        String[] tabNames = tabNames();
+        tabPitch = Math.max(16, Math.min(22, (navBottom - navTop) / tabNames.length));
         tabBtnH  = Math.min(20, tabPitch - 2);
-        for (int i = 0; i < TAB_NAMES.length; i++) {
+        for (int i = 0; i < tabNames.length; i++) {
             final int id = i;
             boolean active = currentTab == i;
-            Component lbl = Component.literal(TAB_NAMES[i]).withStyle(
+            Component lbl = Component.literal(tabNames[i]).withStyle(
                 active ? s -> s.withColor(0x00E5FF).withBold(true) : s -> s.withColor(0x777777));
             addRenderableWidget(Button.builder(lbl, b -> {
                 currentTab = id;
@@ -303,8 +306,8 @@ public class SettingsScreen extends Screen {
 
     private static Component overlayLabel() {
         return Component.literal(ClientZoneCache.overlayEnabled
-            ? "§aVISUALISATION ZONES : ON"
-            : "§cVISUALISATION ZONES : OFF");
+            ? Lang.t("§aVISUALISATION ZONES : ON", "§aZONE OVERLAY: ON")
+            : Lang.t("§cVISUALISATION ZONES : OFF", "§cZONE OVERLAY: OFF"));
     }
 
     private void buildSettings() {
@@ -332,16 +335,16 @@ public class SettingsScreen extends Screen {
         for (String name : new ArrayList<>(homeMap.keySet())) {
             int ry = start + ROW_H * i;
             addRenderableWidget(Button.builder(
-                Component.literal("§aTÉLÉPORTER"),
+                Component.literal(Lang.t("§aTÉLÉPORTER", "§aTELEPORT")),
                 b -> { sendAction("HOME_TP", name); onClose(); }
             ).bounds(px + pw - 168, ry + 10, 80, 18).build());
 
             if (name.equals(confirmDeleteHome)) {
-                addRenderableWidget(Button.builder(Component.literal("§cCONFIRMER"),
+                addRenderableWidget(Button.builder(Component.literal(Lang.t("§cCONFIRMER", "§cCONFIRM")),
                     b -> { homeMap.remove(name); sendAction("HOME_DELETE", name); confirmDeleteHome = null; init(); }
                 ).bounds(px + pw - 84, ry + 10, 78, 18).build());
             } else {
-                addRenderableWidget(Button.builder(Component.literal("§7SUPPRIMER"),
+                addRenderableWidget(Button.builder(Component.literal(Lang.t("§7SUPPRIMER", "§7DELETE")),
                     b -> { confirmDeleteHome = name; init(); }
                 ).bounds(px + pw - 84, ry + 10, 78, 18).build());
             }
@@ -374,7 +377,7 @@ public class SettingsScreen extends Screen {
             int btnY = y + 5;
             if (btnY + 14 > contentTop && btnY < contentBot) {
                 addRenderableWidget(Button.builder(
-                    Component.literal("§cDÉVERROUILLER"),
+                    Component.literal(Lang.t("§cDÉVERROUILLER", "§cUNLOCK")),
                     b -> { lockList.remove(pos); sendAction("LOCK_DELETE", pos); init(); }
                 ).bounds(px + pw - 100, btnY, 94, 14).build());
             }
@@ -390,7 +393,7 @@ public class SettingsScreen extends Screen {
             int btnY = y + 5;
             if (btnY + 14 > contentTop && btnY < contentBot) {
                 addRenderableWidget(Button.builder(
-                    Component.literal("§cRETIRER"),
+                    Component.literal(Lang.t("§cRETIRER", "§cREMOVE")),
                     b -> { trustList.remove(entry); sendAction("UNTRUST", entry[1]); init(); }
                 ).bounds(px + pw - 76, btnY, 70, 14).build());
             }
@@ -404,10 +407,10 @@ public class SettingsScreen extends Screen {
         int botY       = py + ph - 112; // bottom panel starts here (112px)
 
         if (!pendingInviteFrom.isEmpty()) {
-            addRenderableWidget(Button.builder(Component.literal("§aACCEPTER"),
+            addRenderableWidget(Button.builder(Component.literal(Lang.t("§aACCEPTER", "§aACCEPT")),
                 b -> { sendGroup("ACCEPT", ""); pendingInviteFrom = ""; init(); })
                 .bounds(midX - 108, contentTop + 2, 104, 16).build());
-            addRenderableWidget(Button.builder(Component.literal("§cREFUSER"),
+            addRenderableWidget(Button.builder(Component.literal(Lang.t("§cREFUSER", "§cDENY")),
                 b -> { sendGroup("DENY", ""); pendingInviteFrom = ""; init(); })
                 .bounds(midX + 4, contentTop + 2, 104, 16).build());
         }
@@ -452,16 +455,16 @@ public class SettingsScreen extends Screen {
             // CREATE form in bottom panel
             groupNameBox = new EditBox(font, cx + 6, nameBoxY, contentW - 76, 16, Component.empty());
             groupNameBox.setMaxLength(32);
-            groupNameBox.setHint(Component.literal("§8Nom du groupe…"));
+            groupNameBox.setHint(Component.literal(Lang.t("§8Nom du groupe…", "§8Group name…")));
             addRenderableWidget(groupNameBox);
-            addRenderableWidget(Button.builder(Component.literal("§aCRÉER"),
+            addRenderableWidget(Button.builder(Component.literal(Lang.t("§aCRÉER", "§aCREATE")),
                 b -> { sendGroup("CREATE", groupNameBox.getValue()); })
                 .bounds(cx + contentW - 66, nameBoxY, 60, 16).build());
         } else if (imLeader && !groupMembers.isEmpty()) {
             groupNameBox = new EditBox(font, cx + 6, nameBoxY, contentW - 76, 16, Component.empty());
             groupNameBox.setMaxLength(32);
             groupNameBox.setValue(groupName);
-            groupNameBox.setHint(Component.literal("§8Nom du groupe…"));
+            groupNameBox.setHint(Component.literal(Lang.t("§8Nom du groupe…", "§8Group name…")));
             addRenderableWidget(groupNameBox);
             addRenderableWidget(Button.builder(Component.literal("§aOK"),
                 b -> { sendGroup("SET_NAME", groupNameBox.getValue()); groupName = groupNameBox.getValue(); })
@@ -471,16 +474,16 @@ public class SettingsScreen extends Screen {
         // Toggles — 2 equal columns
         int hw = (contentW - 16) / 2;
         addRenderableWidget(Button.builder(
-            Component.literal("Pseudos : " + (showNames ? "§aON" : "§cOFF")),
+            Component.literal(Lang.t("Pseudos : ", "Names: ") + (showNames ? "§aON" : "§cOFF")),
             b -> { sendGroup("TOGGLE_SHOW_NAMES", ""); showNames = !showNames; init(); })
             .bounds(cx + 6, botY + 76, hw, 16).build());
         addRenderableWidget(Button.builder(
-            Component.literal("Trust : " + (groupTrustEnabled ? "§aON" : "§cOFF")),
+            Component.literal(Lang.t("Trust : ", "Trust: ") + (groupTrustEnabled ? "§aON" : "§cOFF")),
             b -> { sendGroup("TOGGLE_GROUP_TRUST", ""); groupTrustEnabled = !groupTrustEnabled; init(); })
             .bounds(cx + 10 + hw, botY + 76, hw, 16).build());
 
         if (!groupMembers.isEmpty()) {
-            String leaveLbl = imLeader ? "§cDISBANDER" : "§cQUITTER";
+            String leaveLbl = imLeader ? Lang.t("§cDISBANDER", "§cDISBAND") : Lang.t("§cQUITTER", "§cLEAVE");
             String leaveAct = imLeader ? "DISBAND" : "LEAVE";
             addRenderableWidget(Button.builder(Component.literal(leaveLbl),
                 b -> { sendGroup(leaveAct, ""); init(); })
@@ -540,7 +543,7 @@ public class SettingsScreen extends Screen {
         // Content header bar
         g.fill(cx, py, px + pw, py + 26, C_HBAR);
         g.drawCenteredString(font,
-            Component.literal(TAB_TITLES[currentTab]).withStyle(s -> s.withColor(0x00E5FF).withBold(true)),
+            Component.literal(tabTitles()[currentTab]).withStyle(s -> s.withColor(0x00E5FF).withBold(true)),
             midX, py + 9, 0xFFFFFFFF);
         g.fill(cx, py + 25, px + pw, py + 26, C_DIV);
 
@@ -562,7 +565,8 @@ public class SettingsScreen extends Screen {
     private void renderSettings(GuiGraphics g) {
         int start = py + 34;
         boolean[] vals = { allowPrivateMessages, allowTpaRequests, allowTrades, showChatNotifications, showConnectionAlerts };
-        for (int i = 0; i < LABELS.length; i++) {
+        String[] labels = labels(), descs = descs();
+        for (int i = 0; i < labels.length; i++) {
             int ry = start + ROW_H * i;
             // Full row: green tint when ON, subtle otherwise
             g.fill(cx + 4, ry + 2, px + pw - 4, ry + ROW_H - 2,
@@ -570,8 +574,8 @@ public class SettingsScreen extends Screen {
             // Left accent bar (5px)
             g.fill(cx + 4, ry + 2, cx + 9, ry + ROW_H - 2,
                 vals[i] ? 0xFF00CC44 : 0xFF555555);
-            g.drawString(font, "§f" + LABELS[i], cx + 14, ry + 6,  0xFFFFFFFF);
-            g.drawString(font, "§7" + DESCS[i],  cx + 14, ry + 18, 0xFFAAAAAA);
+            g.drawString(font, "§f" + labels[i], cx + 14, ry + 6,  0xFFFFFFFF);
+            g.drawString(font, "§7" + descs[i],  cx + 14, ry + 18, 0xFFAAAAAA);
         }
     }
 
@@ -626,7 +630,8 @@ public class SettingsScreen extends Screen {
     private void renderHomes(GuiGraphics g) {
         int start = py + 34;
         if (homeMap.isEmpty()) {
-            g.drawString(font, "§8Aucun home enregistré — §7utilisez §b/sethome <nom>", cx + 12, start + 4, 0xFF555555);
+            g.drawString(font, Lang.t("§8Aucun home enregistré — §7utilisez §b/sethome <nom>",
+                "§8No homes saved — §7use §b/sethome <name>"), cx + 12, start + 4, 0xFF555555);
         }
         int i = 0;
         for (var e : homeMap.entrySet()) {
@@ -640,7 +645,7 @@ public class SettingsScreen extends Screen {
             g.fill(cx + 4, ry + 2, cx + 5, ry + ROW_H - 2, accentBar);
             int[] pos = e.getValue();
             int dimTagColor = dim.equals("NE") ? 0xFFFF8888 : dim.equals("END") ? 0xFFCC88FF : 0xFF88FF88;
-            g.drawString(font, "§f§l" + e.getKey() + (confirming ? " §c— Confirmer la suppression ?" : ""),
+            g.drawString(font, "§f§l" + e.getKey() + (confirming ? Lang.t(" §c— Confirmer la suppression ?", " §c— Confirm deletion?") : ""),
                 cx + 12, ry + 7,  0xFFFFFFFF);
             g.drawString(font, "§7" + pos[0] + ", " + pos[1] + ", " + pos[2], cx + 12, ry + 20, 0xFFAAAAAA);
             g.drawString(font, "[" + dim + "]", cx + 12 + font.width("§7" + pos[0] + ", " + pos[1] + ", " + pos[2]) + 4, ry + 20, dimTagColor);
@@ -649,12 +654,12 @@ public class SettingsScreen extends Screen {
 
         // ── WARPS PUBLICS ────────────────────────────────────────────────────
         int wy = warpsSectionTop();
-        g.drawString(font, "WARPS PUBLICS" + (warpList.isEmpty() ? "" : " §7(" + warpList.size() + ")"),
+        g.drawString(font, Lang.t("WARPS PUBLICS", "PUBLIC WARPS") + (warpList.isEmpty() ? "" : " §7(" + warpList.size() + ")"),
             cx + 8, wy + 2, C_SEC);
         g.fill(cx + 8, wy + 11, px + pw - 8, wy + 12, C_DIV);
         wy += 14;
         if (warpList.isEmpty()) {
-            g.drawString(font, "§8Aucun warp public sur le serveur.", cx + 12, wy + 3, 0xFF555555);
+            g.drawString(font, Lang.t("§8Aucun warp public sur le serveur.", "§8No public warps on the server."), cx + 12, wy + 3, 0xFF555555);
             return;
         }
         int maxBottom = py + ph - 8;
@@ -684,12 +689,12 @@ public class SettingsScreen extends Screen {
         int y = contentTop - verrouScroll;
 
         y += 4;
-        g.drawString(font, "BLOCS VERROUILLÉS", cx + 8, y + 4, C_SEC);
+        g.drawString(font, Lang.t("BLOCS VERROUILLÉS", "LOCKED BLOCKS"), cx + 8, y + 4, C_SEC);
         g.fill(cx + 8, y + 14, px + pw - 8, y + 15, C_DIV);
         y += 20;
 
         if (lockList.isEmpty()) {
-            g.drawString(font, "§8Aucun bloc verrouillé", cx + 12, y + 3, 0xFF555555);
+            g.drawString(font, Lang.t("§8Aucun bloc verrouillé", "§8No locked blocks"), cx + 12, y + 3, 0xFF555555);
             y += 18;
         } else {
             for (int i = 0; i < lockList.size(); i++) {
@@ -702,12 +707,12 @@ public class SettingsScreen extends Screen {
 
         y += 12;
 
-        g.drawString(font, "JOUEURS DE CONFIANCE", cx + 8, y + 4, C_SEC);
+        g.drawString(font, Lang.t("JOUEURS DE CONFIANCE", "TRUSTED PLAYERS"), cx + 8, y + 4, C_SEC);
         g.fill(cx + 8, y + 14, px + pw - 8, y + 15, C_DIV);
         y += 20;
 
         if (trustList.isEmpty()) {
-            g.drawString(font, "§8Aucun joueur de confiance", cx + 12, y + 3, 0xFF555555);
+            g.drawString(font, Lang.t("§8Aucun joueur de confiance", "§8No trusted players"), cx + 12, y + 3, 0xFF555555);
         } else {
             for (int i = 0; i < trustList.size(); i++) {
                 int ry = y;
@@ -737,7 +742,7 @@ public class SettingsScreen extends Screen {
 
         if (!pendingInviteFrom.isEmpty()) {
             g.fill(cx + 4, contentTop, px + pw - 4, contentTop + 20, 0x33FFAA00);
-            g.drawCenteredString(font, "§eInvitation de §f" + pendingInviteFrom, midX, contentTop + 5, 0xFFFFFFFF);
+            g.drawCenteredString(font, Lang.t("§eInvitation de §f", "§eInvite from §f") + pendingInviteFrom, midX, contentTop + 5, 0xFFFFFFFF);
         }
 
         g.enableScissor(cx, contentTop, px + pw, contentBot);
@@ -745,10 +750,10 @@ public class SettingsScreen extends Screen {
         int y = contentTop + (pendingInviteFrom.isEmpty() ? 2 : 22) - groupScroll;
 
         if (groupMembers.isEmpty()) {
-            g.drawCenteredString(font, "§8Vous n'êtes dans aucun groupe.", midX, y + 8, 0xFF555555);
+            g.drawCenteredString(font, Lang.t("§8Vous n'êtes dans aucun groupe.", "§8You are not in a group."), midX, y + 8, 0xFF555555);
             y += 22;
         } else {
-            g.drawString(font, "MEMBRES", cx + 8, y, C_SEC);
+            g.drawString(font, Lang.t("MEMBRES", "MEMBERS"), cx + 8, y, C_SEC);
             g.fill(cx + 8, y + 10, px + pw - 8, y + 11, C_DIV);
             y += 14;
             for (String[] m : groupMembers) {
@@ -766,7 +771,7 @@ public class SettingsScreen extends Screen {
 
         if (!onlinePlayers.isEmpty()) {
             y += 4;
-            g.drawString(font, "INVITER", cx + 8, y, C_SEC);
+            g.drawString(font, Lang.t("INVITER", "INVITE"), cx + 8, y, C_SEC);
             g.fill(cx + 8, y + 10, px + pw - 8, y + 11, C_DIV);
             y += 14;
             for (String pName : onlinePlayers) {
@@ -783,7 +788,7 @@ public class SettingsScreen extends Screen {
         g.fill(cx, contentBot + 1, px + pw, py + ph, 0x0AFFFFFF);
 
         // Color swatches (2 rows of 8)
-        g.drawString(font, "COULEUR", cx + 8, botY + 4, C_SEC);
+        g.drawString(font, Lang.t("COULEUR", "COLOR"), cx + 8, botY + 4, C_SEC);
         for (int i = 0; i < GroupHud.COLOR_ARGB.length; i++) {
             int row = i / 8, col = i % 8;
             int argb = GroupHud.COLOR_ARGB[i];
@@ -798,7 +803,7 @@ public class SettingsScreen extends Screen {
         // groupe…") labels it, so we only draw a label in the read-only (non-leader) case.
         g.fill(cx + 4, botY + 50, px + pw - 4, botY + 51, C_DIV);
         if (!groupMembers.isEmpty() && groupNameBox == null && !groupName.isEmpty()) {
-            g.drawString(font, "NOM §7" + groupName, cx + 8, botY + 58, C_SEC);
+            g.drawString(font, Lang.t("NOM §7", "NAME §7") + groupName, cx + 8, botY + 58, C_SEC);
         }
     }
 
@@ -809,12 +814,12 @@ public class SettingsScreen extends Screen {
         int gap = 28;
 
         String[][] rows = {
-            { "Temps de jeu",        statHours + "h " + statMinutes + "min" },
-            { "Morts",               String.valueOf(statDeaths) },
-            { "Kills joueurs",       String.valueOf(statPlayerKills) },
-            { "Kills mobs hostiles", String.valueOf(statMobKills) },
-            { "Distance parcourue",  statBlocks + " blocs" },
-            { "XP totale",           String.valueOf(statXp) },
+            { Lang.t("Temps de jeu", "Playtime"),                statHours + "h " + statMinutes + "min" },
+            { Lang.t("Morts", "Deaths"),                         String.valueOf(statDeaths) },
+            { Lang.t("Kills joueurs", "Player kills"),           String.valueOf(statPlayerKills) },
+            { Lang.t("Kills mobs hostiles", "Hostile mob kills"), String.valueOf(statMobKills) },
+            { Lang.t("Distance parcourue", "Distance traveled"), statBlocks + Lang.t(" blocs", " blocks") },
+            { Lang.t("XP totale", "Total XP"),                   String.valueOf(statXp) },
         };
 
         for (int i = 0; i < rows.length; i++) {
@@ -829,20 +834,20 @@ public class SettingsScreen extends Screen {
     private void renderBuild(GuiGraphics g) {
         int x = cx + 14, y = py + 38;
         if (!buildHasZone) {
-            g.drawCenteredString(font, "§8Vous n'êtes dans aucune zone.", midX, py + ph / 2 - 10, 0xFF555555);
-            g.drawCenteredString(font, "§8Entrez dans une zone ou utilisez §6/build", midX, py + ph / 2 + 2, 0xFF444444);
+            g.drawCenteredString(font, Lang.t("§8Vous n'êtes dans aucune zone.", "§8You are not in any zone."), midX, py + ph / 2 - 10, 0xFF555555);
+            g.drawCenteredString(font, Lang.t("§8Entrez dans une zone ou utilisez §6/build", "§8Enter a zone or use §6/build"), midX, py + ph / 2 + 2, 0xFF444444);
             return;
         }
-        g.drawString(font, buildInMode ? "§a✔ Mode construction ACTIF"
-                                       : "§7Mode construction : §8inactif", x, y, 0xFFFFFFFF);
+        g.drawString(font, buildInMode ? Lang.t("§a✔ Mode construction ACTIF", "§a✔ Build mode ACTIVE")
+                                       : Lang.t("§7Mode construction : §8inactif", "§7Build mode: §8inactive"), x, y, 0xFFFFFFFF);
         y += 16;
         String[][] rows = {
-            { "Zone",        "§f" + buildZoneName },
-            { "État",        buildZoneActive ? "§aactivée" : "§cdésactivée" },
-            { "Taille",      "§f" + buildDims[0] + "×" + buildDims[1] + "×" + buildDims[2] },
-            { "Coin min",    "§7(" + buildMinStr + ")" },
-            { "Coin max",    "§7(" + buildMaxStr + ")" },
-            { "Votre accès", buildAuthorized ? "§aautorisé" : "§cnon autorisé" },
+            { Lang.t("Zone", "Zone"),               "§f" + buildZoneName },
+            { Lang.t("État", "State"),              buildZoneActive ? Lang.t("§aactivée", "§aenabled") : Lang.t("§cdésactivée", "§cdisabled") },
+            { Lang.t("Taille", "Size"),             "§f" + buildDims[0] + "×" + buildDims[1] + "×" + buildDims[2] },
+            { Lang.t("Coin min", "Min corner"),     "§7(" + buildMinStr + ")" },
+            { Lang.t("Coin max", "Max corner"),     "§7(" + buildMaxStr + ")" },
+            { Lang.t("Votre accès", "Your access"), buildAuthorized ? Lang.t("§aautorisé", "§aallowed") : Lang.t("§cnon autorisé", "§cnot allowed") },
         };
         for (String[] r : rows) {
             g.drawString(font, "§7" + r[0] + " :", x, y, 0xFFAAAAAA);
@@ -850,7 +855,7 @@ public class SettingsScreen extends Screen {
             y += 13;
         }
         y += 6;
-        g.drawString(font, "§8RÈGLES DE LA ZONE", x, y, C_SEC);
+        g.drawString(font, Lang.t("§8RÈGLES DE LA ZONE", "§8ZONE RULES"), x, y, C_SEC);
         g.fill(x, y + 10, px + pw - 12, y + 11, C_DIV);
         y += 16;
         // 2 colonnes pour que la liste (10 flags) tienne dans le panneau à toute échelle GUI
@@ -860,11 +865,11 @@ public class SettingsScreen extends Screen {
         for (int i = 0; i < buildFlags.size(); i++) {
             String[] fl = buildFlags.get(i);
             Fabric.test.ZoneFlag zf = Fabric.test.ZoneFlag.byName(fl[0]);
-            String label = zf != null ? zf.label : fl[0];
+            String label = zf != null ? Lang.t(zf.label, zf.labelEn) : fl[0];
             int fx = x + 2 + (i / perCol) * colW;
             int fy = baseY + (i % perCol) * 12;
             g.drawString(font, "§7• " + label, fx, fy, 0xFFAAAAAA);
-            g.drawString(font, "1".equals(fl[1]) ? "§aautorisé" : "§cbloqué", fx + colW - 52, fy, 0xFFFFFFFF);
+            g.drawString(font, "1".equals(fl[1]) ? Lang.t("§aautorisé", "§aallowed") : Lang.t("§cbloqué", "§cblocked"), fx + colW - 52, fy, 0xFFFFFFFF);
         }
     }
 

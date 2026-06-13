@@ -1,6 +1,6 @@
 {
     "required": true,
-    "package": "Fabric.test.mixin",
+    "package": "com.lkdm.dashboardadmin.mixin",
     "compatibilityLevel": "JAVA_21",
     "mixins": [
         "FarmBlockMixin"

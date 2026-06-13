@@ -883,6 +883,7 @@ public class SettingsScreen extends Screen {
                 case "/mail"       -> "Send a private message to a player";
                 case "/r"          -> "Reply to the last received message";
                 case "/tpa"        -> "Request a teleport to a player";
+                case "/tpahere"    -> "Ask a player to teleport to you";
                 case "/tpaccept"   -> "Accept a teleport request";
                 case "/tpdeny"     -> "Deny a teleport request";
                 case "/sethome"    -> "Save a home (Overworld only)";

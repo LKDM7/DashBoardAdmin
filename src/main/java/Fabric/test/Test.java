@@ -25,6 +25,7 @@ public class Test {
 
     // ─── Feature flags ────────────────────────────────────────────────────────
     private static boolean pvpEnabled = true;
+    private static boolean setblockInBuild = true; // /setblock autorisé aux non-OP en mode build
     private static boolean chatLocked = false;
     private static boolean weatherCycleEnabled = true;
     private static boolean cropTrampleEnabled = false;
@@ -84,6 +85,7 @@ public class Test {
     private static final java.util.List<Integer> scheduledIntervals = new java.util.ArrayList<>();
     static final java.util.List<Integer>         scheduledCounters  = new java.util.ArrayList<>();
     private static final java.util.Map<java.util.UUID, java.util.UUID> tpaRequests          = new java.util.HashMap<>();
+    private static final java.util.Set<java.util.UUID>                tpaHere              = new java.util.HashSet<>(); // cibles dont la requête est un /tpahere
     private static final java.util.Map<java.util.UUID, Long>           pendingTpaTimestamps  = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, Long>           pendingDealTimestamps = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, java.util.UUID> lastMsg               = new java.util.HashMap<>();
@@ -100,12 +102,14 @@ public class Test {
     private static final java.util.Map<java.util.UUID, Long>           lastWarpUse  = new java.util.HashMap<>();
     static final java.util.Map<java.util.UUID, DealSession>             activeSessions = new java.util.HashMap<>();
     private static final java.util.List<String[]> sanctionsLog = new java.util.ArrayList<>();
+    private static final java.util.List<String[]> auditLog     = new java.util.ArrayList<>(); // [ts, admin, action, target, detail]
 
     private static final java.util.List<String[]> playerCommands = java.util.Arrays.asList(
         new String[]{"/menu",      "Ouvrir le menu paramètres & commandes"},
         new String[]{"/mail",      "Envoyer un message privé à un joueur"},
         new String[]{"/r",         "Répondre au dernier message reçu"},
         new String[]{"/tpa",       "Demander une téléportation vers un joueur"},
+        new String[]{"/tpahere",   "Demander à un joueur de se téléporter à vous"},
         new String[]{"/tpaccept",  "Accepter une demande de téléportation"},
         new String[]{"/tpdeny",    "Refuser une demande de téléportation"},
         new String[]{"/sethome",   "Enregistrer un home (Overworld uniquement)"},
@@ -164,6 +168,7 @@ public class Test {
         ServerConfig.register();
         ZonePersistence.register();
         SanctionsPersistence.register();
+        AuditPersistence.register();
         GroupPersistence.register();
         ModerationPersistence.register();
         RolePersistence.register();
@@ -186,6 +191,8 @@ public class Test {
     public static java.util.Map<String, String> getPlayerHomesDim(java.util.UUID uuid)                            { return playerHomesDim.computeIfAbsent(uuid, k -> new java.util.HashMap<>()); }
     public static boolean isPvpEnabled()                  { return pvpEnabled; }
     public static void   setPvpEnabled(boolean v)         { pvpEnabled = v; }
+    public static boolean isSetblockInBuild()             { return setblockInBuild; }
+    public static void   setSetblockInBuild(boolean v)    { setblockInBuild = v; }
     public static boolean isChatLocked()                  { return chatLocked; }
     public static boolean isWeatherCycleEnabled()         { return weatherCycleEnabled; }
     public static boolean isCropTrampleEnabled()          { return cropTrampleEnabled; }
@@ -430,6 +437,36 @@ public class Test {
         sanctionsLog.add(new String[]{ ts, type, player, admin, reason.isEmpty() ? "—" : reason });
         SanctionsPersistence.save();
     }
+
+    // ─── Journal d'actions admin (onglet AUDIT) ───────────────────────────────
+    public static java.util.List<String[]> getAuditLog() { return auditLog; }
+    /** Actions du dashboard à NE PAS journaliser (lectures / rafraîchissements). */
+    private static final java.util.Set<String> NON_AUDITED = java.util.Set.of(
+        "REFRESH_ADMIN", "GET_LOGS", "GET_CHAT", "GET_SANCTIONS", "GET_AUDIT",
+        "FETCH_REPORT_IMAGE", "OPEN_ZONES");
+    public static boolean isAuditable(String action) { return !NON_AUDITED.contains(action); }
+    public static void addAudit(String admin, String action, String target, String detail) {
+        String ts  = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm"));
+        String tgt = (target == null || target.isBlank()) ? "—" : target;
+        String det = detail == null ? "" : detail.replace('\t', ' ').replace('|', ' ').replace('\n', ' ').trim();
+        if (det.length() > 60) det = det.substring(0, 60) + "…";
+        if (det.isEmpty()) det = "—";
+        if (auditLog.size() >= 200) auditLog.remove(0);
+        auditLog.add(new String[]{ ts, admin, action, tgt, det });
+        AuditPersistence.save();
+    }
+    public static String getAuditSerialized() {
+        if (auditLog.isEmpty()) return "";
+        int start = Math.max(0, auditLog.size() - 60);
+        java.util.List<String[]> last = auditLog.subList(start, auditLog.size());
+        StringBuilder sb = new StringBuilder();
+        for (int i = last.size() - 1; i >= 0; i--) {
+            if (sb.length() > 0) sb.append('|');
+            String[] e = last.get(i);
+            sb.append(e[0]).append('\t').append(e[1]).append('\t').append(e[2]).append('\t').append(e[3]).append('\t').append(e[4]);
+        }
+        return sb.toString();
+    }
     static void savePosition(ServerPlayer player)       { lastPositions.put(player.getUUID(), player.position()); lastPositionDims.put(player.getUUID(), player.level().dimension()); }
     static java.util.Map<java.util.UUID, net.minecraft.world.phys.Vec3> getLastPositions() { return lastPositions; }
     static java.util.Map<java.util.UUID, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> getLastPositionDims() { return lastPositionDims; }
@@ -438,6 +475,7 @@ public class Test {
     static java.util.Map<java.util.UUID, Long> getLastBackUse()             { return lastBackUse; }
     static java.util.Map<java.util.UUID, Long> getLastTpaUse()              { return lastTpaUse; }
     static java.util.Map<java.util.UUID, java.util.UUID> getTpaRequests()   { return tpaRequests; }
+    static java.util.Set<java.util.UUID> getTpaHere()                       { return tpaHere; }
     static java.util.Map<java.util.UUID, java.util.UUID> getLastMsg()       { return lastMsg; }
     static java.util.Map<java.util.UUID, java.util.UUID> getPendingDeals()  { return pendingDeals; }
     static int getLeafDecayCounter()                   { return leafDecayCounter; }
@@ -646,10 +684,37 @@ public class Test {
                 sender.sendSystemMessage(Component.literal("§aRequête envoyée à " + target.getName().getString()));
                 return 1;
             })));
+        dispatcher.register(Commands.literal("tpahere")
+            .then(Commands.argument("target", net.minecraft.commands.arguments.EntityArgument.player())
+            .executes(context -> {
+                ServerPlayer sender = context.getSource().getPlayerOrException();
+                ServerPlayer target = net.minecraft.commands.arguments.EntityArgument.getPlayer(context, "target");
+                if (sender == target) return 0;
+                if (Fabric.test.command.ZoneCommand.isInBuildMode(sender.getUUID())) {
+                    sender.sendSystemMessage(Component.literal("§cImpossible d'utiliser §6/tpahere §cen mode construction."));
+                    return 0;
+                }
+                if (!checkCooldown(lastTpaUse, sender.getUUID(), cooldownTpa, sender, "/tpahere")) return 0;
+                if (!getPlayerSettings(target.getUUID()).allowTpaRequests) {
+                    sender.sendSystemMessage(Component.literal("§c" + target.getName().getString() + " n'accepte pas les demandes de téléportation."));
+                    return 0;
+                }
+                tpaRequests.put(target.getUUID(), sender.getUUID());
+                tpaHere.add(target.getUUID());
+                pendingTpaTimestamps.put(target.getUUID(), System.currentTimeMillis());
+                Component msg = Component.literal(sender.getName().getString() + " veut que vous vous tp à lui. ")
+                    .append(Component.literal("[OUI]").withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GREEN).withClickEvent(new net.minecraft.network.chat.ClickEvent(net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND, "/tpaccept"))))
+                    .append(Component.literal(" "))
+                    .append(Component.literal("[NON]").withStyle(s -> s.withColor(net.minecraft.ChatFormatting.RED).withClickEvent(new net.minecraft.network.chat.ClickEvent(net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND, "/tpdeny"))));
+                target.sendSystemMessage(msg);
+                sender.sendSystemMessage(Component.literal("§aRequête envoyée à " + target.getName().getString()));
+                return 1;
+            })));
         dispatcher.register(Commands.literal("tpaccept").executes(context -> {
             ServerPlayer target = context.getSource().getPlayerOrException();
             java.util.UUID senderUUID = tpaRequests.remove(target.getUUID());
             pendingTpaTimestamps.remove(target.getUUID());
+            boolean here = tpaHere.remove(target.getUUID());
             if (senderUUID == null) { target.sendSystemMessage(Component.literal("§cAucune demande en attente.")); return 0; }
             String senderName = playerNameCache.getOrDefault(senderUUID, "?");
             ServerPlayer sender = context.getSource().getServer().getPlayerList().getPlayer(senderUUID);
@@ -657,7 +722,12 @@ public class Test {
                 target.sendSystemMessage(Component.literal("§c" + senderName + " n'est plus connecté."));
                 return 0;
             }
-            sender.teleportTo((ServerLevel)target.level(), target.getX(), target.getY(), target.getZ(), Set.of(), sender.getYRot(), sender.getXRot());
+            if (here) {
+                // /tpahere : c'est l'accepteur (target) qui rejoint le demandeur (sender).
+                target.teleportTo((ServerLevel)sender.level(), sender.getX(), sender.getY(), sender.getZ(), Set.of(), target.getYRot(), target.getXRot());
+            } else {
+                sender.teleportTo((ServerLevel)target.level(), target.getX(), target.getY(), target.getZ(), Set.of(), sender.getYRot(), sender.getXRot());
+            }
             target.sendSystemMessage(Component.literal("§a✔ Vous avez accepté la demande de §e" + sender.getName().getString() + "§a."));
             sender.sendSystemMessage(Component.literal("§a✔ §e" + target.getName().getString() + "§a a accepté — téléporté !"));
             return 1;
@@ -665,6 +735,7 @@ public class Test {
         dispatcher.register(Commands.literal("tpdeny").executes(context -> {
             ServerPlayer target = context.getSource().getPlayerOrException();
             pendingTpaTimestamps.remove(target.getUUID());
+            tpaHere.remove(target.getUUID());
             java.util.UUID senderUUID = tpaRequests.remove(target.getUUID());
             if (senderUUID == null) { target.sendSystemMessage(Component.literal("§cAucune demande en attente.")); return 0; }
             String senderName = playerNameCache.getOrDefault(senderUUID, "?");

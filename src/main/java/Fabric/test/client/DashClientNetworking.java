@@ -105,6 +105,12 @@ public class DashClientNetworking {
                 if (cur instanceof AdminScreen as) as.onSanctionsReceived(payload.data());
             }));
 
+        reg.playToClient(OpenAuditPayload.TYPE, OpenAuditPayload.CODEC,
+            (payload, ctx) -> ctx.enqueueWork(() -> {
+                Screen cur = Minecraft.getInstance().screen;
+                if (cur instanceof AdminScreen as) as.onAuditReceived(payload.data());
+            }));
+
         reg.playToClient(OpenReportPayload.TYPE, OpenReportPayload.CODEC,
             (payload, ctx) -> ctx.enqueueWork(() -> Minecraft.getInstance().setScreen(new ReportScreen())));
 

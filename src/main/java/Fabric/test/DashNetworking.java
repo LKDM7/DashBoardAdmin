@@ -34,6 +34,7 @@ public class DashNetworking {
             reg.playToClient(GroupUpdatePayload.TYPE,     GroupUpdatePayload.CODEC,     (p, c) -> {});
             reg.playToClient(NotifPayload.TYPE,           NotifPayload.CODEC,           (p, c) -> {});
             reg.playToClient(OpenSanctionsPayload.TYPE,   OpenSanctionsPayload.CODEC,   (p, c) -> {});
+            reg.playToClient(OpenAuditPayload.TYPE,       OpenAuditPayload.CODEC,       (p, c) -> {});
             reg.playToClient(OpenReportPayload.TYPE,      OpenReportPayload.CODEC,      (p, c) -> {});
             reg.playToClient(ReportImagePayload.TYPE,     ReportImagePayload.CODEC,     (p, c) -> {});
             reg.playToClient(ZoneSyncPayload.TYPE,        ZoneSyncPayload.CODEC,        (p, c) -> {});
@@ -96,6 +97,8 @@ public class DashNetworking {
             admin.sendSystemMessage(Component.literal("§cVous n'avez pas la permission pour cette action."));
             return;
         }
+        if (Test.isAuditable(action))
+            Test.addAudit(admin.getName().getString(), action, payload.target(), payload.value());
         ServerPlayer target = admin.getServer().getPlayerList().getPlayerByName(payload.target());
 
         switch (action) {
@@ -316,6 +319,7 @@ public class DashNetworking {
             case "KEEP_INVENTORY" -> { if (target != null) { PlayerSettings ks = Test.getPlayerSettings(target.getUUID()); ks.keepInventory = !ks.keepInventory; admin.sendSystemMessage(Component.literal("§aKeepInventory " + (ks.keepInventory ? "§aactivé" : "§cdésactivé") + " §apour §e" + target.getName().getString())); target.sendSystemMessage(Component.literal(ks.keepInventory ? "§aVotre inventaire sera conservé à la mort." : "§cVotre inventaire ne sera plus conservé à la mort.")); } }
             case "OPEN_ZONES"    -> Fabric.test.command.ZoneCommand.sendZoneScreen(admin, admin.getServer());
             case "GET_SANCTIONS" -> PacketDistributor.sendToPlayer(admin, new OpenSanctionsPayload(Test.getSanctionsSerialized()));
+            case "GET_AUDIT"     -> PacketDistributor.sendToPlayer(admin, new OpenAuditPayload(Test.getAuditSerialized()));
             case "GAMEMODE" -> { if (target != null) { net.minecraft.world.level.GameType next = switch (target.gameMode.getGameModeForPlayer()) { case SURVIVAL -> net.minecraft.world.level.GameType.CREATIVE; case CREATIVE -> net.minecraft.world.level.GameType.SPECTATOR; default -> net.minecraft.world.level.GameType.SURVIVAL; }; target.setGameMode(next); admin.sendSystemMessage(Component.literal("Mode de jeu changé en: " + next.getName())); } }
             case "SCHEDULE_ADD"  -> { String[] parts = payload.value().split("\t", 2); if (parts.length == 2) { try { int minutes = Integer.parseInt(parts[1].trim()); Test.addScheduledBroadcast(parts[0], minutes * 1200); admin.sendSystemMessage(Component.literal("§aBroadcast programmé ajouté.")); } catch (NumberFormatException ignored) {} } }
             case "SCHEDULE_REMOVE" -> { try { int idx = Integer.parseInt(payload.value()); if (Test.removeScheduledBroadcast(idx)) { ServerConfig.save(); admin.sendSystemMessage(Component.literal("§cBroadcast supprimé.")); } } catch (NumberFormatException ignored) {} }

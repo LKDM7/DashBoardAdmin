@@ -30,6 +30,7 @@ public class ServerConfig {
         root.addProperty("motd",             Test.getMotd());
 
         root.addProperty("pvpEnabled", Test.isPvpEnabled());
+        root.addProperty("setblockInBuild", Test.isSetblockInBuild());
 
         JsonObject features = new JsonObject();
         features.addProperty("weatherCycle",       Test.isWeatherCycleEnabled());
@@ -90,6 +91,7 @@ public class ServerConfig {
             }
 
             if (root.has("pvpEnabled")) Test.setPvpEnabled(root.get("pvpEnabled").getAsBoolean());
+            if (root.has("setblockInBuild")) Test.setSetblockInBuild(root.get("setblockInBuild").getAsBoolean());
             if (root.has("afkDelayMinutes")) Test.setAfkDelayMinutes(root.get("afkDelayMinutes").getAsInt());
             if (root.has("maxHomes"))        Test.setMaxHomes(root.get("maxHomes").getAsInt());
             if (root.has("webhookReports"))   Test.setWebhookReports(root.get("webhookReports").getAsString());

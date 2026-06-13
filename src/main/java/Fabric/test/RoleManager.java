@@ -21,7 +21,7 @@ public class RoleManager {
     /** Permissions « onglet » : donnent accès à un onglet entier du dashboard. */
     public static final String[] TAB_PERMS = {
         "tab.monde", "tab.joueurs", "tab.chat", "tab.features",
-        "tab.reports", "tab.logs", "tab.zones", "tab.sanctions", "tab.warps"
+        "tab.reports", "tab.logs", "tab.zones", "tab.sanctions", "tab.warps", "tab.audit"
     };
 
     /** Permissions « action sensible » : cochables séparément même si l'onglet est autorisé. */
@@ -188,6 +188,7 @@ public class RoleManager {
             // ── LOGS / SANCTIONS / WARPS / ZONES
             case "GET_LOGS"      -> "tab.logs";
             case "GET_SANCTIONS" -> "tab.sanctions";
+            case "GET_AUDIT"     -> "tab.audit";
             case "WARP_ADD", "WARP_DELETE", "WARP_TP" -> "tab.warps";
             case "OPEN_ZONES"    -> "tab.zones";
             // ── RÔLES

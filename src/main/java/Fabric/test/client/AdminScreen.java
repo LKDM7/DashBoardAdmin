@@ -65,6 +65,8 @@ public class AdminScreen extends Screen {
     private java.util.List<String[]> schedBroadcasts  = new java.util.ArrayList<>();
     private java.util.List<String[]> bannedPlayers    = new java.util.ArrayList<>(); // [name, reason]
     private java.util.List<String[]> sanctionsEntries = new java.util.ArrayList<>(); // [ts, type, player, admin, reason]
+    private java.util.List<String[]> auditEntries     = new java.util.ArrayList<>(); // [ts, admin, action, target, detail]
+    private int  auditScroll          = 0;
     private int  deletingBroadcastIdx = -1;
     private int  sanctionsScroll      = 0;
     private int  cdHome = 30, cdBack = 10, cdTpa = 60, cdAfk = 5;
@@ -133,7 +135,7 @@ public class AdminScreen extends Screen {
             case 0 -> "tab.monde";  case 1 -> "tab.joueurs"; case 2 -> "tab.chat";
             case 3 -> "tab.features"; case 4 -> "tab.reports"; case 5 -> "tab.logs";
             case 6 -> "tab.zones";  case 7 -> "tab.sanctions"; case 8 -> "tab.warps";
-            case 9 -> "act.manage_roles"; default -> "op";
+            case 9 -> "act.manage_roles"; case 10 -> "tab.audit"; default -> "op";
         };
     }
 
@@ -142,6 +144,7 @@ public class AdminScreen extends Screen {
             case 0 -> Lang.t("MONDE", "WORLD");   case 1 -> Lang.t("JOUEURS", "PLAYERS");
             case 2 -> "CHAT";                      case 3 -> "FEATURES";
             case 5 -> "LOGS";                      case 8 -> "WARPS";
+            case 10 -> "AUDIT";
             default -> "?";
         };
     }
@@ -149,7 +152,7 @@ public class AdminScreen extends Screen {
     // Layout (computed in init)
     private int px, py, pw, ph;
     private int cx, midX, midY;
-    private final int[] tabYMap = new int[10]; // Y position of each tab button, for highlight
+    private final int[] tabYMap = new int[11]; // Y position of each tab button, for highlight
     // Sidebar nav layout (computed in init from ph, mirrored by render for labels/dividers)
     private int navTabH = 20;
     private int navServeurLabelY, navJoueursLabelY, navChatLabelY;
@@ -428,7 +431,7 @@ public class AdminScreen extends Screen {
 
         // Repli onglet : si le joueur (rôle) n'a pas l'onglet courant, basculer sur le 1er autorisé.
         if (!can(tabPerm(currentTab))) {
-            for (int id : new int[]{0, 3, 6, 8, 1, 5, 7, 9, 2, 4}) if (can(tabPerm(id))) { currentTab = id; break; }
+            for (int id : new int[]{0, 3, 6, 8, 1, 5, 7, 9, 10, 2, 4}) if (can(tabPerm(id))) { currentTab = id; break; }
         }
 
         if (viewerAllPerms) {
@@ -438,7 +441,7 @@ public class AdminScreen extends Screen {
             int labelH    = 11;
             int avail     = navBottom - navTop;
             int fixedOverhead = 3 * labelH + 2 * gap; // 3 section labels + 2 inter-group gaps
-            int tabSlot   = Math.max(15, Math.min(22, (avail - fixedOverhead) / 10));
+            int tabSlot   = Math.max(15, Math.min(22, (avail - fixedOverhead) / 11));
             navTabH       = Math.min(20, tabSlot - 2);
 
             int y = navTop;
@@ -472,6 +475,15 @@ public class AdminScreen extends Screen {
                 .bounds(px + 5, y, SIDE_W - 10, navTabH).build());
             y += tabSlot;
             tabYMap[9] = y; tab(Lang.t("RÔLES", "ROLES"), 9, y); y += tabSlot;
+            tabYMap[10] = y;
+            boolean auditActive = currentTab == 10;
+            addRenderableWidget(Button.builder(
+                Component.literal("AUDIT").withStyle(auditActive
+                    ? s -> s.withColor(0x00E5FF).withBold(true)
+                    : s -> s.withColor(0x777777)),
+                b -> { send("GET_AUDIT", "", ""); currentTab = 10; init(); })
+                .bounds(px + 5, y, SIDE_W - 10, navTabH).build());
+            y += tabSlot;
             navDiv2Y = y; y += gap;
 
             // ─ CHAT group ─
@@ -497,6 +509,7 @@ public class AdminScreen extends Screen {
             case 7 -> buildSanctions();
             case 8 -> buildWarps();
             case 9 -> buildRoles();
+            case 10 -> buildAudit();
         }
     }
 
@@ -512,7 +525,7 @@ public class AdminScreen extends Screen {
     private void buildModoNav(int unresolved, int fermerH) {
         int navTop = py + 36;
         int navBottom = py + ph - 8 - fermerH;
-        int[] order = {0, 3, 6, 8, 1, 5, 7, 9, 2, 4};
+        int[] order = {0, 3, 6, 8, 1, 5, 7, 9, 10, 2, 4};
         java.util.List<Integer> vis = new java.util.ArrayList<>();
         for (int id : order) if (can(tabPerm(id))) vis.add(id);
         int slot = Math.max(15, Math.min(24, (navBottom - navTop) / Math.max(1, vis.size())));
@@ -543,6 +556,13 @@ public class AdminScreen extends Screen {
             }
             case 4 -> tab("REPORTS" + (unresolved == 0 ? "" : " §c(" + unresolved + ")"), 4, y);
             case 9 -> tab(Lang.t("RÔLES", "ROLES"), 9, y);
+            case 10 -> { // AUDIT (action spéciale : charge le journal)
+                boolean a = currentTab == 10;
+                addRenderableWidget(Button.builder(Component.literal("AUDIT").withStyle(
+                        a ? s -> s.withColor(0x00E5FF).withBold(true) : s -> s.withColor(0x777777)),
+                    b -> { send("GET_AUDIT", "", ""); currentTab = 10; init(); })
+                    .bounds(px + 5, y, SIDE_W - 10, navTabH).build());
+            }
             default -> tab(tabLabel(id), id, y);
         }
     }
@@ -1126,8 +1146,8 @@ public class AdminScreen extends Screen {
 
         // Content header
         String[] titles = Lang.fr()
-            ? new String[]{ "GESTION DU MONDE", "JOUEURS EN LIGNE", "CHAT & ANNONCES", "FONCTIONNALITÉS", "REPORTS", "LOGS JOUEURS", "GESTION DES ZONES", "HISTORIQUE SANCTIONS", "WARPS", "RÔLES DE MODÉRATION" }
-            : new String[]{ "WORLD MANAGEMENT", "ONLINE PLAYERS", "CHAT & ANNOUNCEMENTS", "FEATURES", "REPORTS", "PLAYER LOGS", "ZONE MANAGEMENT", "SANCTIONS HISTORY", "WARPS", "MODERATION ROLES" };
+            ? new String[]{ "GESTION DU MONDE", "JOUEURS EN LIGNE", "CHAT & ANNONCES", "FONCTIONNALITÉS", "REPORTS", "LOGS JOUEURS", "GESTION DES ZONES", "HISTORIQUE SANCTIONS", "WARPS", "RÔLES DE MODÉRATION", "JOURNAL D'ACTIONS ADMIN" }
+            : new String[]{ "WORLD MANAGEMENT", "ONLINE PLAYERS", "CHAT & ANNOUNCEMENTS", "FEATURES", "REPORTS", "PLAYER LOGS", "ZONE MANAGEMENT", "SANCTIONS HISTORY", "WARPS", "MODERATION ROLES", "ADMIN ACTION LOG" };
         g.fill(cx, py, px + pw, py + 26, C_HBAR);
         g.drawCenteredString(font,
             Component.literal(titles[currentTab]).withStyle(s -> s.withColor(0x00E5FF).withBold(true)),
@@ -1151,6 +1171,7 @@ public class AdminScreen extends Screen {
                 case 7 -> renderSanctions(g);
                 case 8 -> renderWarps(g);
                 case 9 -> renderRoles(g, mx, my);
+                case 10 -> renderAudit(g);
             }
         }
 
@@ -1793,6 +1814,61 @@ public class AdminScreen extends Screen {
         init();
     }
 
+    // ─── AUDIT (journal d'actions admin) ──────────────────────────────────────────
+
+    private void buildAudit() { /* lecture seule — aucun widget */ }
+
+    private void renderAudit(GuiGraphics g) {
+        int panelTop = py + 28;
+        int panelBot = py + ph - 6;
+        int sbX      = px + pw - 6;
+        int entryH   = 18;
+
+        if (auditEntries.isEmpty()) {
+            g.drawCenteredString(font, Lang.t("§8Aucune action enregistrée", "§8No actions recorded"), midX, py + ph / 2, 0xFF444444);
+            return;
+        }
+
+        int maxVis    = Math.max(1, (panelBot - panelTop) / entryH);
+        int maxScroll = Math.max(0, auditEntries.size() - maxVis);
+        if (auditScroll > maxScroll) auditScroll = maxScroll;
+        if (auditScroll < 0)         auditScroll = 0;
+
+        g.enableScissor(cx, panelTop, sbX - 2, panelBot);
+        int y = panelTop;
+        for (int i = auditScroll; i < auditEntries.size() && i < auditScroll + maxVis; i++) {
+            String[] e = auditEntries.get(i); // [ts, admin, action, target, detail]
+            if (i % 2 == 0) g.fill(cx + 4, y, sbX - 4, y + entryH - 2, C_ROW);
+            g.fill(cx + 4, y, cx + 5, y + entryH - 2, 0xFF00E5FF);
+            String line = "§8" + e[0] + " §b" + e[1] + " §8» §f" + e[2]
+                + ("—".equals(e[3]) ? "" : " §7" + e[3])
+                + ("—".equals(e[4]) ? "" : " §8(" + truncate(e[4], 24) + ")");
+            g.drawString(font, line, cx + 10, y + 4, 0xFFAAAAAA, false);
+            y += entryH;
+        }
+        g.disableScissor();
+
+        if (auditEntries.size() > maxVis) {
+            int sbH    = panelBot - panelTop;
+            int thumbH = Math.max(8, sbH * maxVis / auditEntries.size());
+            int thumbY = maxScroll > 0 ? panelTop + (sbH - thumbH) * auditScroll / maxScroll : panelTop;
+            g.fill(sbX, panelTop, sbX + 4, panelBot, 0x33FFFFFF);
+            g.fill(sbX, thumbY,   sbX + 4, thumbY + thumbH, C_ACCENT);
+        }
+    }
+
+    public void onAuditReceived(String data) {
+        auditEntries.clear();
+        if (!data.isEmpty()) {
+            for (String line : data.split("\\|")) {
+                String[] parts = line.split("\t", 5);
+                if (parts.length == 5) auditEntries.add(parts);
+            }
+        }
+        auditScroll = 0;
+        init();
+    }
+
     public void onLogsReceived(String playerName, String logsSerialized) {
         this.logsPlayer  = playerName;
         this.logsEntries = logsSerialized.isEmpty()
@@ -1817,6 +1893,13 @@ public class AdminScreen extends Screen {
             int maxVis = Math.max(1, (py + ph - 6 - (py + 28)) / 18);
             int maxScroll = Math.max(0, sanctionsEntries.size() - maxVis);
             sanctionsScroll = Math.max(0, Math.min(sanctionsScroll - (int)(scrollY * 3), maxScroll));
+            init();
+            return true;
+        }
+        if (currentTab == 10 && !auditEntries.isEmpty()) {
+            int maxVis = Math.max(1, (py + ph - 6 - (py + 28)) / 18);
+            int maxScroll = Math.max(0, auditEntries.size() - maxVis);
+            auditScroll = Math.max(0, Math.min(auditScroll - (int)(scrollY * 3), maxScroll));
             init();
             return true;
         }
@@ -2005,6 +2088,7 @@ public class AdminScreen extends Screen {
             case "tab.zones"     -> "Zones";
             case "tab.sanctions" -> "Sanctions";
             case "tab.warps"     -> "Warps";
+            case "tab.audit"     -> "Audit";
             case "act.ban"       -> "Ban";
             case "act.unban"     -> Lang.t("Déban", "Unban");
             case "act.kick"      -> "Kick";

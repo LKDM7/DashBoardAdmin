@@ -7,7 +7,12 @@ import Fabric.test.networking.WandSelectionPayload;
 import Fabric.test.networking.ZoneActionPayload;
 import Fabric.test.networking.ZoneSyncPayload;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.ParseResults;
+import com.mojang.brigadier.StringReader;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
+import net.minecraft.commands.arguments.coordinates.Coordinates;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.CommandEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
@@ -91,6 +96,57 @@ public class ZoneCommand {
 
     public static boolean isInBuildMode(UUID uuid) {
         return buildZone.containsKey(uuid);
+    }
+
+    /** Commandes vanilla (niveau OP) débloquées pour un joueur non-OP tant qu'il est en /build. */
+    private static final Set<String> BUILD_ELEVATED_COMMANDS = Set.of("setblock");
+
+    /**
+     * En mode /build, autorise un joueur non-OP à lancer certaines commandes vanilla protégées
+     * (setblock) : on ré-analyse la commande avec une source élevée au niveau 2, le temps de
+     * cette exécution uniquement. Les OP ne sont pas concernés (déjà autorisés). La cible du
+     * setblock est restreinte à la zone de build du joueur (les coords hors zone sont refusées).
+     */
+    public static void onCommand(CommandEvent event) {
+        if (!Fabric.test.Test.isSetblockInBuild()) return; // option désactivée dans la config
+        ParseResults<CommandSourceStack> parse = event.getParseResults();
+        CommandSourceStack source = parse.getContext().getSource();
+        if (!(source.getEntity() instanceof ServerPlayer player)) return;
+        if (player.hasPermissions(2)) return;
+        String zoneName = buildZone.get(player.getUUID());
+        if (zoneName == null) return; // pas en mode /build
+
+        String input = parse.getReader().getString();
+        int sp = input.indexOf(' ');
+        String name = (sp < 0 ? input : input.substring(0, sp)).toLowerCase();
+        if (!BUILD_ELEVATED_COMMANDS.contains(name)) return;
+
+        // Sans zone valide (supprimée entre-temps), on n'élève rien : setblock reste bloqué.
+        Zone zone = zones.get(zoneName);
+        if (zone == null) return;
+
+        CommandSourceStack elevated = source.withPermission(2);
+
+        // Restriction zone : la cible doit être DANS la zone de build du joueur.
+        if (sp > 0) {
+            try {
+                StringReader reader = new StringReader(input);
+                reader.setCursor(sp + 1); // juste après « setblock »
+                Coordinates coords = BlockPosArgument.blockPos().parse(reader);
+                BlockPos target = coords.getBlockPos(elevated);
+                if (!zone.contains(target.getX(), target.getY(), target.getZ())) {
+                    player.sendSystemMessage(Component.literal(
+                        "§cVous ne pouvez modifier que des blocs §edans votre zone §6" + zoneName + "§c."));
+                    event.setCanceled(true);
+                    return;
+                }
+            } catch (Exception ignored) {
+                // Coordonnées illisibles : on laisse la commande s'exécuter (élevée) et échouer
+                // avec le message d'usage vanilla habituel.
+            }
+        }
+
+        event.setParseResults(player.getServer().getCommands().getDispatcher().parse(input, elevated));
     }
 
     private static boolean isWand(ItemStack stack) {
@@ -289,6 +345,7 @@ public class ZoneCommand {
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onItemPickup);
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onCropTrample);
         NeoForge.EVENT_BUS.addListener(ZoneCommand::onPlayerLogin);
+        NeoForge.EVENT_BUS.addListener(ZoneCommand::onCommand);
         NeoForge.EVENT_BUS.addListener((ServerStartingEvent e) -> loadBuildState(e.getServer()));
         NeoForge.EVENT_BUS.addListener((ServerStoppingEvent e) -> saveBuildState(e.getServer()));
     }

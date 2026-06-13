@@ -600,7 +600,8 @@ public class DashGameEvents {
         Test.getLastActivityTime().remove(uid);
         Test.getTpaRequests().remove(uid);
         Test.getPendingTpaTimestamps().remove(uid);
-        Test.getTpaRequests().entrySet().removeIf(e -> { if (e.getValue().equals(uid)) { Test.getPendingTpaTimestamps().remove(e.getKey()); return true; } return false; });
+        Test.getTpaHere().remove(uid);
+        Test.getTpaRequests().entrySet().removeIf(e -> { if (e.getValue().equals(uid)) { Test.getPendingTpaTimestamps().remove(e.getKey()); Test.getTpaHere().remove(e.getKey()); return true; } return false; });
         Component leftMsg = Component.literal("§c[-] §f" + player.getName().getString() + " §7a quitté le serveur.");
         for (ServerPlayer p : server.getPlayerList().getPlayers())
             if (Test.getPlayerSettings(p.getUUID()).showConnectionAlerts && !p.getUUID().equals(uid))
@@ -1006,6 +1007,7 @@ public class DashGameEvents {
                 if (nowExpire - te.getValue() > 60_000L) {
                     java.util.UUID targetUid = te.getKey();
                     java.util.UUID senderUid = Test.getTpaRequests().remove(targetUid);
+                    Test.getTpaHere().remove(targetUid);
                     tpaIt.remove();
                     if (senderUid != null) {
                         ServerPlayer tpaSender = server.getPlayerList().getPlayer(senderUid);

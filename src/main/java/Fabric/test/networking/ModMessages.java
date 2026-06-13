@@ -18,6 +18,7 @@ public class ModMessages {
     public static final ResourceLocation GROUP_UPDATE    = ResourceLocation.fromNamespaceAndPath("dashboardadmin", "group_update");
     public static final ResourceLocation NOTIF           = ResourceLocation.fromNamespaceAndPath("dashboardadmin", "notif");
     public static final ResourceLocation OPEN_SANCTIONS  = ResourceLocation.fromNamespaceAndPath("dashboardadmin", "open_sanctions");
+    public static final ResourceLocation OPEN_AUDIT      = ResourceLocation.fromNamespaceAndPath("dashboardadmin", "open_audit");
     public static final ResourceLocation OPEN_REPORT     = ResourceLocation.fromNamespaceAndPath("dashboardadmin", "open_report");
     public static final ResourceLocation REPORT_SUBMIT   = ResourceLocation.fromNamespaceAndPath("dashboardadmin", "report_submit");
     public static final ResourceLocation REPORT_IMAGE    = ResourceLocation.fromNamespaceAndPath("dashboardadmin", "report_image");

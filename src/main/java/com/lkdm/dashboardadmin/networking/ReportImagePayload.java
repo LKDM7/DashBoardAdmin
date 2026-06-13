@@ -1,4 +1,4 @@
-package Fabric.test.networking;
+package com.lkdm.dashboardadmin.networking;
 
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
@@ -11,7 +11,7 @@ public record ReportImagePayload(String playerName, byte[] imageData) implements
             buf.writeUtf(p.playerName);
             buf.writeByteArray(p.imageData);
         },
-        buf -> new ReportImagePayload(buf.readUtf(), buf.readByteArray())
+        buf -> new ReportImagePayload(buf.readUtf(), buf.readByteArray(ReportSubmitPayload.MAX_IMAGE_BYTES))
     );
     @Override
     public Type<? extends CustomPacketPayload> type() { return TYPE; }

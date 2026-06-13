@@ -67,7 +67,7 @@ public class Test {
     private static volatile String webhookSanctions = "";
     private static volatile String motd             = "";
     private static final java.util.List<String> chatHistory = new java.util.ArrayList<>();
-    private static final java.util.Map<java.util.UUID, String> adminNotes = new java.util.HashMap<>();
+    private static final java.util.Map<java.util.UUID, java.util.List<String>> adminNotes = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, Integer>        hostileMobKills = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, PlayerSettings> playerSettings  = new java.util.HashMap<>();
     private static final java.util.Map<java.util.UUID, Long>           lastSeenTimestamps = new java.util.HashMap<>();
@@ -166,6 +166,7 @@ public class Test {
         SanctionsPersistence.register();
         GroupPersistence.register();
         ModerationPersistence.register();
+        RolePersistence.register();
 
         modEventBus.addListener(DashNetworking::onRegisterPayloads);
         NeoForge.EVENT_BUS.register(DashGameEvents.class);
@@ -240,20 +241,36 @@ public class Test {
     }
     static java.util.List<String> getChatHistoryRaw() { return chatHistory; }
     // ── Notes admin (modération, visibles uniquement des admins) ─────────────
-    public static java.util.Map<java.util.UUID, String> getAdminNotes() { return adminNotes; }
-    public static void setAdminNote(java.util.UUID uuid, String note) {
-        String clean = note == null ? "" : note.replace("\n", " ").replace("|", " ").replace("\t", " ").trim();
-        if (clean.isEmpty()) adminNotes.remove(uuid);
-        else adminNotes.put(uuid, clean);
+    public static java.util.Map<java.util.UUID, java.util.List<String>> getAdminNotes() { return adminNotes; }
+    private static String cleanNote(String note) {
+        // On garde ':' (séparateur uniquement entre nom et notes, sur le 1er ':'). '' sépare les notes.
+        return note == null ? "" : note.replace("\n", " ").replace("|", " ").replace("\t", " ").replace('', ' ').trim();
     }
-    /** "nom:note" par ligne, pour la fiche Activité du dashboard. */
+    /** Ajoute une note à un joueur (max 15). Renvoie false si vide ou limite atteinte. */
+    public static boolean addAdminNote(java.util.UUID uuid, String note) {
+        String clean = cleanNote(note);
+        if (clean.isEmpty()) return false;
+        java.util.List<String> list = adminNotes.computeIfAbsent(uuid, k -> new java.util.ArrayList<>());
+        if (list.size() >= 15) return false;
+        list.add(clean);
+        return true;
+    }
+    /** Supprime la note d'index donné. */
+    public static boolean removeAdminNote(java.util.UUID uuid, int index) {
+        java.util.List<String> list = adminNotes.get(uuid);
+        if (list == null || index < 0 || index >= list.size()) return false;
+        list.remove(index);
+        if (list.isEmpty()) adminNotes.remove(uuid);
+        return true;
+    }
+    /** "nom:note1note2…" par ligne (un joueur par ligne), pour le dashboard. */
     public static String getAdminNotesSerialized() {
         StringBuilder sb = new StringBuilder();
-        for (java.util.Map.Entry<java.util.UUID, String> e : adminNotes.entrySet()) {
+        for (java.util.Map.Entry<java.util.UUID, java.util.List<String>> e : adminNotes.entrySet()) {
             String name = playerNameCache.get(e.getKey());
             if (name == null || e.getValue().isEmpty()) continue;
             if (sb.length() > 0) sb.append('\n');
-            sb.append(name).append(':').append(e.getValue());
+            sb.append(name).append(':').append(String.join("", e.getValue()));
         }
         return sb.toString();
     }

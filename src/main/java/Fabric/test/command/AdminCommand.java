@@ -15,7 +15,9 @@ public class AdminCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("admin")
-            .requires(source -> source.hasPermission(2))
+            .requires(source -> source.hasPermission(2)
+                || (source.getEntity() instanceof ServerPlayer sp
+                    && Fabric.test.RoleManager.hasAnyRole(sp.getUUID())))
             .executes(context -> {
                 sendAdminGui(context.getSource().getPlayerOrException(), context.getSource().getServer());
                 return 1;
@@ -41,7 +43,10 @@ public class AdminCommand {
             Fabric.test.Test.getOfflinePlayersSerialized(server),
             Fabric.test.Test.getServerStatsSerialized(server),
             Fabric.test.Test.getWarpsSerialized(),
-            Fabric.test.Test.getAdminNotesSerialized()
+            Fabric.test.Test.getAdminNotesSerialized(),
+            Fabric.test.RoleManager.getRolesSerialized(server),
+            player.hasPermissions(2) ? "*"
+                : String.join(",", Fabric.test.RoleManager.getPermsOf(player.getUUID()))
         ));
     }
 
@@ -62,7 +67,9 @@ public class AdminCommand {
         String offlinePlayers,
         String serverStats,
         String warps,
-        String adminNotes
+        String adminNotes,
+        String rolesSerialized,
+        String viewerPerms
     ) implements CustomPacketPayload {
         public static final Type<OpenAdminGuiPayload> TYPE = new Type<>(ModMessages.OPEN_ADMIN_GUI);
         public static final StreamCodec<FriendlyByteBuf, OpenAdminGuiPayload> CODEC = StreamCodec.of(
@@ -84,13 +91,15 @@ public class AdminCommand {
                 buf.writeUtf(p.serverStats);
                 buf.writeUtf(p.warps);
                 buf.writeUtf(p.adminNotes);
+                buf.writeUtf(p.rolesSerialized);
+                buf.writeUtf(p.viewerPerms);
             },
             buf -> new OpenAdminGuiPayload(
                 buf.readBoolean(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
                 buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
                 buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
                 buf.readUtf(), buf.readUtf(), buf.readUtf(), buf.readUtf(),
-                buf.readUtf()
+                buf.readUtf(), buf.readUtf(), buf.readUtf()
             )
         );
         @Override

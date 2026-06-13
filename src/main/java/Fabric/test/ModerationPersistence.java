@@ -36,8 +36,11 @@ public class ModerationPersistence {
         root.add("chatHistory", chat);
 
         JsonObject notes = new JsonObject();
-        for (Map.Entry<UUID, String> e : Test.getAdminNotes().entrySet())
-            notes.addProperty(e.getKey().toString(), e.getValue());
+        for (Map.Entry<UUID, List<String>> e : Test.getAdminNotes().entrySet()) {
+            JsonArray arr = new JsonArray();
+            for (String n : e.getValue()) arr.add(n);
+            notes.add(e.getKey().toString(), arr);
+        }
         root.add("adminNotes", notes);
 
         try {
@@ -71,11 +74,18 @@ public class ModerationPersistence {
             }
 
             if (root.has("adminNotes")) {
-                Map<UUID, String> notes = Test.getAdminNotes();
+                Map<UUID, List<String>> notes = Test.getAdminNotes();
                 notes.clear();
                 for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("adminNotes").entrySet()) {
-                    try { notes.put(UUID.fromString(e.getKey()), e.getValue().getAsString()); }
-                    catch (IllegalArgumentException ignored) {}
+                    try {
+                        UUID id = UUID.fromString(e.getKey());
+                        List<String> list = new ArrayList<>();
+                        if (e.getValue().isJsonArray())
+                            for (JsonElement el : e.getValue().getAsJsonArray()) list.add(el.getAsString());
+                        else
+                            list.add(e.getValue().getAsString()); // rétro-compat ancien format (1 note)
+                        if (!list.isEmpty()) notes.put(id, list);
+                    } catch (IllegalArgumentException ignored) {}
                 }
             }
         } catch (IOException ex) { ex.printStackTrace(); }

@@ -600,7 +600,7 @@ public class SettingsScreen extends Screen {
             int col  = i < half ? 0 : 1;
             int ex   = cx + 4 + col * colW;
             int ey   = colY[col];
-            var lines = font.split(Component.literal(cmd[1]), maxW);
+            var lines = font.split(Component.literal(cmdDesc(cmd)), maxW);
             int entryH = 16 + lines.size() * 10;
 
             if (colRow[col] % 2 == 0)
@@ -875,11 +875,50 @@ public class SettingsScreen extends Screen {
 
     // ─── helpers ─────────────────────────────────────────────────────────────────
 
+    /** Description localisée d'une commande (le serveur n'envoie que le FR ; on traduit par nom). */
+    private static String cmdDesc(String[] cmd) {
+        if (!Lang.fr()) {
+            String en = switch (cmd[0]) {
+                case "/menu"       -> "Open the settings & commands menu";
+                case "/mail"       -> "Send a private message to a player";
+                case "/r"          -> "Reply to the last received message";
+                case "/tpa"        -> "Request a teleport to a player";
+                case "/tpaccept"   -> "Accept a teleport request";
+                case "/tpdeny"     -> "Deny a teleport request";
+                case "/sethome"    -> "Save a home (Overworld only)";
+                case "/home"       -> "Teleport to a saved home";
+                case "/back"       -> "Return to your previous position";
+                case "/lock"       -> "Lock/unlock the block you're looking at";
+                case "/trust"      -> "Grant access to your locked blocks";
+                case "/untrust"    -> "Revoke access to your locked blocks";
+                case "/lockinfo"   -> "View info about a locked block";
+                case "/chest"      -> "Open your personal virtual chest";
+                case "/afk"        -> "Toggle your AFK status";
+                case "/report"     -> "Send a report to the admins";
+                case "/stats"      -> "View your game statistics";
+                case "/seen"       -> "See a player's last login";
+                case "/deal"       -> "Offer an item trade to a player";
+                case "/dealaccept" -> "Accept a trade request";
+                case "/dealdeny"   -> "Deny a trade request";
+                case "/groupaccept"-> "Accept a group invitation";
+                case "/groupdeny"  -> "Deny a group invitation";
+                case "/build"      -> "Build mode inside an allowed zone";
+                case "/warp"       -> "Teleport to a warp";
+                case "/rtp"        -> "Safe random teleport";
+                case "/ignore"     -> "Ignore a player's messages";
+                case "/unignore"   -> "Stop ignoring a player";
+                default -> null;
+            };
+            if (en != null) return en;
+        }
+        return cmd[1]; // FR (serveur) ou repli
+    }
+
     private int computeMaxCmdScroll(int maxW, int visH) {
         int half = (commandList.size() + 1) / 2;
         int leftH = 0, rightH = 0;
         for (int i = 0; i < commandList.size(); i++) {
-            int h = 16 + font.split(Component.literal(commandList.get(i)[1]), maxW).size() * 10;
+            int h = 16 + font.split(Component.literal(cmdDesc(commandList.get(i))), maxW).size() * 10;
             if (i < half) leftH += h; else rightH += h;
         }
         return Math.max(0, Math.max(leftH, rightH) - visH);

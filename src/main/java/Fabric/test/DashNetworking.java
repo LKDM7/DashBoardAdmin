@@ -59,7 +59,7 @@ public class DashNetworking {
 
         reg.playToServer(ZoneActionPayload.TYPE, ZoneActionPayload.CODEC,
             (payload, ctx) -> ctx.enqueueWork(() -> {
-                if (!ctx.player().hasPermissions(2)) return;
+                if (!RoleManager.can((ServerPlayer) ctx.player(), "tab.zones")) return;
                 Fabric.test.command.ZoneCommand.handleAction(payload, (ServerPlayer) ctx.player(), ctx.player().getServer());
             }));
 
@@ -91,8 +91,11 @@ public class DashNetworking {
 
     // ─── Admin action handler ─────────────────────────────────────────────────
     private static void handleAdminAction(AdminActionPayload payload, ServerPlayer admin) {
-        if (!admin.hasPermissions(2)) return;
         String action = payload.action();
+        if (!RoleManager.can(admin, RoleManager.permForAction(action))) {
+            admin.sendSystemMessage(Component.literal("§cVous n'avez pas la permission pour cette action."));
+            return;
+        }
         ServerPlayer target = admin.getServer().getPlayerList().getPlayerByName(payload.target());
 
         switch (action) {
@@ -221,17 +224,27 @@ public class DashNetworking {
                 }
             }
             case "REFRESH_ADMIN" -> AdminCommand.sendAdminGui(admin, admin.getServer());
-            case "SET_NOTE" -> {
+            case "ADD_NOTE" -> {
+                java.util.UUID noteUuid = target != null ? target.getUUID()
+                    : Test.getPlayerNameCache().entrySet().stream()
+                        .filter(e -> e.getValue().equalsIgnoreCase(payload.target()))
+                        .map(java.util.Map.Entry::getKey).findFirst().orElse(null);
+                if (noteUuid != null && Test.addAdminNote(noteUuid, payload.value())) {
+                    ModerationPersistence.save();
+                    admin.sendSystemMessage(Component.literal("§aNote ajoutée pour §f" + payload.target() + "§a."));
+                    AdminCommand.sendAdminGui(admin, admin.getServer());
+                } else admin.sendSystemMessage(Component.literal("§cNote vide ou limite atteinte (15 max)."));
+            }
+            case "DEL_NOTE" -> {
                 java.util.UUID noteUuid = target != null ? target.getUUID()
                     : Test.getPlayerNameCache().entrySet().stream()
                         .filter(e -> e.getValue().equalsIgnoreCase(payload.target()))
                         .map(java.util.Map.Entry::getKey).findFirst().orElse(null);
                 if (noteUuid != null) {
-                    Test.setAdminNote(noteUuid, payload.value());
+                    try { Test.removeAdminNote(noteUuid, Integer.parseInt(payload.value())); }
+                    catch (NumberFormatException ignored) {}
                     ModerationPersistence.save();
-                    admin.sendSystemMessage(Component.literal(payload.value().isBlank()
-                        ? "§eNote de §f" + payload.target() + " §esupprimée."
-                        : "§aNote de §f" + payload.target() + " §aenregistrée."));
+                    AdminCommand.sendAdminGui(admin, admin.getServer());
                 }
             }
             case "GET_CHAT" -> PacketDistributor.sendToPlayer(admin,
@@ -315,6 +328,37 @@ public class DashNetworking {
             case "TOGGLE_RIGHT_CLICK_HARVEST"-> { Test.setRightClickHarvestEnabled(!Test.isRightClickHarvestEnabled()); admin.sendSystemMessage(Component.literal("§eRécolte clic droit " + (Test.isRightClickHarvestEnabled() ? "§aactivée" : "§cdésactivée") + "§e.")); ServerConfig.save(); }
             case "TOGGLE_DISPENSER_HARVEST"  -> { Test.setDispenserHarvestEnabled(!Test.isDispenserHarvestEnabled()); admin.sendSystemMessage(Component.literal("§eDistributeur récolte " + (Test.isDispenserHarvestEnabled() ? "§aactivé" : "§cdésactivé") + "§e.")); ServerConfig.save(); }
             case "SET_AFK_DELAY" -> { try { int mins = Integer.parseInt(payload.value()); Test.setAfkDelayMinutes(mins); ServerConfig.save(); admin.sendSystemMessage(Component.literal("§eDélai AFK réglé à §f" + mins + "§e min.")); } catch (NumberFormatException ignored) {} }
+
+            // ─── Rôles de modération (Étape 1 : gestion ; OP requis, déjà garanti ci-dessus) ───
+            case "ROLE_CREATE" -> {
+                if (RoleManager.createRole(payload.value())) { RolePersistence.save(); admin.sendSystemMessage(Component.literal("§aRôle §f" + RoleManager.sanitizeName(payload.value()) + " §acréé.")); }
+                else admin.sendSystemMessage(Component.literal("§cImpossible de créer ce rôle (nom invalide, doublon ou limite atteinte)."));
+                AdminCommand.sendAdminGui(admin, admin.getServer());
+            }
+            case "ROLE_DELETE" -> {
+                if (RoleManager.deleteRole(payload.value())) { RolePersistence.save(); admin.sendSystemMessage(Component.literal("§cRôle §f" + payload.value() + " §csupprimé.")); }
+                AdminCommand.sendAdminGui(admin, admin.getServer());
+            }
+            case "ROLE_RENAME" -> {
+                if (RoleManager.renameRole(payload.target(), payload.value())) { RolePersistence.save(); admin.sendSystemMessage(Component.literal("§aRôle renommé en §f" + RoleManager.sanitizeName(payload.value()) + "§a.")); }
+                else admin.sendSystemMessage(Component.literal("§cRenommage impossible (nom invalide ou déjà utilisé)."));
+                AdminCommand.sendAdminGui(admin, admin.getServer());
+            }
+            case "ROLE_TOGGLE_PERM" -> {
+                if (RoleManager.togglePerm(payload.target(), payload.value())) RolePersistence.save();
+                AdminCommand.sendAdminGui(admin, admin.getServer());
+            }
+            case "ROLE_ASSIGN" -> {
+                java.util.UUID u = RoleManager.resolveUuid(payload.value(), admin.getServer());
+                if (u != null && RoleManager.assignPlayer(payload.target(), u)) { RolePersistence.save(); admin.sendSystemMessage(Component.literal("§a" + payload.value() + " §aassigné au rôle §f" + payload.target() + "§a.")); }
+                else admin.sendSystemMessage(Component.literal("§cJoueur introuvable ou rôle invalide."));
+                AdminCommand.sendAdminGui(admin, admin.getServer());
+            }
+            case "ROLE_UNASSIGN" -> {
+                java.util.UUID u = RoleManager.resolveUuid(payload.value(), admin.getServer());
+                if (u != null && RoleManager.unassignPlayer(payload.target(), u)) { RolePersistence.save(); admin.sendSystemMessage(Component.literal("§e" + payload.value() + " §eretiré du rôle §f" + payload.target() + "§e.")); }
+                AdminCommand.sendAdminGui(admin, admin.getServer());
+            }
         }
     }
 

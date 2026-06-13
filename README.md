@@ -4,13 +4,14 @@ Mod d'administration pour serveur SMP, sous NeoForge pour Minecraft 1.21.1.
 
 ## Téléchargement
 
-**[Télécharger la v1.2.1 (.jar)](https://github.com/LKDM7/DashBoardAdmin/raw/master/releases/dashboardadmin-1.2.1.jar)**
+**[Télécharger la v1.3.0 (.jar)](https://github.com/LKDM7/DashBoardAdmin/raw/master/releases/dashboardadmin-1.3.0.jar)**
 
 Les versions précédentes sont disponibles dans le dossier [`releases/`](releases/). Tous les joueurs doivent utiliser la même version que le serveur (vérification réseau stricte).
 
 ## Fonctionnalités
 
-- **Interface admin** : menu graphique (`/admin`) — joueurs (en ligne et hors ligne, fiche d'activité avec notes de modération), santé serveur (TPS, RAM, entités), historique du chat persistant, spy des messages privés, restart programmé, warps, MOTD
+- **Interface admin** : menu graphique (`/admin`) — joueurs (en ligne et hors ligne, fiche d'activité avec notes de modération multiples), santé serveur (TPS, RAM, entités), historique du chat persistant, spy des messages privés, restart programmé, warps, MOTD
+- **Rôles de modération** : création de rôles personnalisés avec permissions (onglets + actions sensibles) et assignation de joueurs ; les modérateurs ouvrent `/admin` sans OP et n'accèdent qu'à ce que leur rôle autorise
 - **Paramètres joueur** : écran de configuration des paramètres individuels
 - **Inventaires virtuels** : gestion des coffres virtuels par joueur
 - **Homes & warps** : points personnels et warps publics, téléportation depuis le menu
@@ -36,7 +37,7 @@ Le fichier `.jar` généré se trouve dans `build/libs/`.
 
 ## Infos
 
-- **Version du mod :** 1.2.1
+- **Version du mod :** 1.3.0
 - **Version Minecraft :** 1.21.1
 - **Loader :** NeoForge `21.1.232`
 - **Auteur :** LKDM

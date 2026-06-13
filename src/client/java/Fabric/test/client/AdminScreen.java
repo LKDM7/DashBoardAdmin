@@ -39,6 +39,7 @@ public class AdminScreen extends Screen {
     private java.util.Map<String, String> reports         = new java.util.LinkedHashMap<>();
     private java.util.Map<String, String> acceptedReports = new java.util.LinkedHashMap<>();
     private java.util.Map<String, String> closedReports   = new java.util.LinkedHashMap<>();
+    private String   hoverReportMsg = null; // message complet du report survolé (tooltip)
     private EditBox  announceBox, banReasonBox, searchBox;
     private boolean  isBanning = false, isKicking = false, isRemovingMobs = false;
     private int      banDurationDays   = 0;   // 0=permanent, else days
@@ -724,7 +725,7 @@ public class AdminScreen extends Screen {
             case 1 -> renderJoueurs(g);
             case 2 -> renderChat(g);
             case 3 -> renderFeatures(g);
-            case 4 -> renderReports(g);
+            case 4 -> renderReports(g, mx, my);
             case 5 -> renderLogs(g);
             case 6 -> renderZones(g);
             case 7 -> renderSanctions(g);
@@ -767,6 +768,12 @@ public class AdminScreen extends Screen {
         }
 
         g.drawString(font, "@LKDM", px + pw - font.width("@LKDM") - 4, py + ph - 10, 0x55AAAAAA, false);
+
+        // Tooltip : message complet d'un report survolé (uniquement si aucun overlay ouvert)
+        if (hoverReportMsg != null && reportImagePlayer == null
+                && !isBanning && !isKicking && !isRemovingMobs && confirmUnbanPlayer == null) {
+            g.renderTooltip(font, font.split(Component.literal("§f" + hoverReportMsg), 220), mx, my);
+        }
 
         super.render(g, mx, my, delta);
     }
@@ -918,7 +925,8 @@ public class AdminScreen extends Screen {
         g.drawString(font, "§8Sanctions (ban/kick/mute) :", bx, whY + 21, 0xFF666666);
     }
 
-    private void renderReports(GuiGraphics g) {
+    private void renderReports(GuiGraphics g, int mx, int my) {
+        hoverReportMsg = null;
         int bottomY = py + ph - 32;
         int colDiv  = midX;
         int lx1 = cx + 2,    rx1 = colDiv - 3;
@@ -944,10 +952,13 @@ public class AdminScreen extends Screen {
                 g.fill(lx1 + 3, y - 2, lx1 + 4, y + 37, 0xFFFF4444);
                 String rawMsg = e.getValue();
                 boolean hasImg = rawMsg.length() > 0 && rawMsg.charAt(0) == '';
-                String msg = truncate(hasImg ? rawMsg.substring(1) : rawMsg, 22);
+                String fullMsg = hasImg ? rawMsg.substring(1) : rawMsg;
+                String msg = truncate(fullMsg, 22);
                 g.drawString(font, "§e" + e.getKey(), lx1 + 8, y + 3,  0xFFFFFFFF);
                 g.drawString(font, "§7» " + msg,      lx1 + 8, y + 15, 0xFFAAAAAA);
                 if (hasImg) g.drawString(font, "§b[capture jointe]", lx1 + 8, y + 27, 0xFF4499FF);
+                if (fullMsg.length() > 22 && mx >= lx1 + 3 && mx <= rx1 - 2 && my >= y - 2 && my <= y + 37)
+                    hoverReportMsg = fullMsg;
                 y += 44;
             }
         }
@@ -962,10 +973,13 @@ public class AdminScreen extends Screen {
                 g.fill(lx2 + 3, y - 2, lx2 + 4, y + 37, 0xFFFFAA00);
                 String rawMsg = e.getValue();
                 boolean hasImg = rawMsg.length() > 0 && rawMsg.charAt(0) == '';
-                String msg = truncate(hasImg ? rawMsg.substring(1) : rawMsg, 22);
+                String fullMsg = hasImg ? rawMsg.substring(1) : rawMsg;
+                String msg = truncate(fullMsg, 22);
                 g.drawString(font, "§e" + e.getKey(), lx2 + 8, y + 3,  0xFFFFFFFF);
                 g.drawString(font, "§7» " + msg,      lx2 + 8, y + 15, 0xFFAAAAAA);
                 if (hasImg) g.drawString(font, "§b📷", lx2 + 8, y + 27, 0xFFFFFFFF);
+                if (fullMsg.length() > 22 && mx >= lx2 + 3 && mx <= rx2 - 2 && my >= y - 2 && my <= y + 37)
+                    hoverReportMsg = fullMsg;
                 y += 44;
             }
         }

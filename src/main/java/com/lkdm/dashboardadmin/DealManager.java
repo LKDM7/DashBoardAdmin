@@ -64,7 +64,8 @@ public final class DealManager {
         if (p1 != null) sendDealPayload(p1, session);
         if (p2 != null) sendDealPayload(p2, session);
     }
-    static void cancelDeal(DealSession session, MinecraftServer server, String reasonP1, String reasonP2) {
+    static void cancelDeal(DealSession session, MinecraftServer server,
+                           String reasonP1Fr, String reasonP1En, String reasonP2Fr, String reasonP2En) {
         activeSessions.remove(session.player1);
         activeSessions.remove(session.player2);
         for (boolean isP1 : new boolean[]{true, false}) {
@@ -72,7 +73,10 @@ public final class DealManager {
             ServerPlayer p    = server.getPlayerList().getPlayer(uid);
             NonNullList<ItemStack> offer = isP1 ? session.offer1 : session.offer2;
             for (ItemStack stack : offer) if (!stack.isEmpty() && p != null) p.getInventory().add(stack.copy());
-            if (p != null) PacketDistributor.sendToPlayer(p, new OpenDealPayload("", true, isP1 ? reasonP1 : reasonP2, false, false, List.of(), List.of()));
+            if (p != null) {
+                String reason = isP1 ? SrvLang.t(p, reasonP1Fr, reasonP1En) : SrvLang.t(p, reasonP2Fr, reasonP2En);
+                PacketDistributor.sendToPlayer(p, new OpenDealPayload("", true, reason, false, false, List.of(), List.of()));
+            }
         }
     }
     static void completeDeal(DealSession session, MinecraftServer server) {
@@ -100,7 +104,7 @@ public final class DealManager {
         if (partner != null) {
             NonNullList<ItemStack> po = session.myOffer(partnerUUID);
             for (ItemStack stack : po) if (!stack.isEmpty()) partner.getInventory().add(stack.copy());
-            PacketDistributor.sendToPlayer(partner, new OpenDealPayload("", true, disconnecting.getName().getString() + " s'est déconnecté. Échange annulé, items restitués.", false, false, List.of(), List.of()));
+            PacketDistributor.sendToPlayer(partner, new OpenDealPayload("", true, SrvLang.t(partner, disconnecting.getName().getString() + " s'est déconnecté. Échange annulé, items restitués.", disconnecting.getName().getString() + " disconnected. Trade cancelled, items returned."), false, false, List.of(), List.of()));
         }
     }
 }

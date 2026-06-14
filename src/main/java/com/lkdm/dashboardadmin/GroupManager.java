@@ -138,7 +138,7 @@ public class GroupManager {
         switch (payload.action()) {
             case "CREATE" -> {
                 if (isInGroup(actorUUID)) {
-                    actor.sendSystemMessage(Component.literal("§cVous êtes déjà dans un groupe."));
+                    actor.sendSystemMessage(Component.literal(SrvLang.t(actor, "§cVous êtes déjà dans un groupe.", "§cYou are already in a group.")));
                     return;
                 }
                 String gName = payload.value().trim();
@@ -151,32 +151,32 @@ public class GroupManager {
                 groupNames.put(actorUUID, gName);
                 updatePlayerTeam(actor, server);
                 sendGroupScreen(actor, server);
-                actor.sendSystemMessage(Component.literal("§aGroupe §f\"" + gName + "\" §acréé !"));
+                actor.sendSystemMessage(Component.literal(SrvLang.t(actor, "§aGroupe §f\"" + gName + "\" §acréé !", "§aGroup §f\"" + gName + "\" §acreated!")));
                 GroupPersistence.save();
             }
             case "INVITE" -> {
                 if (isInGroup(actorUUID) && !isLeader(actorUUID)) {
-                    actor.sendSystemMessage(Component.literal("§cSeul le leader peut inviter."));
+                    actor.sendSystemMessage(Component.literal(SrvLang.t(actor, "§cSeul le leader peut inviter.", "§cOnly the leader can invite.")));
                     return;
                 }
                 ServerPlayer target = server.getPlayerList().getPlayerByName(payload.value());
-                if (target == null) { actor.sendSystemMessage(Component.literal("§cJoueur introuvable.")); return; }
-                if (isInGroup(target.getUUID())) { actor.sendSystemMessage(Component.literal("§cCe joueur est déjà dans un groupe.")); return; }
+                if (target == null) { actor.sendSystemMessage(Component.literal(SrvLang.t(actor, "§cJoueur introuvable.", "§cPlayer not found."))); return; }
+                if (isInGroup(target.getUUID())) { actor.sendSystemMessage(Component.literal(SrvLang.t(actor, "§cCe joueur est déjà dans un groupe.", "§cThis player is already in a group."))); return; }
                 pendingInvites.put(target.getUUID(), actorUUID);
                 // Show clickable invite to target
-                Component msg = Component.literal("§e" + actor.getName().getString() + " §7vous invite dans son groupe. ")
-                    .append(Component.literal("[ACCEPTER]").withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GREEN)
+                Component msg = Component.literal(SrvLang.t(target, "§e" + actor.getName().getString() + " §7vous invite dans son groupe. ", "§e" + actor.getName().getString() + " §7invites you to their group. "))
+                    .append(Component.literal(SrvLang.t(target, "[ACCEPTER]", "[ACCEPT]")).withStyle(s -> s.withColor(net.minecraft.ChatFormatting.GREEN)
                         .withClickEvent(new net.minecraft.network.chat.ClickEvent(net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND, "/groupaccept"))))
                     .append(Component.literal(" "))
-                    .append(Component.literal("[REFUSER]").withStyle(s -> s.withColor(net.minecraft.ChatFormatting.RED)
+                    .append(Component.literal(SrvLang.t(target, "[REFUSER]", "[DENY]")).withStyle(s -> s.withColor(net.minecraft.ChatFormatting.RED)
                         .withClickEvent(new net.minecraft.network.chat.ClickEvent(net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND, "/groupdeny"))));
                 target.sendSystemMessage(msg);
-                PacketDistributor.sendToPlayer(target, new com.lkdm.dashboardadmin.networking.NotifPayload("GROUP_INVITE", "§a✦ Invitation de §f" + actor.getName().getString()));
-                actor.sendSystemMessage(Component.literal("§7Invitation envoyée à §e" + target.getName().getString() + "§7."));
+                PacketDistributor.sendToPlayer(target, new com.lkdm.dashboardadmin.networking.NotifPayload("GROUP_INVITE", SrvLang.t(target, "§a✦ Invitation de §f" + actor.getName().getString(), "§a✦ Invitation from §f" + actor.getName().getString())));
+                actor.sendSystemMessage(Component.literal(SrvLang.t(actor, "§7Invitation envoyée à §e" + target.getName().getString() + "§7.", "§7Invite sent to §e" + target.getName().getString() + "§7.")));
             }
             case "ACCEPT" -> {
                 UUID inviterUUID = pendingInvites.remove(actorUUID);
-                if (inviterUUID == null) { actor.sendSystemMessage(Component.literal("§cAucune invitation en attente.")); return; }
+                if (inviterUUID == null) { actor.sendSystemMessage(Component.literal(SrvLang.t(actor, "§cAucune invitation en attente.", "§cNo pending invitation."))); return; }
                 // If inviter is not in a group yet, create one
                 if (!isInGroup(inviterUUID)) {
                     LinkedHashSet<UUID> grp = new LinkedHashSet<>();
@@ -186,11 +186,11 @@ public class GroupManager {
                 }
                 UUID leader = membership.get(inviterUUID);
                 LinkedHashSet<UUID> grp = groups.get(leader);
-                if (grp == null) { actor.sendSystemMessage(Component.literal("§cLe groupe n'existe plus.")); return; }
+                if (grp == null) { actor.sendSystemMessage(Component.literal(SrvLang.t(actor, "§cLe groupe n'existe plus.", "§cThe group no longer exists."))); return; }
                 grp.add(actorUUID);
                 membership.put(actorUUID, leader);
                 updatePlayerTeam(actor, server);
-                broadcastGroupMessage(server, leader, "§a" + actor.getName().getString() + " a rejoint le groupe !");
+                broadcastGroupMessage(server, leader, "§a" + actor.getName().getString() + " a rejoint le groupe !", "§a" + actor.getName().getString() + " joined the group!");
                 broadcastGroupScreen(server, leader);
                 GroupPersistence.save();
             }
@@ -198,16 +198,16 @@ public class GroupManager {
                 UUID inv = pendingInvites.remove(actorUUID);
                 if (inv != null) {
                     ServerPlayer inviter = server.getPlayerList().getPlayer(inv);
-                    if (inviter != null) inviter.sendSystemMessage(Component.literal("§c" + actor.getName().getString() + " a refusé l'invitation."));
+                    if (inviter != null) inviter.sendSystemMessage(Component.literal(SrvLang.t(inviter, "§c" + actor.getName().getString() + " a refusé l'invitation.", "§c" + actor.getName().getString() + " declined the invitation.")));
                 }
             }
             case "KICK" -> {
-                if (!isLeader(actorUUID)) { actor.sendSystemMessage(Component.literal("§cSeul le leader peut expulser.")); return; }
+                if (!isLeader(actorUUID)) { actor.sendSystemMessage(Component.literal(SrvLang.t(actor, "§cSeul le leader peut expulser.", "§cOnly the leader can kick."))); return; }
                 try {
                     UUID targetUUID = UUID.fromString(payload.value());
                     if (targetUUID.equals(actorUUID)) return;
-                    removeFromGroup(targetUUID, server, "§cVous avez été expulsé du groupe.");
-                    broadcastGroupMessage(server, actorUUID, "§c" + DashboardAdmin.getPlayerNameCache().getOrDefault(targetUUID, "?") + " a été expulsé.");
+                    removeFromGroup(targetUUID, server, "§cVous avez été expulsé du groupe.", "§cYou have been kicked from the group.");
+                    broadcastGroupMessage(server, actorUUID, "§c" + DashboardAdmin.getPlayerNameCache().getOrDefault(targetUUID, "?") + " a été expulsé.", "§c" + DashboardAdmin.getPlayerNameCache().getOrDefault(targetUUID, "?") + " was kicked.");
                     broadcastGroupScreen(server, actorUUID);
                     GroupPersistence.save();
                 } catch (IllegalArgumentException ignored) {}
@@ -216,9 +216,9 @@ public class GroupManager {
                 if (!isInGroup(actorUUID)) return;
                 UUID leader = membership.get(actorUUID);
                 String leaveName = actor.getName().getString();
-                removeFromGroup(actorUUID, server, "§7Vous avez quitté le groupe.");
+                removeFromGroup(actorUUID, server, "§7Vous avez quitté le groupe.", "§7You left the group.");
                 if (isInGroup(leader)) {
-                    broadcastGroupMessage(server, leader, "§7" + leaveName + " a quitté le groupe.");
+                    broadcastGroupMessage(server, leader, "§7" + leaveName + " a quitté le groupe.", "§7" + leaveName + " left the group.");
                     broadcastGroupScreen(server, leader);
                 }
                 GroupPersistence.save();
@@ -265,21 +265,21 @@ public class GroupManager {
         pendingInvites.values().removeIf(v -> v.equals(uuid));
         if (!isInGroup(uuid)) return;
         UUID leader = membership.get(uuid);
-        removeFromGroup(uuid, server, null);
+        removeFromGroup(uuid, server, null, null);
         if (isInGroup(leader)) {
-            broadcastGroupMessage(server, leader, "§7" + DashboardAdmin.getPlayerNameCache().getOrDefault(uuid, "?") + " s'est déconnecté.");
+            broadcastGroupMessage(server, leader, "§7" + DashboardAdmin.getPlayerNameCache().getOrDefault(uuid, "?") + " s'est déconnecté.", "§7" + DashboardAdmin.getPlayerNameCache().getOrDefault(uuid, "?") + " disconnected.");
             broadcastGroupScreen(server, leader);
         }
     }
 
-    private static void removeFromGroup(UUID uuid, MinecraftServer server, String msg) {
+    private static void removeFromGroup(UUID uuid, MinecraftServer server, String fr, String en) {
         UUID leader = membership.remove(uuid);
         if (leader == null) return;
         LinkedHashSet<UUID> grp = groups.get(leader);
         if (grp != null) grp.remove(uuid);
 
         ServerPlayer p = server.getPlayerList().getPlayer(uuid);
-        if (p != null && msg != null) p.sendSystemMessage(Component.literal(msg));
+        if (p != null && fr != null) p.sendSystemMessage(Component.literal(SrvLang.t(p, fr, en)));
         clearPlayerTeam(uuid, server);
         if (p != null) sendGroupScreen(p, server); // Reset HUD: player no longer in membership
 
@@ -294,7 +294,7 @@ public class GroupManager {
                 groups.put(newLeader, grp);
                 for (UUID m : grp) membership.put(m, newLeader);
                 ServerPlayer nl = server.getPlayerList().getPlayer(newLeader);
-                if (nl != null) nl.sendSystemMessage(Component.literal("§eVous êtes le nouveau leader du groupe."));
+                if (nl != null) nl.sendSystemMessage(Component.literal(SrvLang.t(nl, "§eVous êtes le nouveau leader du groupe.", "§eYou are the new group leader.")));
             }
         }
 
@@ -302,7 +302,7 @@ public class GroupManager {
         if (grp != null && grp.size() == 1) {
             UUID remaining = grp.iterator().next();
             ServerPlayer rp = server.getPlayerList().getPlayer(remaining);
-            if (rp != null) rp.sendSystemMessage(Component.literal("§7Le groupe a été dissous."));
+            if (rp != null) rp.sendSystemMessage(Component.literal(SrvLang.t(rp, "§7Le groupe a été dissous.", "§7The group has been disbanded.")));
             UUID remainingLeader = membership.remove(remaining);
             if (remainingLeader != null) groups.remove(remainingLeader);
             clearPlayerTeam(remaining, server);
@@ -353,18 +353,18 @@ public class GroupManager {
             clearPlayerTeam(m, server);
             ServerPlayer p = server.getPlayerList().getPlayer(m);
             if (p != null) {
-                p.sendSystemMessage(Component.literal("§7Le groupe a été dissous par le leader."));
+                p.sendSystemMessage(Component.literal(SrvLang.t(p, "§7Le groupe a été dissous par le leader.", "§7The group was disbanded by the leader.")));
                 sendGroupScreen(p, server); // Reset HUD
             }
         }
     }
 
-    private static void broadcastGroupMessage(MinecraftServer server, UUID leader, String msg) {
+    private static void broadcastGroupMessage(MinecraftServer server, UUID leader, String fr, String en) {
         LinkedHashSet<UUID> members = groups.get(leader);
         if (members == null) return;
         for (UUID m : members) {
             ServerPlayer p = server.getPlayerList().getPlayer(m);
-            if (p != null) p.sendSystemMessage(Component.literal(msg));
+            if (p != null) p.sendSystemMessage(Component.literal(SrvLang.t(p, fr, en)));
         }
     }
 

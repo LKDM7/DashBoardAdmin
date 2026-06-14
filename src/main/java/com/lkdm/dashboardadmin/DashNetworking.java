@@ -81,7 +81,7 @@ public class DashNetworking {
     private static void handleAdminAction(AdminActionPayload payload, ServerPlayer admin) {
         String action = payload.action();
         if (!RoleManager.can(admin, RoleManager.permForAction(action))) {
-            admin.sendSystemMessage(Component.literal("§cVous n'avez pas la permission pour cette action."));
+            admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cVous n'avez pas la permission pour cette action.", "§cYou don't have permission for this action.")));
             return;
         }
         if (DashboardAdmin.isAuditable(action))
@@ -89,7 +89,7 @@ public class DashNetworking {
         ServerPlayer target = admin.getServer().getPlayerList().getPlayerByName(payload.target());
 
         switch (action) {
-            case "TOGGLE_PVP"        -> { DashboardAdmin.setPvpEnabled(!DashboardAdmin.isPvpEnabled()); ServerConfig.save(); admin.getServer().getPlayerList().broadcastSystemMessage(Component.literal("§ePvP : " + (DashboardAdmin.isPvpEnabled() ? "§aactivé" : "§cdésactivé") + "§e."), false); }
+            case "TOGGLE_PVP"        -> { DashboardAdmin.setPvpEnabled(!DashboardAdmin.isPvpEnabled()); ServerConfig.save(); boolean pvpOn = DashboardAdmin.isPvpEnabled(); SrvLang.each(admin.getServer(), "§ePvP : " + (pvpOn ? "§aactivé" : "§cdésactivé") + "§e.", "§ePvP: " + (pvpOn ? "§aenabled" : "§cdisabled") + "§e."); }
             case "SET_DAY"           -> ((ServerLevel) admin.level()).setDayTime(6000);
             case "SET_MORNING"       -> ((ServerLevel) admin.level()).setDayTime(0);
             case "SET_EVENING"       -> ((ServerLevel) admin.level()).setDayTime(12000);
@@ -99,10 +99,10 @@ public class DashNetworking {
             case "SET_WEATHER_THUNDER" -> ((ServerLevel) admin.level()).setWeatherParameters(0, 6000, true, true);
             case "TOGGLE_WEATHER_CYCLE" -> { DashboardAdmin.setWeatherCycleEnabled(!DashboardAdmin.isWeatherCycleEnabled()); admin.getServer().getCommands().performPrefixedCommand(admin.getServer().createCommandSourceStack(), "gamerule doWeatherCycle " + DashboardAdmin.isWeatherCycleEnabled()); ServerConfig.save(); }
             case "TOGGLE_CROP_TRAMPLE"  -> { DashboardAdmin.setCropTrampleEnabled(!DashboardAdmin.isCropTrampleEnabled()); ServerConfig.save(); }
-            case "CLEAR_LAG"   -> { admin.getServer().getPlayerList().broadcastSystemMessage(Component.literal("§eClear lag dans 30 secondes !"), false); DashboardAdmin.clearLagTicks = 30 * 20; }
-            case "SET_SPAWN"   -> { admin.level().getServer().getCommands().performPrefixedCommand(admin.createCommandSourceStack(), "/setworldspawn ~ ~ ~"); admin.sendSystemMessage(Component.literal("§aSpawn défini à votre position.")); }
-            case "REMOVE_MOBS" -> { admin.getServer().getPlayerList().broadcastSystemMessage(Component.literal("§cSuppression des mobs dans 30 secondes !"), false); DashboardAdmin.removeMobsTicks = 30 * 20; }
-            case "LOCK_CHAT"   -> { DashboardAdmin.setChatLocked(!DashboardAdmin.isChatLocked()); admin.getServer().getPlayerList().broadcastSystemMessage(Component.literal("§cLe chat a été " + (DashboardAdmin.isChatLocked() ? "bloqué" : "débloqué") + " !"), false); ServerConfig.save(); }
+            case "CLEAR_LAG"   -> { SrvLang.each(admin.getServer(), "§eClear lag dans 30 secondes !", "§eClear lag in 30 seconds!"); DashboardAdmin.clearLagTicks = 30 * 20; }
+            case "SET_SPAWN"   -> { admin.level().getServer().getCommands().performPrefixedCommand(admin.createCommandSourceStack(), "/setworldspawn ~ ~ ~"); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aSpawn défini à votre position.", "§aSpawn set to your position."))); }
+            case "REMOVE_MOBS" -> { SrvLang.each(admin.getServer(), "§cSuppression des mobs dans 30 secondes !", "§cRemoving mobs in 30 seconds!"); DashboardAdmin.removeMobsTicks = 30 * 20; }
+            case "LOCK_CHAT"   -> { DashboardAdmin.setChatLocked(!DashboardAdmin.isChatLocked()); boolean chatLocked = DashboardAdmin.isChatLocked(); SrvLang.each(admin.getServer(), "§cLe chat a été " + (chatLocked ? "bloqué" : "débloqué") + " !", "§cChat has been " + (chatLocked ? "locked" : "unlocked") + "!"); ServerConfig.save(); }
             case "VANISH" -> {
                 net.minecraft.server.MinecraftServer vanishSrv = admin.getServer();
                 ServerLevel vanishLevel = (ServerLevel) admin.level();
@@ -123,9 +123,9 @@ public class DashNetworking {
                         addEntity.invoke(chunkMap, admin);
                     } catch (ReflectiveOperationException e) {
                         LOGGER.error("[DashBoardAdmin] Vanish OFF: échec ChunkMap.addEntity par réflexion (API NeoForge changée ?)", e);
-                        admin.sendSystemMessage(Component.literal("§cErreur interne du vanish (voir logs serveur)."));
+                        admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cErreur interne du vanish (voir logs serveur).", "§cInternal vanish error (see server logs).")));
                     }
-                    admin.sendSystemMessage(Component.literal("§eVanish : OFF"));
+                    admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§eVanish : OFF", "§eVanish: OFF")));
                 } else {
                     DashboardAdmin.vanishedPlayers.add(admin.getUUID());
                     // Remove entity from chunk tracker via reflection (broadcasts remove to clients)
@@ -136,14 +136,14 @@ public class DashNetworking {
                         removeEntity.invoke(chunkMap, admin);
                     } catch (ReflectiveOperationException e) {
                         LOGGER.error("[DashBoardAdmin] Vanish ON: échec ChunkMap.removeEntity par réflexion (API NeoForge changée ?)", e);
-                        admin.sendSystemMessage(Component.literal("§cErreur interne du vanish (voir logs serveur)."));
+                        admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cErreur interne du vanish (voir logs serveur).", "§cInternal vanish error (see server logs).")));
                     }
                     // Remove from tab lists
                     net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket removeInfo =
                         new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(java.util.List.of(admin.getUUID()));
                     for (ServerPlayer other : vanishSrv.getPlayerList().getPlayers())
                         if (!other.getUUID().equals(admin.getUUID())) other.connection.send(removeInfo);
-                    admin.sendSystemMessage(Component.literal("§eVanish : ON"));
+                    admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§eVanish : ON", "§eVanish: ON")));
                 }
             }
             case "MUTE" -> {
@@ -151,8 +151,8 @@ public class DashNetworking {
                     if (DashboardAdmin.isMuted(target.getUUID())) {
                         DashboardAdmin.unmute(target.getUUID()); ModerationPersistence.save();
                         DashboardAdmin.addLog(target.getUUID(), "Unmuted par " + admin.getName().getString());
-                        admin.sendSystemMessage(Component.literal("§e" + target.getName().getString() + " n'est plus muet."));
-                        target.sendSystemMessage(Component.literal("§eVous n'êtes plus muet."));
+                        admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§e" + target.getName().getString() + " n'est plus muet.", "§e" + target.getName().getString() + " is no longer muted.")));
+                        target.sendSystemMessage(Component.literal(SrvLang.t(target, "§eVous n'êtes plus muet.", "§eYou are no longer muted.")));
                     } else {
                         long secs = DashboardAdmin.parseDuration(payload.value()); // value vide = permanent
                         String durLabel = secs <= 0 ? "" : DashboardAdmin.formatDurationShort(secs);
@@ -161,23 +161,26 @@ public class DashNetworking {
                         DiscordWebhook.sendSanction(DashboardAdmin.getWebhookSanctions(), admin.getName().getString(), target.getName().getString(), "MUTE", secs <= 0 ? "permanent" : durLabel);
                         DashboardAdmin.addLog(target.getUUID(), "Muted " + (secs <= 0 ? "définitivement" : "pour " + durLabel) + " par " + admin.getName().getString());
                         DashboardAdmin.addSanction("MUTE", target.getName().getString(), admin.getName().getString(), durLabel);
-                        admin.sendSystemMessage(Component.literal("§e" + target.getName().getString() + " est maintenant muet" + durSuffix + "§e."));
-                        target.sendSystemMessage(Component.literal("§cVous avez été rendu muet par un admin" + durSuffix + "§c."));
+                        admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§e" + target.getName().getString() + " est maintenant muet" + durSuffix + "§e.", "§e" + target.getName().getString() + " is now muted" + durSuffix + "§e.")));
+                        target.sendSystemMessage(Component.literal(SrvLang.t(target, "§cVous avez été rendu muet par un admin" + durSuffix + "§c.", "§cYou have been muted by an admin" + durSuffix + "§c.")));
                     }
                 }
             }
-            case "HEAL"    -> { if (target != null) { target.setHealth(target.getMaxHealth()); target.getFoodData().eat(20, 1.0f); DashboardAdmin.addLog(target.getUUID(), "Heal par " + admin.getName().getString()); admin.sendSystemMessage(Component.literal("§aJoueur soigné.")); } }
+            case "HEAL"    -> { if (target != null) { target.setHealth(target.getMaxHealth()); target.getFoodData().eat(20, 1.0f); DashboardAdmin.addLog(target.getUUID(), "Heal par " + admin.getName().getString()); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aJoueur soigné.", "§aPlayer healed."))); } }
             case "ANNOUNCE" -> {
                 String tgt = payload.target();
-                Component announcement = Component.literal("§6§l[ANNONCE] §r" + payload.value());
-                if (tgt.isEmpty()) admin.getServer().getPlayerList().broadcastSystemMessage(announcement, false);
+                String content = payload.value();
+                // Le préfixe est résolu par destinataire ; le contenu (saisi par l'admin) reste tel quel.
+                java.util.function.Function<ServerPlayer, Component> mkAnnounce = pl ->
+                    Component.literal(SrvLang.t(pl, "§6§l[ANNONCE] §r", "§6§l[ANNOUNCEMENT] §r") + content);
+                if (tgt.isEmpty()) admin.getServer().getPlayerList().getPlayers().forEach(pl -> pl.sendSystemMessage(mkAnnounce.apply(pl)));
                 else if (tgt.startsWith("GROUP:")) {
                     String leaderName = tgt.substring(6);
                     ServerPlayer groupLeader = admin.getServer().getPlayerList().getPlayerByName(leaderName);
-                    if (groupLeader != null) GroupManager.getMembers(groupLeader.getUUID()).forEach(uuid -> { ServerPlayer gp = admin.getServer().getPlayerList().getPlayer(uuid); if (gp != null) gp.sendSystemMessage(announcement); });
-                } else { ServerPlayer tgtPlayer = admin.getServer().getPlayerList().getPlayerByName(tgt); if (tgtPlayer != null) tgtPlayer.sendSystemMessage(announcement); }
+                    if (groupLeader != null) GroupManager.getMembers(groupLeader.getUUID()).forEach(uuid -> { ServerPlayer gp = admin.getServer().getPlayerList().getPlayer(uuid); if (gp != null) gp.sendSystemMessage(mkAnnounce.apply(gp)); });
+                } else { ServerPlayer tgtPlayer = admin.getServer().getPlayerList().getPlayerByName(tgt); if (tgtPlayer != null) tgtPlayer.sendSystemMessage(mkAnnounce.apply(tgtPlayer)); }
             }
-            case "KICK"        -> { if (target != null) { DashboardAdmin.addLog(target.getUUID(), "Kicked par " + admin.getName().getString()); DashboardAdmin.addSanction("KICK", target.getName().getString(), admin.getName().getString(), ""); DiscordWebhook.sendSanction(DashboardAdmin.getWebhookSanctions(), admin.getName().getString(), target.getName().getString(), "KICK", ""); target.connection.disconnect(Component.literal("Expulsé par un admin.")); } }
+            case "KICK"        -> { if (target != null) { DashboardAdmin.addLog(target.getUUID(), "Kicked par " + admin.getName().getString()); DashboardAdmin.addSanction("KICK", target.getName().getString(), admin.getName().getString(), ""); DiscordWebhook.sendSanction(DashboardAdmin.getWebhookSanctions(), admin.getName().getString(), target.getName().getString(), "KICK", ""); target.connection.disconnect(Component.literal(SrvLang.t(target, "Expulsé par un admin.", "Kicked by an admin."))); } }
             case "TELEPORT_TO" -> { if (target != null) { DashboardAdmin.addLog(target.getUUID(), "TP vers par " + admin.getName().getString()); admin.teleportTo((ServerLevel) target.level(), target.getX(), target.getY(), target.getZ(), Set.of(), admin.getYRot(), admin.getXRot()); } }
             case "OPEN_INV"    -> { if (target != null) admin.openMenu(new SimpleMenuProvider((id, inv, p) -> new EditablePlayerInventoryMenu(id, inv, target.getInventory()), Component.literal("Inv: " + target.getName().getString()))); }
             case "ENDERCHEST"  -> { if (target != null) admin.openMenu(new SimpleMenuProvider((id, inv, p) -> new ChestMenu(MenuType.GENERIC_9x3, id, inv, target.getEnderChestInventory(), 3), Component.literal("Ender: " + target.getName().getString()))); }
@@ -186,17 +189,17 @@ public class DashNetworking {
                 if (target != null) {
                     boolean frozen = !DashboardAdmin.frozenPlayers.getOrDefault(target.getUUID(), false);
                     DashboardAdmin.frozenPlayers.put(target.getUUID(), frozen);
-                    if (frozen) { DashboardAdmin.frozenPositions.put(target.getUUID(), target.position()); DashboardAdmin.addLog(target.getUUID(), "Frozen par " + admin.getName().getString()); target.sendSystemMessage(Component.literal("§bVous avez été gelé par un admin.")); }
-                    else { DashboardAdmin.frozenPositions.remove(target.getUUID()); DashboardAdmin.addLog(target.getUUID(), "Unfrozen par " + admin.getName().getString()); target.sendSystemMessage(Component.literal("§aVous n'êtes plus gelé.")); }
-                    admin.sendSystemMessage(Component.literal("§bJoueur " + (frozen ? "gelé" : "dégelé") + "."));
+                    if (frozen) { DashboardAdmin.frozenPositions.put(target.getUUID(), target.position()); DashboardAdmin.addLog(target.getUUID(), "Frozen par " + admin.getName().getString()); target.sendSystemMessage(Component.literal(SrvLang.t(target, "§bVous avez été gelé par un admin.", "§bYou have been frozen by an admin."))); }
+                    else { DashboardAdmin.frozenPositions.remove(target.getUUID()); DashboardAdmin.addLog(target.getUUID(), "Unfrozen par " + admin.getName().getString()); target.sendSystemMessage(Component.literal(SrvLang.t(target, "§aVous n'êtes plus gelé.", "§aYou are no longer frozen."))); }
+                    admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§bJoueur " + (frozen ? "gelé" : "dégelé") + ".", "§bPlayer " + (frozen ? "frozen" : "unfrozen") + ".")));
                 }
             }
             case "ACCEPT_REPORT"      -> ReportManager.accept(admin, payload.target());
             case "CLOSE_REPORT"       -> ReportManager.close(admin, payload.target());
             case "REFUSE_REPORT"      -> ReportManager.refuse(admin, payload.target());
             case "FETCH_REPORT_IMAGE" -> ReportManager.fetchImage(admin, payload.target());
-            case "SET_MAX_HOMES"  -> { try { DashboardAdmin.setMaxHomes(Integer.parseInt(payload.value())); ServerConfig.save(); admin.sendSystemMessage(Component.literal("§aMax homes fixé à §e" + DashboardAdmin.getMaxHomes() + "§a.")); } catch (NumberFormatException ignored) {} }
-            case "SET_WEBHOOKS"   -> { DashboardAdmin.setWebhookReports(payload.target()); DashboardAdmin.setWebhookSanctions(payload.value()); ServerConfig.save(); admin.sendSystemMessage(Component.literal("§aWebhooks Discord mis à jour.")); }
+            case "SET_MAX_HOMES"  -> { try { DashboardAdmin.setMaxHomes(Integer.parseInt(payload.value())); ServerConfig.save(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aMax homes fixé à §e" + DashboardAdmin.getMaxHomes() + "§a.", "§aMax homes set to §e" + DashboardAdmin.getMaxHomes() + "§a."))); } catch (NumberFormatException ignored) {} }
+            case "SET_WEBHOOKS"   -> { DashboardAdmin.setWebhookReports(payload.target()); DashboardAdmin.setWebhookSanctions(payload.value()); ServerConfig.save(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aWebhooks Discord mis à jour.", "§aDiscord webhooks updated."))); }
             case "GET_LOGS" -> {
                 // Fonctionne aussi pour un joueur hors ligne (résolution via le cache de noms).
                 java.util.UUID logsUuid = target != null ? target.getUUID()
@@ -218,9 +221,9 @@ public class DashNetworking {
                         .map(java.util.Map.Entry::getKey).findFirst().orElse(null);
                 if (noteUuid != null && DashboardAdmin.addAdminNote(noteUuid, payload.value())) {
                     ModerationPersistence.save();
-                    admin.sendSystemMessage(Component.literal("§aNote ajoutée pour §f" + payload.target() + "§a."));
+                    admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aNote ajoutée pour §f" + payload.target() + "§a.", "§aNote added for §f" + payload.target() + "§a.")));
                     AdminCommand.sendAdminGui(admin, admin.getServer());
-                } else admin.sendSystemMessage(Component.literal("§cNote vide ou limite atteinte (15 max)."));
+                } else admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cNote vide ou limite atteinte (15 max).", "§cEmpty note or limit reached (15 max).")));
             }
             case "DEL_NOTE" -> {
                 java.util.UUID noteUuid = target != null ? target.getUUID()
@@ -238,19 +241,19 @@ public class DashNetworking {
                 new PlayerLogsPayload("Chat global", DashboardAdmin.getChatHistorySerialized()));
             case "WARP_ADD" -> {
                 String wName = payload.value().trim().replaceAll("[^A-Za-z0-9_\\-]", "");
-                if (wName.isEmpty()) { admin.sendSystemMessage(Component.literal("§cNom de warp invalide.")); return; }
-                if (WarpManager.getWarps().containsKey(wName)) { admin.sendSystemMessage(Component.literal("§cLe warp §e" + wName + " §cexiste déjà.")); return; }
+                if (wName.isEmpty()) { admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cNom de warp invalide.", "§cInvalid warp name."))); return; }
+                if (WarpManager.getWarps().containsKey(wName)) { admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cLe warp §e" + wName + " §cexiste déjà.", "§cWarp §e" + wName + " §calready exists."))); return; }
                 WarpManager.getWarps().put(wName, admin.blockPosition());
                 WarpManager.getWarpsDim().put(wName, admin.level().dimension().location().toString());
                 ServerConfig.save();
-                admin.sendSystemMessage(Component.literal("§aWarp §e" + wName + " §acréé à votre position."));
+                admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aWarp §e" + wName + " §acréé à votre position.", "§aWarp §e" + wName + " §acreated at your position.")));
                 AdminCommand.sendAdminGui(admin, admin.getServer());
             }
             case "WARP_DELETE" -> {
                 if (WarpManager.getWarps().remove(payload.value()) != null) {
                     WarpManager.getWarpsDim().remove(payload.value());
                     ServerConfig.save();
-                    admin.sendSystemMessage(Component.literal("§cWarp §e" + payload.value() + " §csupprimé."));
+                    admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cWarp §e" + payload.value() + " §csupprimé.", "§cWarp §e" + payload.value() + " §cdeleted.")));
                 }
                 AdminCommand.sendAdminGui(admin, admin.getServer());
             }
@@ -259,88 +262,90 @@ public class DashNetworking {
                 try {
                     int mins = Math.max(1, Math.min(120, Integer.parseInt(payload.value())));
                     DashboardAdmin.scheduleRestart(mins);
-                    admin.getServer().getPlayerList().broadcastSystemMessage(Component.literal(
-                        "§c⚠ §lRedémarrage du serveur programmé dans §e§l" + mins + " minute" + (mins > 1 ? "s" : "") + "§c§l."), false);
+                    SrvLang.each(admin.getServer(),
+                        "§c⚠ §lRedémarrage du serveur programmé dans §e§l" + mins + " minute" + (mins > 1 ? "s" : "") + "§c§l.",
+                        "§c⚠ §lServer restart scheduled in §e§l" + mins + " minute" + (mins > 1 ? "s" : "") + "§c§l.");
                 } catch (NumberFormatException ignored) {}
             }
             case "CANCEL_RESTART" -> {
                 if (DashboardAdmin.isRestartScheduled()) {
                     DashboardAdmin.cancelRestart();
-                    admin.getServer().getPlayerList().broadcastSystemMessage(Component.literal(
-                        "§a✔ Redémarrage du serveur annulé."), false);
+                    SrvLang.each(admin.getServer(), "§a✔ Redémarrage du serveur annulé.", "§a✔ Server restart cancelled.");
                 } else {
-                    admin.sendSystemMessage(Component.literal("§eAucun redémarrage programmé."));
+                    admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§eAucun redémarrage programmé.", "§eNo restart scheduled.")));
                 }
             }
             case "TOGGLE_MAIL_SPY" -> {
                 DashboardAdmin.setMailSpyEnabled(!DashboardAdmin.isMailSpyEnabled());
                 ServerConfig.save();
-                admin.sendSystemMessage(Component.literal("§eSpy des MP : "
-                    + (DashboardAdmin.isMailSpyEnabled() ? "§aactivé" : "§cdésactivé") + "§e."));
+                admin.sendSystemMessage(Component.literal(SrvLang.t(admin,
+                    "§eSpy des MP : " + (DashboardAdmin.isMailSpyEnabled() ? "§aactivé" : "§cdésactivé") + "§e.",
+                    "§ePM spy: " + (DashboardAdmin.isMailSpyEnabled() ? "§aenabled" : "§cdisabled") + "§e.")));
             }
             case "SET_MOTD" -> {
                 DashboardAdmin.setMotd(payload.value());
                 ServerConfig.save();
                 admin.sendSystemMessage(Component.literal(DashboardAdmin.getMotd().isEmpty()
-                    ? "§eMOTD supprimé." : "§aMOTD mis à jour : §7" + DashboardAdmin.getMotd()));
+                    ? SrvLang.t(admin, "§eMOTD supprimé.", "§eMOTD removed.")
+                    : SrvLang.t(admin, "§aMOTD mis à jour : §7" + DashboardAdmin.getMotd(), "§aMOTD updated: §7" + DashboardAdmin.getMotd())));
             }
             case "BAN" -> {
                 if (target != null) {
                     String[] banParts = payload.value().split("\t", 2);
-                    long banSeconds = 0; String reason = "Banni par un admin.";
+                    long banSeconds = 0; String reason = "Banni par un admin."; boolean customReason = false;
                     try { banSeconds = Long.parseLong(banParts[0]); } catch (NumberFormatException ignored) {}
-                    if (banParts.length > 1 && !banParts[1].isEmpty()) reason = banParts[1];
+                    if (banParts.length > 1 && !banParts[1].isEmpty()) { reason = banParts[1]; customReason = true; }
                     java.util.Date expires = banSeconds > 0 ? new java.util.Date(System.currentTimeMillis() + banSeconds * 1000L) : null;
                     String sanctionReason = (banSeconds > 0 ? "(" + DashboardAdmin.formatDurationShort(banSeconds) + ") " : "") + reason;
                     DashboardAdmin.addLog(target.getUUID(), "Banned par " + admin.getName().getString() + " (" + sanctionReason + ")");
                     DashboardAdmin.addSanction("BAN", target.getName().getString(), admin.getName().getString(), sanctionReason);
                     DiscordWebhook.sendSanction(DashboardAdmin.getWebhookSanctions(), admin.getName().getString(), target.getName().getString(), "BAN", sanctionReason);
                     admin.getServer().getPlayerList().getBans().add(new net.minecraft.server.players.UserBanListEntry(target.getGameProfile(), null, "admin", expires, reason));
-                    target.connection.disconnect(Component.literal(reason));
+                    target.connection.disconnect(Component.literal(customReason ? reason : SrvLang.t(target, "Banni par un admin.", "Banned by an admin.")));
                 }
             }
-            case "UNBAN" -> { String name = payload.target(); DashboardAdmin.addSanction("UNBAN", name, admin.getName().getString(), ""); DashboardAdmin.getPlayerNameCache().entrySet().stream().filter(e -> e.getValue().equalsIgnoreCase(name)).map(java.util.Map.Entry::getKey).findFirst().ifPresent(uuid -> DashboardAdmin.addLog(uuid, "Débanni par " + admin.getName().getString())); admin.getServer().getCommands().performPrefixedCommand(admin.getServer().createCommandSourceStack(), "pardon " + name); admin.sendSystemMessage(Component.literal("§a" + name + " a été débanni.")); }
-            case "KEEP_INVENTORY" -> { if (target != null) { PlayerSettings ks = DashboardAdmin.getPlayerSettings(target.getUUID()); ks.keepInventory = !ks.keepInventory; admin.sendSystemMessage(Component.literal("§aKeepInventory " + (ks.keepInventory ? "§aactivé" : "§cdésactivé") + " §apour §e" + target.getName().getString())); target.sendSystemMessage(Component.literal(ks.keepInventory ? "§aVotre inventaire sera conservé à la mort." : "§cVotre inventaire ne sera plus conservé à la mort.")); } }
+            case "UNBAN" -> { String name = payload.target(); DashboardAdmin.addSanction("UNBAN", name, admin.getName().getString(), ""); DashboardAdmin.getPlayerNameCache().entrySet().stream().filter(e -> e.getValue().equalsIgnoreCase(name)).map(java.util.Map.Entry::getKey).findFirst().ifPresent(uuid -> DashboardAdmin.addLog(uuid, "Débanni par " + admin.getName().getString())); admin.getServer().getCommands().performPrefixedCommand(admin.getServer().createCommandSourceStack(), "pardon " + name); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§a" + name + " a été débanni.", "§a" + name + " has been unbanned."))); }
+            case "KEEP_INVENTORY" -> { if (target != null) { PlayerSettings ks = DashboardAdmin.getPlayerSettings(target.getUUID()); ks.keepInventory = !ks.keepInventory; admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aKeepInventory " + (ks.keepInventory ? "§aactivé" : "§cdésactivé") + " §apour §e" + target.getName().getString(), "§aKeepInventory " + (ks.keepInventory ? "§aenabled" : "§cdisabled") + " §afor §e" + target.getName().getString()))); target.sendSystemMessage(Component.literal(ks.keepInventory ? SrvLang.t(target, "§aVotre inventaire sera conservé à la mort.", "§aYour inventory will be kept on death.") : SrvLang.t(target, "§cVotre inventaire ne sera plus conservé à la mort.", "§cYour inventory will no longer be kept on death."))); } }
             case "OPEN_ZONES"    -> com.lkdm.dashboardadmin.command.ZoneCommand.sendZoneScreen(admin, admin.getServer());
             case "GET_SANCTIONS" -> PacketDistributor.sendToPlayer(admin, new OpenSanctionsPayload(DashboardAdmin.getSanctionsSerialized()));
             case "GET_AUDIT"     -> PacketDistributor.sendToPlayer(admin, new OpenAuditPayload(DashboardAdmin.getAuditSerialized()));
             case "EXPORT_AUDIT" -> {
                 String url = DashboardAdmin.getWebhookSanctions();
-                if (url == null || url.isBlank()) { admin.sendSystemMessage(Component.literal("§cAucun webhook Discord configuré (onglet Features).")); return; }
+                if (url == null || url.isBlank()) { admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cAucun webhook Discord configuré (onglet Features).", "§cNo Discord webhook configured (Features tab)."))); return; }
                 StringBuilder sb = new StringBuilder();
                 for (String[] e : DashboardAdmin.getAuditLog())
                     sb.append(e[0]).append("  ").append(e[1]).append(" -> ").append(e[2])
                       .append("—".equals(e[3]) ? "" : " " + e[3])
                       .append("—".equals(e[4]) ? "" : " (" + e[4] + ")").append('\n');
                 DiscordWebhook.sendAuditExport(url, sb.length() == 0 ? "(journal vide)" : sb.toString());
-                admin.sendSystemMessage(Component.literal("§a✔ Journal d'audit (" + DashboardAdmin.getAuditLog().size() + " entrées) exporté vers le webhook."));
+                admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§a✔ Journal d'audit (" + DashboardAdmin.getAuditLog().size() + " entrées) exporté vers le webhook.", "§a✔ Audit log (" + DashboardAdmin.getAuditLog().size() + " entries) exported to the webhook.")));
             }
-            case "GAMEMODE" -> { if (target != null) { net.minecraft.world.level.GameType next = switch (target.gameMode.getGameModeForPlayer()) { case SURVIVAL -> net.minecraft.world.level.GameType.CREATIVE; case CREATIVE -> net.minecraft.world.level.GameType.SPECTATOR; default -> net.minecraft.world.level.GameType.SURVIVAL; }; target.setGameMode(next); admin.sendSystemMessage(Component.literal("Mode de jeu changé en: " + next.getName())); } }
-            case "SCHEDULE_ADD"  -> { String[] parts = payload.value().split("\t", 2); if (parts.length == 2) { try { int minutes = Integer.parseInt(parts[1].trim()); DashboardAdmin.addScheduledBroadcast(parts[0], minutes * 1200); admin.sendSystemMessage(Component.literal("§aBroadcast programmé ajouté.")); } catch (NumberFormatException ignored) {} } }
-            case "SCHEDULE_REMOVE" -> { try { int idx = Integer.parseInt(payload.value()); if (DashboardAdmin.removeScheduledBroadcast(idx)) { ServerConfig.save(); admin.sendSystemMessage(Component.literal("§cBroadcast supprimé.")); } } catch (NumberFormatException ignored) {} }
-            case "SET_COOLDOWNS" -> { String[] parts = payload.value().split("\\|"); if (parts.length >= 3) { try { DashboardAdmin.setCooldownHome(Integer.parseInt(parts[0])); DashboardAdmin.setCooldownBack(Integer.parseInt(parts[1])); DashboardAdmin.setCooldownTpa(Integer.parseInt(parts[2])); if (parts.length >= 4) DashboardAdmin.setCooldownWarp(Integer.parseInt(parts[3])); admin.sendSystemMessage(Component.literal("§aCooldowns mis à jour.")); } catch (NumberFormatException ignored) {} } }
-            case "TOGGLE_AFK_AUTO"           -> { DashboardAdmin.setAfkAutoEnabled(!DashboardAdmin.isAfkAutoEnabled()); admin.sendSystemMessage(Component.literal("§eAFK Automatique " + (DashboardAdmin.isAfkAutoEnabled() ? "§aactivé" : "§cdésactivé") + "§e.")); ServerConfig.save(); }
-            case "TOGGLE_PROPORTIONAL_SLEEP" -> { DashboardAdmin.setProportionalSleepEnabled(!DashboardAdmin.isProportionalSleepEnabled()); admin.sendSystemMessage(Component.literal("§eSommeil Proportionnel " + (DashboardAdmin.isProportionalSleepEnabled() ? "§aactivé" : "§cdésactivé") + "§e.")); ServerConfig.save(); }
-            case "TOGGLE_TREE_CAPITATOR"     -> { DashboardAdmin.setTreeCapitatorEnabled(!DashboardAdmin.isTreeCapitatorEnabled()); admin.sendSystemMessage(Component.literal("§eBûcheron Intelligent " + (DashboardAdmin.isTreeCapitatorEnabled() ? "§aactivé" : "§cdésactivé") + "§e.")); ServerConfig.save(); }
-            case "TOGGLE_FAST_LEAF_DECAY"    -> { DashboardAdmin.setFastLeafDecayEnabled(!DashboardAdmin.isFastLeafDecayEnabled()); admin.sendSystemMessage(Component.literal("§eFast Leaf Decay " + (DashboardAdmin.isFastLeafDecayEnabled() ? "§aactivé" : "§cdésactivé") + "§e.")); ServerConfig.save(); }
-            case "TOGGLE_DOUBLE_DOOR"        -> { DashboardAdmin.setDoubleDoorEnabled(!DashboardAdmin.isDoubleDoorEnabled()); admin.sendSystemMessage(Component.literal("§eDouble Door " + (DashboardAdmin.isDoubleDoorEnabled() ? "§aactivé" : "§cdésactivé") + "§e.")); ServerConfig.save(); }
-            case "TOGGLE_RIGHT_CLICK_HARVEST"-> { DashboardAdmin.setRightClickHarvestEnabled(!DashboardAdmin.isRightClickHarvestEnabled()); admin.sendSystemMessage(Component.literal("§eRécolte clic droit " + (DashboardAdmin.isRightClickHarvestEnabled() ? "§aactivée" : "§cdésactivée") + "§e.")); ServerConfig.save(); }
-            case "TOGGLE_DISPENSER_HARVEST"  -> { DashboardAdmin.setDispenserHarvestEnabled(!DashboardAdmin.isDispenserHarvestEnabled()); admin.sendSystemMessage(Component.literal("§eDistributeur récolte " + (DashboardAdmin.isDispenserHarvestEnabled() ? "§aactivé" : "§cdésactivé") + "§e.")); ServerConfig.save(); }
-            case "SET_AFK_DELAY" -> { try { int mins = Integer.parseInt(payload.value()); DashboardAdmin.setAfkDelayMinutes(mins); ServerConfig.save(); admin.sendSystemMessage(Component.literal("§eDélai AFK réglé à §f" + mins + "§e min.")); } catch (NumberFormatException ignored) {} }
+            case "GAMEMODE" -> { if (target != null) { net.minecraft.world.level.GameType next = switch (target.gameMode.getGameModeForPlayer()) { case SURVIVAL -> net.minecraft.world.level.GameType.CREATIVE; case CREATIVE -> net.minecraft.world.level.GameType.SPECTATOR; default -> net.minecraft.world.level.GameType.SURVIVAL; }; target.setGameMode(next); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "Mode de jeu changé en: ", "Game mode changed to: ") + next.getName())); } }
+            case "SCHEDULE_ADD"  -> { String[] parts = payload.value().split("\t", 2); if (parts.length == 2) { try { int minutes = Integer.parseInt(parts[1].trim()); DashboardAdmin.addScheduledBroadcast(parts[0], minutes * 1200); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aBroadcast programmé ajouté.", "§aScheduled broadcast added."))); } catch (NumberFormatException ignored) {} } }
+            case "SCHEDULE_REMOVE" -> { try { int idx = Integer.parseInt(payload.value()); if (DashboardAdmin.removeScheduledBroadcast(idx)) { ServerConfig.save(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cBroadcast supprimé.", "§cBroadcast removed."))); } } catch (NumberFormatException ignored) {} }
+            case "SET_COOLDOWNS" -> { String[] parts = payload.value().split("\\|"); if (parts.length >= 3) { try { DashboardAdmin.setCooldownHome(Integer.parseInt(parts[0])); DashboardAdmin.setCooldownBack(Integer.parseInt(parts[1])); DashboardAdmin.setCooldownTpa(Integer.parseInt(parts[2])); if (parts.length >= 4) DashboardAdmin.setCooldownWarp(Integer.parseInt(parts[3])); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aCooldowns mis à jour.", "§aCooldowns updated."))); } catch (NumberFormatException ignored) {} } }
+            case "TOGGLE_AFK_AUTO"           -> { DashboardAdmin.setAfkAutoEnabled(!DashboardAdmin.isAfkAutoEnabled()); boolean on = DashboardAdmin.isAfkAutoEnabled(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§eAFK Automatique " + (on ? "§aactivé" : "§cdésactivé") + "§e.", "§eAuto AFK " + (on ? "§aenabled" : "§cdisabled") + "§e."))); ServerConfig.save(); }
+            case "TOGGLE_PROPORTIONAL_SLEEP" -> { DashboardAdmin.setProportionalSleepEnabled(!DashboardAdmin.isProportionalSleepEnabled()); boolean on = DashboardAdmin.isProportionalSleepEnabled(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§eSommeil Proportionnel " + (on ? "§aactivé" : "§cdésactivé") + "§e.", "§eProportional Sleep " + (on ? "§aenabled" : "§cdisabled") + "§e."))); ServerConfig.save(); }
+            case "TOGGLE_TREE_CAPITATOR"     -> { DashboardAdmin.setTreeCapitatorEnabled(!DashboardAdmin.isTreeCapitatorEnabled()); boolean on = DashboardAdmin.isTreeCapitatorEnabled(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§eBûcheron Intelligent " + (on ? "§aactivé" : "§cdésactivé") + "§e.", "§eTree Capitator " + (on ? "§aenabled" : "§cdisabled") + "§e."))); ServerConfig.save(); }
+            case "TOGGLE_FAST_LEAF_DECAY"    -> { DashboardAdmin.setFastLeafDecayEnabled(!DashboardAdmin.isFastLeafDecayEnabled()); boolean on = DashboardAdmin.isFastLeafDecayEnabled(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§eFast Leaf Decay " + (on ? "§aactivé" : "§cdésactivé") + "§e.", "§eFast Leaf Decay " + (on ? "§aenabled" : "§cdisabled") + "§e."))); ServerConfig.save(); }
+            case "TOGGLE_DOUBLE_DOOR"        -> { DashboardAdmin.setDoubleDoorEnabled(!DashboardAdmin.isDoubleDoorEnabled()); boolean on = DashboardAdmin.isDoubleDoorEnabled(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§eDouble Door " + (on ? "§aactivé" : "§cdésactivé") + "§e.", "§eDouble Door " + (on ? "§aenabled" : "§cdisabled") + "§e."))); ServerConfig.save(); }
+            case "TOGGLE_RIGHT_CLICK_HARVEST"-> { DashboardAdmin.setRightClickHarvestEnabled(!DashboardAdmin.isRightClickHarvestEnabled()); boolean on = DashboardAdmin.isRightClickHarvestEnabled(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§eRécolte clic droit " + (on ? "§aactivée" : "§cdésactivée") + "§e.", "§eRight-click Harvest " + (on ? "§aenabled" : "§cdisabled") + "§e."))); ServerConfig.save(); }
+            case "TOGGLE_DISPENSER_HARVEST"  -> { DashboardAdmin.setDispenserHarvestEnabled(!DashboardAdmin.isDispenserHarvestEnabled()); boolean on = DashboardAdmin.isDispenserHarvestEnabled(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§eDistributeur récolte " + (on ? "§aactivé" : "§cdésactivé") + "§e.", "§eDispenser Harvest " + (on ? "§aenabled" : "§cdisabled") + "§e."))); ServerConfig.save(); }
+            case "SET_AFK_DELAY" -> { try { int mins = Integer.parseInt(payload.value()); DashboardAdmin.setAfkDelayMinutes(mins); ServerConfig.save(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§eDélai AFK réglé à §f" + mins + "§e min.", "§eAFK delay set to §f" + mins + "§e min."))); } catch (NumberFormatException ignored) {} }
 
             // ─── Rôles de modération (Étape 1 : gestion ; OP requis, déjà garanti ci-dessus) ───
             case "ROLE_CREATE" -> {
-                if (RoleManager.createRole(payload.value())) { RolePersistence.save(); admin.sendSystemMessage(Component.literal("§aRôle §f" + RoleManager.sanitizeName(payload.value()) + " §acréé.")); }
-                else admin.sendSystemMessage(Component.literal("§cImpossible de créer ce rôle (nom invalide, doublon ou limite atteinte)."));
+                if (RoleManager.createRole(payload.value())) { RolePersistence.save(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aRôle §f" + RoleManager.sanitizeName(payload.value()) + " §acréé.", "§aRole §f" + RoleManager.sanitizeName(payload.value()) + " §acreated."))); }
+                else admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cImpossible de créer ce rôle (nom invalide, doublon ou limite atteinte).", "§cCannot create this role (invalid name, duplicate, or limit reached).")));
                 AdminCommand.sendAdminGui(admin, admin.getServer());
             }
             case "ROLE_DELETE" -> {
-                if (RoleManager.deleteRole(payload.value())) { RolePersistence.save(); admin.sendSystemMessage(Component.literal("§cRôle §f" + payload.value() + " §csupprimé.")); }
+                if (RoleManager.deleteRole(payload.value())) { RolePersistence.save(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cRôle §f" + payload.value() + " §csupprimé.", "§cRole §f" + payload.value() + " §cdeleted."))); }
                 AdminCommand.sendAdminGui(admin, admin.getServer());
             }
             case "ROLE_RENAME" -> {
-                if (RoleManager.renameRole(payload.target(), payload.value())) { RolePersistence.save(); admin.sendSystemMessage(Component.literal("§aRôle renommé en §f" + RoleManager.sanitizeName(payload.value()) + "§a.")); }
-                else admin.sendSystemMessage(Component.literal("§cRenommage impossible (nom invalide ou déjà utilisé)."));
+                if (RoleManager.renameRole(payload.target(), payload.value())) { RolePersistence.save(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aRôle renommé en §f" + RoleManager.sanitizeName(payload.value()) + "§a.", "§aRole renamed to §f" + RoleManager.sanitizeName(payload.value()) + "§a."))); }
+                else admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cRenommage impossible (nom invalide ou déjà utilisé).", "§cRename failed (invalid name or already in use).")));
                 AdminCommand.sendAdminGui(admin, admin.getServer());
             }
             case "ROLE_TOGGLE_PERM" -> {
@@ -349,13 +354,13 @@ public class DashNetworking {
             }
             case "ROLE_ASSIGN" -> {
                 java.util.UUID u = RoleManager.resolveUuid(payload.value(), admin.getServer());
-                if (u != null && RoleManager.assignPlayer(payload.target(), u)) { RolePersistence.save(); admin.sendSystemMessage(Component.literal("§a" + payload.value() + " §aassigné au rôle §f" + payload.target() + "§a.")); }
-                else admin.sendSystemMessage(Component.literal("§cJoueur introuvable ou rôle invalide."));
+                if (u != null && RoleManager.assignPlayer(payload.target(), u)) { RolePersistence.save(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§a" + payload.value() + " §aassigné au rôle §f" + payload.target() + "§a.", "§a" + payload.value() + " §aassigned to role §f" + payload.target() + "§a."))); }
+                else admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cJoueur introuvable ou rôle invalide.", "§cPlayer not found or invalid role.")));
                 AdminCommand.sendAdminGui(admin, admin.getServer());
             }
             case "ROLE_UNASSIGN" -> {
                 java.util.UUID u = RoleManager.resolveUuid(payload.value(), admin.getServer());
-                if (u != null && RoleManager.unassignPlayer(payload.target(), u)) { RolePersistence.save(); admin.sendSystemMessage(Component.literal("§e" + payload.value() + " §eretiré du rôle §f" + payload.target() + "§e.")); }
+                if (u != null && RoleManager.unassignPlayer(payload.target(), u)) { RolePersistence.save(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§e" + payload.value() + " §eretiré du rôle §f" + payload.target() + "§e.", "§e" + payload.value() + " §eremoved from role §f" + payload.target() + "§e."))); }
                 AdminCommand.sendAdminGui(admin, admin.getServer());
             }
         }
@@ -368,7 +373,7 @@ public class DashNetworking {
         switch (payload.action()) {
             case "WARP_TP" -> {
                 if (com.lkdm.dashboardadmin.command.ZoneCommand.isInBuildMode(player.getUUID())) {
-                    player.sendSystemMessage(Component.literal("§cImpossible d'utiliser les warps en mode construction."));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cImpossible d'utiliser les warps en mode construction.", "§cCannot use warps in build mode.")));
                     break;
                 }
                 if (!DashboardAdmin.checkCooldown(WarpManager.getLastWarpUse(), player.getUUID(), DashboardAdmin.getCooldownWarp(), player, "/warp")) break;
@@ -384,19 +389,19 @@ public class DashNetworking {
                     ServerLevel targetLevel = player.getServer().getLevel(dimKey);
                     if (targetLevel == null) targetLevel = (ServerLevel) player.level();
                     player.teleportTo(targetLevel, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot());
-                    player.sendSystemMessage(Component.literal("§aTéléporté au home '" + payload.value() + "'."));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aTéléporté au home '" + payload.value() + "'.", "§aTeleported to home '" + payload.value() + "'.")));
                 }
             }
-            case "HOME_DELETE" -> { if (DashboardAdmin.getPlayerHomes(player.getUUID()).remove(payload.value()) != null) { DashboardAdmin.getPlayerHomesDim(player.getUUID()).remove(payload.value()); player.sendSystemMessage(Component.literal("§cHome '" + payload.value() + "' supprimé.")); } }
+            case "HOME_DELETE" -> { if (DashboardAdmin.getPlayerHomes(player.getUUID()).remove(payload.value()) != null) { DashboardAdmin.getPlayerHomesDim(player.getUUID()).remove(payload.value()); player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cHome '" + payload.value() + "' supprimé.", "§cHome '" + payload.value() + "' deleted."))); } }
             case "LOCK_DELETE" -> {
                 String[] parts = payload.value().split(",");
                 if (parts.length == 3) try {
                     net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
-                    if (DashboardAdmin.isLocked(pos) && DashboardAdmin.getOwner(pos).equals(player.getUUID())) { DashboardAdmin.getAllLockedBlocks().remove(pos); player.sendSystemMessage(Component.literal("§aBloc déverrouillé.")); }
+                    if (DashboardAdmin.isLocked(pos) && DashboardAdmin.getOwner(pos).equals(player.getUUID())) { DashboardAdmin.getAllLockedBlocks().remove(pos); player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aBloc déverrouillé.", "§aBlock unlocked."))); }
                 } catch (NumberFormatException ignored) {}
             }
             case "UNTRUST" -> {
-                try { java.util.UUID targetUUID = java.util.UUID.fromString(payload.value()); DashboardAdmin.getTrusted(player.getUUID()).remove(targetUUID); String name = DashboardAdmin.getPlayerNameCache().getOrDefault(targetUUID, "joueur"); player.sendSystemMessage(Component.literal("§c" + name + " n'a plus accès à vos blocs verrouillés.")); } catch (IllegalArgumentException ignored) {}
+                try { java.util.UUID targetUUID = java.util.UUID.fromString(payload.value()); DashboardAdmin.getTrusted(player.getUUID()).remove(targetUUID); String name = DashboardAdmin.getPlayerNameCache().getOrDefault(targetUUID, SrvLang.t(player, "joueur", "player")); player.sendSystemMessage(Component.literal(SrvLang.t(player, "§c" + name + " n'a plus accès à vos blocs verrouillés.", "§c" + name + " no longer has access to your locked blocks."))); } catch (IllegalArgumentException ignored) {}
             }
             case "REFRESH_STATS" -> {
                 int pt = player.getStats().getValue(net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.PLAY_TIME));
@@ -427,7 +432,7 @@ public class DashNetworking {
                 NonNullList<ItemStack> offer = session.myOffer(uid);
                 int emptyIdx = -1;
                 for (int i = 0; i < offer.size(); i++) if (offer.get(i).isEmpty()) { emptyIdx = i; break; }
-                if (emptyIdx < 0) { player.sendSystemMessage(Component.literal("§cVotre zone d'échange est pleine.")); return; }
+                if (emptyIdx < 0) { player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cVotre zone d'échange est pleine.", "§cYour trade area is full."))); return; }
                 offer.set(emptyIdx, stack.copy());
                 player.getInventory().setItem(invSlot, ItemStack.EMPTY);
                 session.resetAccepted();
@@ -442,7 +447,11 @@ public class DashNetworking {
                 if (!stack.isEmpty()) { player.getInventory().add(stack.copy()); offer.set(tradeSlot, ItemStack.EMPTY); session.resetAccepted(); DealManager.broadcastDealUpdate(session, player.getServer()); }
             }
             case "ACCEPT" -> { session.setAccepted(uid, true); DealManager.broadcastDealUpdate(session, player.getServer()); if (session.bothAccepted()) DealManager.completeDeal(session, player.getServer()); }
-            case "CANCEL"  -> { String pName2 = DashboardAdmin.getPlayerNameCache().getOrDefault(session.partner(uid), "l'autre joueur"); DealManager.cancelDeal(session, player.getServer(), "Vous avez annulé l'échange avec §e" + pName2 + "§c. Items restitués.", "§e" + player.getName().getString() + " §ca annulé l'échange. Vos items ont été restitués."); }
+            case "CANCEL"  -> { String pName2 = DashboardAdmin.getPlayerNameCache().getOrDefault(session.partner(uid), "?"); String actorName = player.getName().getString(); DealManager.cancelDeal(session, player.getServer(),
+                "Vous avez annulé l'échange avec §e" + pName2 + "§c. Items restitués.",
+                "You cancelled the trade with §e" + pName2 + "§c. Items returned.",
+                "§e" + actorName + " §ca annulé l'échange. Vos items ont été restitués.",
+                "§e" + actorName + " §ccancelled the trade. Your items were returned."); }
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.lkdm.dashboardadmin.command;
 
+import com.lkdm.dashboardadmin.SrvLang;
 import com.lkdm.dashboardadmin.Zone;
 import com.lkdm.dashboardadmin.ZoneFlag;
 import com.lkdm.dashboardadmin.networking.OpenZonePayload;
@@ -135,8 +136,9 @@ public class ZoneCommand {
                 Coordinates coords = BlockPosArgument.blockPos().parse(reader);
                 BlockPos target = coords.getBlockPos(elevated);
                 if (!zone.contains(target.getX(), target.getY(), target.getZ())) {
-                    player.sendSystemMessage(Component.literal(
-                        "§cVous ne pouvez modifier que des blocs §edans votre zone §6" + zoneName + "§c."));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player,
+                        "§cVous ne pouvez modifier que des blocs §edans votre zone §6" + zoneName + "§c.",
+                        "§cYou can only edit blocks §ewithin your zone §6" + zoneName + "§c.")));
                     event.setCanceled(true);
                     return;
                 }
@@ -177,8 +179,9 @@ public class ZoneCommand {
                 wand.set(DataComponents.CUSTOM_NAME,
                     Component.literal("§6✦ Baguette de Zone §6✦"));
                 player.getInventory().add(wand);
-                player.sendSystemMessage(Component.literal(
-                    "§a✦ Baguette reçue §7— §fClic gauche §7= Point A§7, §fClic droit §7= Point B"));
+                player.sendSystemMessage(Component.literal(SrvLang.t(player,
+                    "§a✦ Baguette reçue §7— §fClic gauche §7= Point A§7, §fClic droit §7= Point B",
+                    "§a✦ Wand received §7— §fLeft click §7= Point A§7, §fRight click §7= Point B")));
                 return 1;
             }))
             .then(Commands.literal("admin").executes(ctx -> {
@@ -195,13 +198,15 @@ public class ZoneCommand {
                         BlockPos a = wandA.get(player.getUUID());
                         BlockPos b = wandB.get(player.getUUID());
                         if (a == null || b == null) {
-                            player.sendSystemMessage(Component.literal(
-                                "§cDéfinissez d'abord les points A et B avec la baguette."));
+                            player.sendSystemMessage(Component.literal(SrvLang.t(player,
+                                "§cDéfinissez d'abord les points A et B avec la baguette.",
+                                "§cSet points A and B with the wand first.")));
                             return 0;
                         }
                         if (zones.containsKey(name)) {
-                            player.sendSystemMessage(Component.literal(
-                                "§cUne zone §e" + name + " §cexiste déjà."));
+                            player.sendSystemMessage(Component.literal(SrvLang.t(player,
+                                "§cUne zone §e" + name + " §cexiste déjà.",
+                                "§cA zone §e" + name + " §calready exists.")));
                             return 0;
                         }
                         BlockPos min = new BlockPos(
@@ -218,8 +223,9 @@ public class ZoneCommand {
                         syncZonesAll(ctx.getSource().getServer());            // la nouvelle zone apparaît chez tous les membres/ops
                         PacketDistributor.sendToPlayer(player, WandSelectionPayload.empty()); // efface la prévisualisation jaune
                         int dx = max.getX()-min.getX()+1, dy = max.getY()-min.getY()+1, dz = max.getZ()-min.getZ()+1;
-                        player.sendSystemMessage(Component.literal(
-                            "§aZone §e" + name + " §acréée §7(" + dx + "×" + dy + "×" + dz + ")§a !"));
+                        player.sendSystemMessage(Component.literal(SrvLang.t(player,
+                            "§aZone §e" + name + " §acréée §7(" + dx + "×" + dy + "×" + dz + ")§a !",
+                            "§aZone §e" + name + " §acreated §7(" + dx + "×" + dy + "×" + dz + ")§a!")));
                         return 1;
                     })))
             .then(Commands.literal("delete")
@@ -229,7 +235,9 @@ public class ZoneCommand {
                         String name = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "name");
                         deleteZone(name, ctx.getSource().getServer());
                         ctx.getSource().getPlayerOrException().sendSystemMessage(
-                            Component.literal("§cZone §e" + name + " §csupprimée."));
+                            Component.literal(SrvLang.t(ctx.getSource().getPlayerOrException(),
+                                "§cZone §e" + name + " §csupprimée.",
+                                "§cZone §e" + name + " §cdeleted.")));
                         return 1;
                     })))
             .then(Commands.literal("rename")
@@ -242,11 +250,11 @@ public class ZoneCommand {
                         String newName = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "newname");
                         Zone z = zones.get(oldName);
                         if (z == null) {
-                            player.sendSystemMessage(Component.literal("§cZone §e" + oldName + " §cintrouvable."));
+                            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cZone §e" + oldName + " §cintrouvable.", "§cZone §e" + oldName + " §cnot found.")));
                             return 0;
                         }
                         if (zones.containsKey(newName)) {
-                            player.sendSystemMessage(Component.literal("§cUne zone §e" + newName + " §cexiste déjà."));
+                            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cUne zone §e" + newName + " §cexiste déjà.", "§cA zone §e" + newName + " §calready exists.")));
                             return 0;
                         }
                         zones.remove(oldName);
@@ -257,23 +265,26 @@ public class ZoneCommand {
                         lastZoneOf.replaceAll((u, n) -> oldName.equals(n) ? newName : n);
                         com.lkdm.dashboardadmin.ZonePersistence.save();
                         syncZonesAll(ctx.getSource().getServer());
-                        player.sendSystemMessage(Component.literal(
-                            "§aZone §e" + oldName + " §arenommée en §e" + newName + "§a."));
+                        player.sendSystemMessage(Component.literal(SrvLang.t(player,
+                            "§aZone §e" + oldName + " §arenommée en §e" + newName + "§a.",
+                            "§aZone §e" + oldName + " §arenamed to §e" + newName + "§a.")));
                         return 1;
                     }))))
             .then(Commands.literal("list").executes(ctx -> {
                 ServerPlayer player = ctx.getSource().getPlayerOrException();
                 if (zones.isEmpty()) {
-                    player.sendSystemMessage(Component.literal("§8Aucune zone définie."));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§8Aucune zone définie.", "§8No zones defined.")));
                 } else {
-                    player.sendSystemMessage(Component.literal("§6§lZones actives :"));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§6§lZones actives :", "§6§lActive zones:")));
                     for (Zone z : zones.values()) {
                         int dx = z.max.getX()-z.min.getX()+1;
                         int dy = z.max.getY()-z.min.getY()+1;
                         int dz = z.max.getZ()-z.min.getZ()+1;
-                        player.sendSystemMessage(Component.literal(
+                        player.sendSystemMessage(Component.literal(SrvLang.t(player,
                             "§7• §e" + z.name + " §8(" + dx + "×" + dy + "×" + dz +
-                            ", §7" + z.members.size() + " membres§8)"));
+                            ", §7" + z.members.size() + " membres§8)",
+                            "§7• §e" + z.name + " §8(" + dx + "×" + dy + "×" + dz +
+                            ", §7" + z.members.size() + " members§8)")));
                     }
                 }
                 return 1;
@@ -290,21 +301,22 @@ public class ZoneCommand {
                         String name = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "name");
                         Zone z = zones.get(name);
                         if (z == null) {
-                            player.sendSystemMessage(Component.literal("§cZone §e" + name + " §cintrouvable."));
+                            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cZone §e" + name + " §cintrouvable.", "§cZone §e" + name + " §cnot found.")));
                             return 0;
                         }
                         ZoneFlag f = ZoneFlag.byName(
                             com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "flag").toUpperCase(Locale.ROOT));
                         if (f == null) {
-                            player.sendSystemMessage(Component.literal("§cFlag inconnu. Valeurs : §e"
+                            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cFlag inconnu. Valeurs : §e", "§cUnknown flag. Values: §e")
                                 + Arrays.stream(ZoneFlag.values()).map(Enum::name).collect(Collectors.joining(", "))));
                             return 0;
                         }
                         boolean state = com.mojang.brigadier.arguments.BoolArgumentType.getBool(ctx, "state");
                         z.setFlag(f, state);
                         com.lkdm.dashboardadmin.ZonePersistence.save();
-                        player.sendSystemMessage(Component.literal("§aFlag §e" + f.name() + " §ade la zone §e"
-                            + name + " §a→ " + (state ? "§aautorisé" : "§cbloqué") + "§a."));
+                        player.sendSystemMessage(Component.literal(SrvLang.t(player,
+                            "§aFlag §e" + f.name() + " §ade la zone §e" + name + " §a→ " + (state ? "§aautorisé" : "§cbloqué") + "§a.",
+                            "§aFlag §e" + f.name() + " §aof zone §e" + name + " §a→ " + (state ? "§aallowed" : "§cblocked") + "§a.")));
                         return 1;
                     })))))
         );
@@ -314,18 +326,20 @@ public class ZoneCommand {
             UUID uuid = player.getUUID();
             if (buildZone.containsKey(uuid)) {
                 exitBuildMode(player);
-                player.sendSystemMessage(Component.literal("§c✘ Mode construction désactivé."));
+                player.sendSystemMessage(Component.literal(SrvLang.t(player, "§c✘ Mode construction désactivé.", "§c✘ Build mode disabled.")));
                 return 1;
             }
             Zone zone = getAuthorizedZoneAt(player);
             if (zone == null) {
-                player.sendSystemMessage(Component.literal(
-                    "§cVous devez être à l'intérieur d'une zone où vous êtes autorisé pour utiliser §6/build§c."));
+                player.sendSystemMessage(Component.literal(SrvLang.t(player,
+                    "§cVous devez être à l'intérieur d'une zone où vous êtes autorisé pour utiliser §6/build§c.",
+                    "§cYou must be inside a zone where you are authorized to use §6/build§c.")));
                 return 0;
             }
             enterBuildMode(player, zone.name);
-            player.sendSystemMessage(Component.literal(
-                "§a✔ Mode construction activé dans §e" + zone.name + "§a."));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player,
+                "§a✔ Mode construction activé dans §e" + zone.name + "§a.",
+                "§a✔ Build mode enabled in §e" + zone.name + "§a.")));
             return 1;
         }));
     }
@@ -358,8 +372,9 @@ public class ZoneCommand {
         if (!pendingRestore.remove(uuid)) return;          // only states reloaded from disk
         if (!buildSavedState.containsKey(uuid)) { buildZone.remove(uuid); return; }
         exitBuildMode(sp);                                 // restores inventory/xp/effects + saves
-        sp.sendSystemMessage(Component.literal(
-            "§e⚠ Le serveur a redémarré pendant votre mode construction §7— §ainventaire restauré."));
+        sp.sendSystemMessage(Component.literal(SrvLang.t(sp,
+            "§e⚠ Le serveur a redémarré pendant votre mode construction §7— §ainventaire restauré.",
+            "§e⚠ The server restarted during your build mode §7— §ainventory restored.")));
     }
 
     private static void onLeftClickBlock(PlayerInteractEvent.LeftClickBlock event) {
@@ -398,13 +413,13 @@ public class ZoneCommand {
             BlockPos hit = event.getHitVec().getBlockPos();
             double cx = hit.getX() + 0.5, cy = hit.getY() + 0.5, cz = hit.getZ() + 0.5;
             if (!isAllowed(ZoneFlag.INTERACT, cx, cy, cz, sp.getUUID())) {
-                sp.sendSystemMessage(Component.literal("§cInteraction interdite dans cette zone."), true);
+                sp.sendSystemMessage(Component.literal(SrvLang.t(sp, "§cInteraction interdite dans cette zone.", "§cInteraction forbidden in this zone.")), true);
                 event.setCanceled(true);
                 return;
             }
             boolean isContainer = event.getLevel().getBlockEntity(hit) instanceof net.minecraft.world.level.block.entity.BaseContainerBlockEntity;
             if (isContainer && !isAllowed(ZoneFlag.CONTAINER, cx, cy, cz, sp.getUUID())) {
-                sp.sendSystemMessage(Component.literal("§cConteneurs interdits dans cette zone."), true);
+                sp.sendSystemMessage(Component.literal(SrvLang.t(sp, "§cConteneurs interdits dans cette zone.", "§cContainers forbidden in this zone.")), true);
                 event.setCanceled(true);
                 return;
             }
@@ -419,20 +434,21 @@ public class ZoneCommand {
             if (net.minecraft.core.registries.BuiltInRegistries.BLOCK
                     .getKey(event.getLevel().getBlockState(pos).getBlock())
                     .getNamespace().equals("toms_storage")) {
-                sp.sendSystemMessage(Component.literal(
-                    "§cInteraction avec Tom's Storage interdite en mode construction."), true);
+                sp.sendSystemMessage(Component.literal(SrvLang.t(sp,
+                    "§cInteraction avec Tom's Storage interdite en mode construction.",
+                    "§cTom's Storage interaction forbidden in build mode.")), true);
                 event.setUseBlock(net.neoforged.neoforge.common.util.TriState.FALSE);
                 return;
             }
 
             if (event.getLevel().getBlockEntity(pos) instanceof net.minecraft.world.level.block.entity.BaseContainerBlockEntity
                 || event.getLevel().getBlockEntity(pos) instanceof net.minecraft.world.level.block.entity.EnderChestBlockEntity) {
-                sp.sendSystemMessage(Component.literal("§cAccès aux conteneurs interdit en mode construction."), true);
+                sp.sendSystemMessage(Component.literal(SrvLang.t(sp, "§cAccès aux conteneurs interdit en mode construction.", "§cContainer access forbidden in build mode.")), true);
                 event.setCanceled(true);
                 return;
             }
             if (sp.getItemInHand(event.getHand()).getItem() instanceof net.minecraft.world.item.SpawnEggItem) {
-                sp.sendSystemMessage(Component.literal("§cSpawn eggs interdits en mode construction."), true);
+                sp.sendSystemMessage(Component.literal(SrvLang.t(sp, "§cSpawn eggs interdits en mode construction.", "§cSpawn eggs forbidden in build mode.")), true);
                 event.setCanceled(true);
             }
         }
@@ -443,7 +459,7 @@ public class ZoneCommand {
         // Seul le constructeur lui-même est restreint en /build ; les autres joueurs ne sont
         // régis que par les flags de la zone (le /build n'ajoute aucune restriction pour eux).
         if (buildZone.containsKey(sp.getUUID()) && isBlockedEntity(event.getTarget())) {
-            sp.sendSystemMessage(Component.literal("§cInteraction interdite en mode construction."), true);
+            sp.sendSystemMessage(Component.literal(SrvLang.t(sp, "§cInteraction interdite en mode construction.", "§cInteraction forbidden in build mode.")), true);
             event.setCanceled(true);
         }
     }
@@ -454,7 +470,7 @@ public class ZoneCommand {
         if (sp.hasPermissions(2)) return;                 // admins bypass passive protection
         BlockPos pos = event.getPos();
         if (!isAllowed(ZoneFlag.BUILD, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, sp.getUUID())) {
-            sp.sendSystemMessage(Component.literal("§cZone protégée."), true);
+            sp.sendSystemMessage(Component.literal(SrvLang.t(sp, "§cZone protégée.", "§cProtected zone.")), true);
             event.setCanceled(true);
         }
     }
@@ -466,7 +482,7 @@ public class ZoneCommand {
         if (sp.hasPermissions(2)) return;
         BlockPos pos = event.getPos();
         if (!isAllowed(ZoneFlag.BUILD, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, sp.getUUID())) {
-            sp.sendSystemMessage(Component.literal("§cZone protégée."), true);
+            sp.sendSystemMessage(Component.literal(SrvLang.t(sp, "§cZone protégée.", "§cProtected zone.")), true);
             event.setCanceled(true);
         }
     }
@@ -498,7 +514,7 @@ public class ZoneCommand {
         // survie (ils resteraient au sol après la restauration de l'inventaire).
         if (buildZone.containsKey(sp.getUUID())) {
             sp.getInventory().add(event.getEntity().getItem());
-            sp.sendSystemMessage(Component.literal("§cJeter des items est interdit en mode construction."), true);
+            sp.sendSystemMessage(Component.literal(SrvLang.t(sp, "§cJeter des items est interdit en mode construction.", "§cDropping items is forbidden in build mode.")), true);
             event.setCanceled(true);
             return;
         }
@@ -506,7 +522,7 @@ public class ZoneCommand {
         if (isAllowed(ZoneFlag.ITEM_DROP, sp.getX(), sp.getY(), sp.getZ(), sp.getUUID())) return;
         // Annuler détruit l'entité item : on restitue le stack au joueur.
         sp.getInventory().add(event.getEntity().getItem());
-        sp.sendSystemMessage(Component.literal("§cJeter des items est interdit dans cette zone."), true);
+        sp.sendSystemMessage(Component.literal(SrvLang.t(sp, "§cJeter des items est interdit dans cette zone.", "§cDropping items is forbidden in this zone.")), true);
         event.setCanceled(true);
     }
 
@@ -620,7 +636,9 @@ public class ZoneCommand {
                     double bz = Math.max(z.min.getZ() + 0.5, Math.min(player.getZ(), z.max.getZ() + 0.5));
                     player.connection.teleport(bx, by, bz, player.getYRot(), player.getXRot());
                     player.sendSystemMessage(
-                        Component.literal("§c⚠ Impossible de sortir de §e" + z.name + " §cen mode construction."), true);
+                        Component.literal(SrvLang.t(player,
+                            "§c⚠ Impossible de sortir de §e" + z.name + " §cen mode construction.",
+                            "§c⚠ Cannot leave §e" + z.name + " §cwhile in build mode.")), true);
                 }
             }
         }
@@ -642,7 +660,9 @@ public class ZoneCommand {
         else if (min == north) tz = z.min.getZ() - 1.0;
         else                   tz = z.max.getZ() + 2.0;
         player.connection.teleport(tx, player.getY(), tz, player.getYRot(), player.getXRot());
-        player.sendSystemMessage(Component.literal("§c⚠ L'accès à la zone §e" + z.name + " §cest interdit."), true);
+        player.sendSystemMessage(Component.literal(SrvLang.t(player,
+            "§c⚠ L'accès à la zone §e" + z.name + " §cest interdit.",
+            "§c⚠ Access to zone §e" + z.name + " §cis forbidden.")), true);
     }
 
     private static void sendBoxParticles(ServerPlayer player, BlockPos a, BlockPos b, ServerLevel level) {
@@ -793,8 +813,9 @@ public class ZoneCommand {
                         saved.entryPos().x, saved.entryPos().y, saved.entryPos().z,
                         Set.of(), player.getYRot(), player.getXRot());
                 }
-                player.sendSystemMessage(Component.literal(
-                    "§c⚠ La zone §e" + name + " §ca été supprimée. Inventaire restauré."));
+                player.sendSystemMessage(Component.literal(SrvLang.t(player,
+                    "§c⚠ La zone §e" + name + " §ca été supprimée. Inventaire restauré.",
+                    "§c⚠ Zone §e" + name + " §cwas deleted. Inventory restored.")));
             }
             buildSavedState.remove(e.getKey());
             pendingRestore.remove(e.getKey());
@@ -999,10 +1020,11 @@ public class ZoneCommand {
                     try {
                         z.priority = Math.max(-99, Math.min(99, Integer.parseInt(payload.value().trim())));
                         com.lkdm.dashboardadmin.ZonePersistence.save();
-                        admin.sendSystemMessage(Component.literal(
-                            "§aPriorité de §e" + z.name + " §a→ §e" + z.priority + "§a."));
+                        admin.sendSystemMessage(Component.literal(SrvLang.t(admin,
+                            "§aPriorité de §e" + z.name + " §a→ §e" + z.priority + "§a.",
+                            "§aPriority of §e" + z.name + " §a→ §e" + z.priority + "§a.")));
                     } catch (NumberFormatException ignored) {
-                        admin.sendSystemMessage(Component.literal("§cPriorité invalide."));
+                        admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cPriorité invalide.", "§cInvalid priority.")));
                     }
                     sendZoneScreen(admin, server);
                 }
@@ -1022,8 +1044,9 @@ public class ZoneCommand {
                         default -> { return; }
                     }
                     com.lkdm.dashboardadmin.ZonePersistence.save();
-                    admin.sendSystemMessage(Component.literal(
-                        "§aPreset §e" + payload.value() + " §aappliqué à §e" + z.name + "§a."));
+                    admin.sendSystemMessage(Component.literal(SrvLang.t(admin,
+                        "§aPreset §e" + payload.value() + " §aappliqué à §e" + z.name + "§a.",
+                        "§aPreset §e" + payload.value() + " §aapplied to §e" + z.name + "§a.")));
                     sendZoneScreen(admin, server);
                 }
             }
@@ -1033,7 +1056,7 @@ public class ZoneCommand {
                     z.greeting = sanitizeMsg(parts.length > 0 ? parts[0] : "");
                     z.farewell = sanitizeMsg(parts.length > 1 ? parts[1] : "");
                     com.lkdm.dashboardadmin.ZonePersistence.save();
-                    admin.sendSystemMessage(Component.literal("§aMessages de §e" + z.name + " §amis à jour."));
+                    admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aMessages de §e" + z.name + " §amis à jour.", "§aMessages of §e" + z.name + " §aupdated.")));
                     sendZoneScreen(admin, server);
                 }
             }
@@ -1055,11 +1078,13 @@ public class ZoneCommand {
                     if (target != null) {
                         z.members.add(target.getUUID());
                         com.lkdm.dashboardadmin.DashboardAdmin.getPlayerNameCache().put(target.getUUID(), target.getName().getString());
-                        admin.sendSystemMessage(Component.literal(
-                            "§a" + target.getName().getString() + " ajouté à §e" + z.name + "§a."));
+                        admin.sendSystemMessage(Component.literal(SrvLang.t(admin,
+                            "§a" + target.getName().getString() + " ajouté à §e" + z.name + "§a.",
+                            "§a" + target.getName().getString() + " added to §e" + z.name + "§a.")));
                     } else {
-                        admin.sendSystemMessage(Component.literal(
-                            "§cJoueur §e" + payload.value() + " §cinconnu ou hors ligne."));
+                        admin.sendSystemMessage(Component.literal(SrvLang.t(admin,
+                            "§cJoueur §e" + payload.value() + " §cinconnu ou hors ligne.",
+                            "§cPlayer §e" + payload.value() + " §cunknown or offline.")));
                     }
                     sendZoneScreen(admin, server);
                     syncZonesAll(server);   // le joueur ajouté doit voir sa zone apparaître sans relog
@@ -1094,8 +1119,9 @@ public class ZoneCommand {
                 if (z != null) {
                     z.enabled = !z.enabled;
                     com.lkdm.dashboardadmin.ZonePersistence.save();
-                    admin.sendSystemMessage(Component.literal("§eZone §6" + z.name + " §e→ "
-                        + (z.enabled ? "§aactivée" : "§cdésactivée") + "§e."));
+                    admin.sendSystemMessage(Component.literal(SrvLang.t(admin,
+                        "§eZone §6" + z.name + " §e→ " + (z.enabled ? "§aactivée" : "§cdésactivée") + "§e.",
+                        "§eZone §6" + z.name + " §e→ " + (z.enabled ? "§aenabled" : "§cdisabled") + "§e.")));
                     sendZoneScreen(admin, server);
                     syncZonesAll(server);   // la boîte passe de vert à gris en direct chez les joueurs
                 }
@@ -1111,7 +1137,7 @@ public class ZoneCommand {
                 ItemStack wand = new ItemStack(Items.BLAZE_ROD);
                 wand.set(DataComponents.CUSTOM_NAME, Component.literal("§6✦ Baguette de Zone §6✦"));
                 admin.getInventory().add(wand);
-                admin.sendSystemMessage(Component.literal("§a✦ Baguette de zone ajoutée à votre inventaire."));
+                admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§a✦ Baguette de zone ajoutée à votre inventaire.", "§a✦ Zone wand added to your inventory.")));
             }
             case "UPDATE_COORDS" -> {
                 if (z != null) {
@@ -1122,9 +1148,9 @@ public class ZoneCommand {
                             int x2 = Integer.parseInt(p[3].trim()), y2 = Integer.parseInt(p[4].trim()), z2 = Integer.parseInt(p[5].trim());
                             z.min = new BlockPos(Math.min(x1,x2), Math.min(y1,y2), Math.min(z1,z2));
                             z.max = new BlockPos(Math.max(x1,x2), Math.max(y1,y2), Math.max(z1,z2));
-                            admin.sendSystemMessage(Component.literal("§aCoordonnées de §e" + z.name + " §amises à jour."));
+                            admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aCoordonnées de §e" + z.name + " §amises à jour.", "§aCoordinates of §e" + z.name + " §aupdated.")));
                         } catch (NumberFormatException ignored) {
-                            admin.sendSystemMessage(Component.literal("§cCoordonnées invalides."));
+                            admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cCoordonnées invalides.", "§cInvalid coordinates.")));
                         }
                     }
                     sendZoneScreen(admin, server);

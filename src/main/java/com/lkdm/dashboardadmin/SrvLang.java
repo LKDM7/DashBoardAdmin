@@ -1,5 +1,7 @@
 package com.lkdm.dashboardadmin;
 
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 
 /**
@@ -27,5 +29,12 @@ public final class SrvLang {
     /** Renvoie {@code fr} ou {@code en} selon la langue du destinataire. */
     public static String t(ServerPlayer p, String fr, String en) {
         return isFr(p) ? fr : en;
+    }
+
+    /** Diffuse un message à tous les joueurs en ligne, chacun résolu dans sa propre langue. */
+    public static void each(MinecraftServer server, String fr, String en) {
+        if (server == null) return;
+        for (ServerPlayer p : server.getPlayerList().getPlayers())
+            p.sendSystemMessage(Component.literal(t(p, fr, en)));
     }
 }

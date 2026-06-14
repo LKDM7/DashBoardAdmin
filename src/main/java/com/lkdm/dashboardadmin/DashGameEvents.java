@@ -57,20 +57,20 @@ public class DashGameEvents {
                 ServerPlayer sender = ctx.getSource().getPlayerOrException();
                 ServerPlayer target = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "target");
                 if (!DashboardAdmin.getPlayerSettings(target.getUUID()).allowPrivateMessages) {
-                    sender.sendSystemMessage(Component.literal("§c" + target.getName().getString() + " n'accepte pas les messages privés."));
+                    sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§c" + target.getName().getString() + " n'accepte pas les messages privés.", "§c" + target.getName().getString() + " doesn't accept private messages.")));
                     return 0;
                 }
                 if (DashboardAdmin.isIgnoring(target.getUUID(), sender.getUUID())) {
-                    sender.sendSystemMessage(Component.literal("§c" + target.getName().getString() + " n'accepte pas vos messages."));
+                    sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§c" + target.getName().getString() + " n'accepte pas vos messages.", "§c" + target.getName().getString() + " doesn't accept your messages.")));
                     return 0;
                 }
                 String msg = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "message");
                 DashboardAdmin.getLastMsg().put(target.getUUID(), sender.getUUID());
                 target.sendSystemMessage(Component.literal("§e" + sender.getName().getString() + " §7: §f" + msg));
-                sender.sendSystemMessage(Component.literal("§7[moi -> §e" + target.getName().getString() + "§7] §f" + msg));
+                sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§7[moi -> §e", "§7[me -> §e") + target.getName().getString() + "§7] §f" + msg));
                 if (DashboardAdmin.getPlayerSettings(target.getUUID()).showChatNotifications)
-                    target.sendSystemMessage(Component.literal("§e[✉] Nouveau message de §f" + sender.getName().getString()), true);
-                PacketDistributor.sendToPlayer(target, new NotifPayload("MAIL", "§b✉ Message de §f" + sender.getName().getString()));
+                    target.sendSystemMessage(Component.literal(SrvLang.t(target, "§e[✉] Nouveau message de §f", "§e[✉] New message from §f") + sender.getName().getString()), true);
+                PacketDistributor.sendToPlayer(target, new NotifPayload("MAIL", SrvLang.t(target, "§b✉ Message de §f", "§b✉ Message from §f") + sender.getName().getString()));
                 DashboardAdmin.addLog(sender.getUUID(), "MP → " + target.getName().getString() + ": " + msg);
                 DashboardAdmin.spyPrivateMessage(ctx.getSource().getServer(), sender, target, msg);
                 return 1;
@@ -82,14 +82,14 @@ public class DashGameEvents {
             .executes(ctx -> {
                 ServerPlayer sender = ctx.getSource().getPlayerOrException();
                 if (!DashboardAdmin.getLastMsg().containsKey(sender.getUUID())) {
-                    sender.sendSystemMessage(Component.literal("§cAucun message à répondre.")); return 0;
+                    sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§cAucun message à répondre.", "§cNo message to reply to."))); return 0;
                 }
                 java.util.UUID targetUUID = DashboardAdmin.getLastMsg().get(sender.getUUID());
                 ServerPlayer target = ctx.getSource().getServer().getPlayerList().getPlayer(targetUUID);
-                if (target == null) { sender.sendSystemMessage(Component.literal("§cCe joueur n'est plus connecté.")); return 0; }
+                if (target == null) { sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§cCe joueur n'est plus connecté.", "§cThis player is no longer online."))); return 0; }
                 String msg = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "message");
                 target.sendSystemMessage(Component.literal("§e" + sender.getName().getString() + " §7: §f" + msg));
-                sender.sendSystemMessage(Component.literal("§7[moi -> §e" + target.getName().getString() + "§7] §f" + msg));
+                sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§7[moi -> §e", "§7[me -> §e") + target.getName().getString() + "§7] §f" + msg));
                 DashboardAdmin.getLastMsg().put(target.getUUID(), sender.getUUID());
                 DashboardAdmin.addLog(sender.getUUID(), "MP → " + target.getName().getString() + ": " + msg);
                 DashboardAdmin.spyPrivateMessage(ctx.getSource().getServer(), sender, target, msg);
@@ -100,12 +100,12 @@ public class DashGameEvents {
         dispatcher.register(Commands.literal("rtp").executes(ctx -> {
             ServerPlayer player = ctx.getSource().getPlayerOrException();
             if (com.lkdm.dashboardadmin.command.ZoneCommand.isInBuildMode(player.getUUID())) {
-                player.sendSystemMessage(Component.literal("§cImpossible d'utiliser §6/rtp §cen mode construction."));
+                player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cImpossible d'utiliser §6/rtp §cen mode construction.", "§cCannot use §6/rtp §cin build mode.")));
                 return 0;
             }
             ServerLevel level = (ServerLevel) player.level();
             if (level.dimension() != net.minecraft.world.level.Level.OVERWORLD) {
-                player.sendSystemMessage(Component.literal("§c/rtp n'est utilisable que dans l'Overworld."));
+                player.sendSystemMessage(Component.literal(SrvLang.t(player, "§c/rtp n'est utilisable que dans l'Overworld.", "§c/rtp can only be used in the Overworld.")));
                 return 0;
             }
             if (!DashboardAdmin.checkCooldown(DashboardAdmin.getLastRtpUse(), player.getUUID(), DashboardAdmin.getCooldownRtp(), player, "/rtp")) return 0;
@@ -129,14 +129,15 @@ public class DashGameEvents {
                     || ground.is(net.minecraft.world.level.block.Blocks.FIRE)) continue;
                 DashboardAdmin.savePosition(player); // /back ramène au point de départ
                 player.teleportTo(level, x + 0.5, y, z + 0.5, java.util.Set.of(), player.getYRot(), player.getXRot());
-                player.sendSystemMessage(Component.literal(
-                    "§a✔ Téléporté aléatoirement en §e(" + x + ", " + y + ", " + z + ")§a — §7/back §apour revenir."));
+                player.sendSystemMessage(Component.literal(SrvLang.t(player,
+                    "§a✔ Téléporté aléatoirement en §e(" + x + ", " + y + ", " + z + ")§a — §7/back §apour revenir.",
+                    "§a✔ Randomly teleported to §e(" + x + ", " + y + ", " + z + ")§a — §7/back §ato return.")));
                 DashboardAdmin.addLog(player.getUUID(), "RTP → (" + x + ", " + y + ", " + z + ")");
                 return 1;
             }
             // Échec : on rend le cooldown au joueur.
             DashboardAdmin.getLastRtpUse().remove(player.getUUID());
-            player.sendSystemMessage(Component.literal("§cAucune position sûre trouvée, réessayez."));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cAucune position sûre trouvée, réessayez.", "§cNo safe position found, try again.")));
             return 0;
         }));
 
@@ -147,9 +148,9 @@ public class DashGameEvents {
             if (hit instanceof net.minecraft.world.phys.BlockHitResult blockHit) {
                 net.minecraft.core.BlockPos pos = blockHit.getBlockPos();
                 if (DashboardAdmin.isLocked(pos)) {
-                    if (DashboardAdmin.getOwner(pos).equals(player.getUUID())) { DashboardAdmin.getAllLockedBlocks().remove(pos); player.sendSystemMessage(Component.literal("§aBloc déverrouillé.")); }
-                    else player.sendSystemMessage(Component.literal("§cCe bloc ne vous appartient pas."));
-                } else { DashboardAdmin.getAllLockedBlocks().put(pos, player.getUUID()); player.sendSystemMessage(Component.literal("§aBloc verrouillé.")); }
+                    if (DashboardAdmin.getOwner(pos).equals(player.getUUID())) { DashboardAdmin.getAllLockedBlocks().remove(pos); player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aBloc déverrouillé.", "§aBlock unlocked."))); }
+                    else player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cCe bloc ne vous appartient pas.", "§cThis block doesn't belong to you.")));
+                } else { DashboardAdmin.getAllLockedBlocks().put(pos, player.getUUID()); player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aBloc verrouillé.", "§aBlock locked."))); }
             }
             return 1;
         }));
@@ -158,12 +159,12 @@ public class DashGameEvents {
         dispatcher.register(Commands.literal("trust").then(Commands.argument("target", net.minecraft.commands.arguments.EntityArgument.player()).executes(ctx -> {
             ServerPlayer player = ctx.getSource().getPlayerOrException();
             ServerPlayer target = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "target");
-            if (player.getUUID().equals(target.getUUID())) { player.sendSystemMessage(Component.literal("§cVous ne pouvez pas vous faire confiance à vous-même.")); return 0; }
+            if (player.getUUID().equals(target.getUUID())) { player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cVous ne pouvez pas vous faire confiance à vous-même.", "§cYou can't trust yourself."))); return 0; }
             DashboardAdmin.getTrusted(player.getUUID()).add(target.getUUID());
             DashboardAdmin.getPlayerNameCache().put(target.getUUID(), target.getName().getString());
             DashboardAdmin.getPlayerNameCache().put(player.getUUID(), player.getName().getString());
-            player.sendSystemMessage(Component.literal("§a" + target.getName().getString() + " a maintenant accès à vos blocs verrouillés."));
-            target.sendSystemMessage(Component.literal("§a" + player.getName().getString() + " vous a accordé l'accès à ses blocs verrouillés."));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§a" + target.getName().getString() + " a maintenant accès à vos blocs verrouillés.", "§a" + target.getName().getString() + " now has access to your locked blocks.")));
+            target.sendSystemMessage(Component.literal(SrvLang.t(target, "§a" + player.getName().getString() + " vous a accordé l'accès à ses blocs verrouillés.", "§a" + player.getName().getString() + " granted you access to their locked blocks.")));
             return 1;
         })));
 
@@ -172,8 +173,8 @@ public class DashGameEvents {
             ServerPlayer player = ctx.getSource().getPlayerOrException();
             ServerPlayer target = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "target");
             DashboardAdmin.getTrusted(player.getUUID()).remove(target.getUUID());
-            player.sendSystemMessage(Component.literal("§c" + target.getName().getString() + " n'a plus accès à vos blocs verrouillés."));
-            target.sendSystemMessage(Component.literal("§c" + player.getName().getString() + " vous a retiré l'accès à ses blocs verrouillés."));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§c" + target.getName().getString() + " n'a plus accès à vos blocs verrouillés.", "§c" + target.getName().getString() + " no longer has access to your locked blocks.")));
+            target.sendSystemMessage(Component.literal(SrvLang.t(target, "§c" + player.getName().getString() + " vous a retiré l'accès à ses blocs verrouillés.", "§c" + player.getName().getString() + " revoked your access to their locked blocks.")));
             return 1;
         })));
 
@@ -181,18 +182,18 @@ public class DashGameEvents {
         dispatcher.register(Commands.literal("lockinfo").executes(ctx -> {
             ServerPlayer player = ctx.getSource().getPlayerOrException();
             net.minecraft.world.phys.HitResult hit = player.pick(5.0, 0, false);
-            if (!(hit instanceof net.minecraft.world.phys.BlockHitResult blockHit)) { player.sendSystemMessage(Component.literal("§cRegardez un bloc.")); return 0; }
+            if (!(hit instanceof net.minecraft.world.phys.BlockHitResult blockHit)) { player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cRegardez un bloc.", "§cLook at a block."))); return 0; }
             net.minecraft.core.BlockPos pos = blockHit.getBlockPos();
-            if (!DashboardAdmin.isLocked(pos)) { player.sendSystemMessage(Component.literal("§7Ce bloc n'est pas verrouillé.")); return 0; }
+            if (!DashboardAdmin.isLocked(pos)) { player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7Ce bloc n'est pas verrouillé.", "§7This block isn't locked."))); return 0; }
             java.util.UUID ownerUUID = DashboardAdmin.getOwner(pos);
             String ownerName = resolvePlayerName(ctx.getSource().getServer(), ownerUUID);
             java.util.Set<java.util.UUID> trusted = DashboardAdmin.getTrusted(ownerUUID);
             player.sendSystemMessage(Component.literal("§6§l[LockInfo]"));
-            player.sendSystemMessage(Component.literal("§7Propriétaire : §e" + ownerName));
-            if (trusted.isEmpty()) player.sendSystemMessage(Component.literal("§7Accès partagé : §cnul"));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7Propriétaire : §e", "§7Owner: §e") + ownerName));
+            if (trusted.isEmpty()) player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7Accès partagé : §cnul", "§7Shared access: §cnone")));
             else {
                 java.util.List<String> names = trusted.stream().map(uuid -> resolvePlayerName(ctx.getSource().getServer(), uuid)).collect(java.util.stream.Collectors.toList());
-                player.sendSystemMessage(Component.literal("§7Accès partagé : §a" + String.join("§7, §a", names)));
+                player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7Accès partagé : §a", "§7Shared access: §a") + String.join("§7, §a", names)));
             }
             return 1;
         }));
@@ -201,32 +202,32 @@ public class DashGameEvents {
         dispatcher.register(Commands.literal("sethome").then(Commands.argument("name", com.mojang.brigadier.arguments.StringArgumentType.string()).executes(ctx -> {
             ServerPlayer player = ctx.getSource().getPlayerOrException();
             if (!player.level().dimension().equals(net.minecraft.world.level.Level.OVERWORLD)) {
-                player.sendSystemMessage(Component.literal("§c/sethome n'est disponible que dans l'Overworld.")); return 0;
+                player.sendSystemMessage(Component.literal(SrvLang.t(player, "§c/sethome n'est disponible que dans l'Overworld.", "§c/sethome is only available in the Overworld."))); return 0;
             }
             String name = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "name");
             var homes = DashboardAdmin.getPlayerHomes(player.getUUID());
             if (homes.size() >= DashboardAdmin.getMaxHomes() && !homes.containsKey(name)) {
-                player.sendSystemMessage(Component.literal("§cLimite de §e" + DashboardAdmin.getMaxHomes() + " §chomes atteinte.")); return 0;
+                player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cLimite de §e" + DashboardAdmin.getMaxHomes() + " §chomes atteinte.", "§cLimit of §e" + DashboardAdmin.getMaxHomes() + " §chomes reached."))); return 0;
             }
             homes.put(name, player.blockPosition());
             DashboardAdmin.getPlayerHomesDim(player.getUUID()).put(name, player.level().dimension().location().toString());
-            player.sendSystemMessage(Component.literal("§aHome §e'" + name + "' §aenregistré ! (§e" + homes.size() + "§a/§e" + DashboardAdmin.getMaxHomes() + "§a)"));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aHome §e'" + name + "' §aenregistré ! (§e" + homes.size() + "§a/§e" + DashboardAdmin.getMaxHomes() + "§a)", "§aHome §e'" + name + "' §asaved! (§e" + homes.size() + "§a/§e" + DashboardAdmin.getMaxHomes() + "§a)")));
             return 1;
         })));
 
         // /back
         dispatcher.register(Commands.literal("back").executes(ctx -> {
             ServerPlayer player = ctx.getSource().getPlayerOrException();
-            if (com.lkdm.dashboardadmin.command.ZoneCommand.isInBuildMode(player.getUUID())) { player.sendSystemMessage(Component.literal("§cImpossible d'utiliser §6/back §cen mode construction.")); return 0; }
+            if (com.lkdm.dashboardadmin.command.ZoneCommand.isInBuildMode(player.getUUID())) { player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cImpossible d'utiliser §6/back §cen mode construction.", "§cCannot use §6/back §cin build mode."))); return 0; }
             if (!DashboardAdmin.checkCooldown(DashboardAdmin.getLastBackUse(), player.getUUID(), DashboardAdmin.getCooldownBack(), player, "/back")) return 0;
             net.minecraft.world.phys.Vec3 pos = DashboardAdmin.getLastPositions().get(player.getUUID());
-            if (pos == null) { player.sendSystemMessage(Component.literal("§cAucune position de retour trouvée.")); return 0; }
+            if (pos == null) { player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cAucune position de retour trouvée.", "§cNo return position found."))); return 0; }
             net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dim = DashboardAdmin.getLastPositionDims().get(player.getUUID());
             ServerLevel targetLevel = dim != null ? ctx.getSource().getServer().getLevel(dim) : null;
             if (targetLevel == null) targetLevel = (ServerLevel) player.level();
             DashboardAdmin.savePosition(player);
             player.teleportTo(targetLevel, pos.x, pos.y, pos.z, Set.of(), player.getYRot(), player.getXRot());
-            player.sendSystemMessage(Component.literal("§aRetour à la position précédente."));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aRetour à la position précédente.", "§aReturned to previous position.")));
             return 1;
         }));
 
@@ -236,13 +237,14 @@ public class DashGameEvents {
             boolean afk = !DashboardAdmin.isAfk(player.getUUID());
             DashboardAdmin.afkPlayers.put(player.getUUID(), afk);
             if (afk) {
-                player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(Component.literal("§eVOUS ÊTES AFK")));
+                player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(Component.literal(SrvLang.t(player, "§eVOUS ÊTES AFK", "§eYOU ARE AFK"))));
                 player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(10, 40, 10));
             } else {
-                player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(Component.literal("§aVOUS N'ÊTES PLUS AFK")));
+                player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(Component.literal(SrvLang.t(player, "§aVOUS N'ÊTES PLUS AFK", "§aYOU ARE NO LONGER AFK"))));
                 player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(10, 20, 10));
             }
-            ctx.getSource().getServer().getPlayerList().broadcastSystemMessage(Component.literal("§e" + player.getName().getString() + (afk ? " est AFK." : " n'est plus AFK.")), false);
+            String afkName = player.getName().getString();
+            SrvLang.each(ctx.getSource().getServer(), "§e" + afkName + (afk ? " est AFK." : " n'est plus AFK."), "§e" + afkName + (afk ? " is now AFK." : " is no longer AFK."));
             return 1;
         }));
 
@@ -251,8 +253,8 @@ public class DashGameEvents {
             .executes(ctx -> {
                 ServerPlayer player = ctx.getSource().getPlayerOrException();
                 var homes = DashboardAdmin.getPlayerHomes(player.getUUID());
-                if (homes.isEmpty()) player.sendSystemMessage(Component.literal("§cVous n'avez aucun home enregistré."));
-                else player.sendSystemMessage(Component.literal("§aVos homes : §f" + String.join(", ", homes.keySet())));
+                if (homes.isEmpty()) player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cVous n'avez aucun home enregistré.", "§cYou have no saved homes.")));
+                else player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aVos homes : §f", "§aYour homes: §f") + String.join(", ", homes.keySet())));
                 return 1;
             })
             .then(Commands.argument("name", com.mojang.brigadier.arguments.StringArgumentType.string())
@@ -263,25 +265,25 @@ public class DashGameEvents {
             .executes(ctx -> {
                 ServerPlayer player = ctx.getSource().getPlayerOrException();
                 String name = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "name");
-                if (com.lkdm.dashboardadmin.command.ZoneCommand.isInBuildMode(player.getUUID())) { player.sendSystemMessage(Component.literal("§cImpossible d'utiliser §6/home §cen mode construction.")); return 0; }
+                if (com.lkdm.dashboardadmin.command.ZoneCommand.isInBuildMode(player.getUUID())) { player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cImpossible d'utiliser §6/home §cen mode construction.", "§cCannot use §6/home §cin build mode."))); return 0; }
                 if (!DashboardAdmin.checkCooldown(DashboardAdmin.getLastHomeUse(), player.getUUID(), DashboardAdmin.getCooldownHome(), player, "/home")) return 0;
                 net.minecraft.core.BlockPos pos = DashboardAdmin.getPlayerHomes(player.getUUID()).get(name);
-                if (pos == null) { player.sendSystemMessage(Component.literal("§cHome '" + name + "' introuvable.")); return 0; }
+                if (pos == null) { player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cHome '" + name + "' introuvable.", "§cHome '" + name + "' not found."))); return 0; }
                 DashboardAdmin.savePosition(player);
                 player.teleportTo((ServerLevel)player.level(), pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot());
-                player.sendSystemMessage(Component.literal("§aTéléporté au home '" + name + "'."));
+                player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aTéléporté au home '" + name + "'.", "§aTeleported to home '" + name + "'.")));
                 return 1;
             })));
 
         // /chest
         dispatcher.register(Commands.literal("chest").executes(ctx -> {
             ServerPlayer player = ctx.getSource().getPlayerOrException();
-            if (com.lkdm.dashboardadmin.command.ZoneCommand.isInBuildMode(player.getUUID())) { player.sendSystemMessage(Component.literal("§cImpossible d'utiliser §6/chest §cen mode construction.")); return 0; }
+            if (com.lkdm.dashboardadmin.command.ZoneCommand.isInBuildMode(player.getUUID())) { player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cImpossible d'utiliser §6/chest §cen mode construction.", "§cCannot use §6/chest §cin build mode."))); return 0; }
             NonNullList<ItemStack> items = VirtualChestManager.getChest(player.getUUID());
             net.minecraft.world.SimpleContainer container = new net.minecraft.world.SimpleContainer(9);
             for (int i = 0; i < 9; i++) container.setItem(i, items.get(i));
             container.addListener(c -> { for (int i = 0; i < 9; i++) items.set(i, c.getItem(i)); });
-            player.openMenu(new SimpleMenuProvider((id, inv, p) -> new VirtualChestMenu(id, inv, container), Component.literal("Coffre Virtuel")));
+            player.openMenu(new SimpleMenuProvider((id, inv, p) -> new VirtualChestMenu(id, inv, container), Component.literal(SrvLang.t(player, "Coffre Virtuel", "Virtual Chest"))));
             return 1;
         }));
 
@@ -347,13 +349,13 @@ public class DashGameEvents {
             long walkCm = player.getStats().getValue(net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.WALK_ONE_CM));
             long sprintCm = player.getStats().getValue(net.minecraft.stats.Stats.CUSTOM.get(net.minecraft.stats.Stats.SPRINT_ONE_CM));
             long blks = (walkCm + sprintCm) / 100L;
-            player.sendSystemMessage(Component.literal("§6§l━━━━ Vos statistiques ━━━━"));
-            player.sendSystemMessage(Component.literal("§7Temps de jeu    §f" + hours + "h " + minutes + "m"));
-            player.sendSystemMessage(Component.literal("§7Morts           §c" + deaths));
-            player.sendSystemMessage(Component.literal("§7Kills joueurs   §e" + pKills));
-            player.sendSystemMessage(Component.literal("§7XP totale       §a" + player.totalExperience));
-            player.sendSystemMessage(Component.literal("§7Mobs hostiles   §d" + hostile));
-            player.sendSystemMessage(Component.literal("§7Blocs parcourus §b" + blks));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§6§l━━━━ Vos statistiques ━━━━", "§6§l━━━━ Your statistics ━━━━")));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7Temps de jeu    §f", "§7Playtime        §f") + hours + "h " + minutes + "m"));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7Morts           §c", "§7Deaths          §c") + deaths));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7Kills joueurs   §e", "§7Player kills    §e") + pKills));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7XP totale       §a", "§7Total XP        §a") + player.totalExperience));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7Mobs hostiles   §d", "§7Hostile mobs    §d") + hostile));
+            player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7Blocs parcourus §b", "§7Blocks walked   §b") + blks));
             player.sendSystemMessage(Component.literal("§6§l━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
             return 1;
         }));
@@ -363,12 +365,12 @@ public class DashGameEvents {
             ServerPlayer seeker = ctx.getSource().getPlayerOrException();
             String targetName = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "player");
             ServerPlayer online = ctx.getSource().getServer().getPlayerList().getPlayerByName(targetName);
-            if (online != null) { seeker.sendSystemMessage(Component.literal("§e" + targetName + " §7est actuellement §aconnecté§7.")); return 1; }
+            if (online != null) { seeker.sendSystemMessage(Component.literal(SrvLang.t(seeker, "§e" + targetName + " §7est actuellement §aconnecté§7.", "§e" + targetName + " §7is currently §aonline§7."))); return 1; }
             java.util.Optional<java.util.Map.Entry<java.util.UUID, String>> entry = DashboardAdmin.getPlayerNameCache().entrySet().stream().filter(e -> e.getValue().equalsIgnoreCase(targetName)).findFirst();
-            if (entry.isEmpty()) { seeker.sendSystemMessage(Component.literal("§cJoueur §e" + targetName + " §cinconnu.")); return 0; }
+            if (entry.isEmpty()) { seeker.sendSystemMessage(Component.literal(SrvLang.t(seeker, "§cJoueur §e" + targetName + " §cinconnu.", "§cPlayer §e" + targetName + " §cunknown."))); return 0; }
             Long ts = DashboardAdmin.getLastSeenTimestamps().get(entry.get().getKey());
-            if (ts == null) seeker.sendSystemMessage(Component.literal("§7Aucune donnée de connexion pour §e" + targetName + "§7."));
-            else seeker.sendSystemMessage(Component.literal("§e" + targetName + " §7a été vu il y a §f" + DashboardAdmin.formatTimeAgo(ts) + "§7."));
+            if (ts == null) seeker.sendSystemMessage(Component.literal(SrvLang.t(seeker, "§7Aucune donnée de connexion pour §e" + targetName + "§7.", "§7No connection data for §e" + targetName + "§7.")));
+            else seeker.sendSystemMessage(Component.literal(SrvLang.t(seeker, "§e" + targetName + " §7a été vu il y a §f" + DashboardAdmin.formatTimeAgo(ts) + "§7.", "§e" + targetName + " §7was last seen §f" + DashboardAdmin.formatTimeAgo(ts) + " §7ago.")));
             return 1;
         })));
 
@@ -379,17 +381,17 @@ public class DashGameEvents {
             MinecraftServer srv = ctx.getSource().getServer();
             adm.sendSystemMessage(Component.literal("§6§l━━━ Check : " + targetName + " ━━━"));
             ServerPlayer onlineTarget = srv.getPlayerList().getPlayerByName(targetName);
-            adm.sendSystemMessage(Component.literal("§7Connecté : " + (onlineTarget != null ? "§aOUI" : "§cNON")));
+            adm.sendSystemMessage(Component.literal(SrvLang.t(adm, "§7Connecté : ", "§7Online: ") + (onlineTarget != null ? "§aOUI" : "§cNON")));
             boolean banned = srv.getPlayerList().getBans().getEntries().stream().anyMatch(e -> e.getDisplayName().getString().equalsIgnoreCase(targetName));
-            adm.sendSystemMessage(Component.literal("§7Banni : " + (banned ? "§cOUI" : "§aNON")));
-            if (banned) srv.getPlayerList().getBans().getEntries().stream().filter(e -> e.getDisplayName().getString().equalsIgnoreCase(targetName)).findFirst().ifPresent(e -> adm.sendSystemMessage(Component.literal("§7Raison : §f" + (e.getReason() != null ? e.getReason() : "—"))));
+            adm.sendSystemMessage(Component.literal(SrvLang.t(adm, "§7Banni : ", "§7Banned: ") + (banned ? "§cOUI" : "§aNON")));
+            if (banned) srv.getPlayerList().getBans().getEntries().stream().filter(e -> e.getDisplayName().getString().equalsIgnoreCase(targetName)).findFirst().ifPresent(e -> adm.sendSystemMessage(Component.literal(SrvLang.t(adm, "§7Raison : §f", "§7Reason: §f") + (e.getReason() != null ? e.getReason() : "—"))));
             DashboardAdmin.getPlayerNameCache().entrySet().stream().filter(e -> e.getValue().equalsIgnoreCase(targetName)).findFirst().ifPresent(cacheEntry -> {
                 Long ts = DashboardAdmin.getLastSeenTimestamps().get(cacheEntry.getKey());
-                if (onlineTarget != null) adm.sendSystemMessage(Component.literal("§7Dernière vue : §aMaintenant"));
-                else if (ts != null) adm.sendSystemMessage(Component.literal("§7Dernière vue : §fil y a " + DashboardAdmin.formatTimeAgo(ts)));
-                else adm.sendSystemMessage(Component.literal("§7Dernière vue : §8inconnue"));
+                if (onlineTarget != null) adm.sendSystemMessage(Component.literal(SrvLang.t(adm, "§7Dernière vue : §aMaintenant", "§7Last seen: §aNow")));
+                else if (ts != null) adm.sendSystemMessage(Component.literal(SrvLang.t(adm, "§7Dernière vue : §fil y a " + DashboardAdmin.formatTimeAgo(ts), "§7Last seen: §f" + DashboardAdmin.formatTimeAgo(ts) + " ago")));
+                else adm.sendSystemMessage(Component.literal(SrvLang.t(adm, "§7Dernière vue : §8inconnue", "§7Last seen: §8unknown")));
                 int logCount = DashboardAdmin.getPlayerLogs().getOrDefault(cacheEntry.getKey(), java.util.Collections.emptyList()).size();
-                adm.sendSystemMessage(Component.literal("§7Logs : §f" + logCount + " entrée" + (logCount > 1 ? "s" : "")));
+                adm.sendSystemMessage(Component.literal(SrvLang.t(adm, "§7Logs : §f" + logCount + " entrée" + (logCount > 1 ? "s" : ""), "§7Logs: §f" + logCount + " entr" + (logCount > 1 ? "ies" : "y"))));
             });
             // 5 dernières sanctions du joueur (sanctionsLog = [ts, type, player, admin, reason])
             java.util.List<String[]> sl = DashboardAdmin.getSanctionsLog();
@@ -397,11 +399,11 @@ public class DashGameEvents {
             for (int i = sl.size() - 1; i >= 0 && recent.size() < 5; i--)
                 if (sl.get(i)[2].equalsIgnoreCase(targetName)) recent.add(sl.get(i));
             if (recent.isEmpty()) {
-                adm.sendSystemMessage(Component.literal("§7Sanctions : §aaucune"));
+                adm.sendSystemMessage(Component.literal(SrvLang.t(adm, "§7Sanctions : §aaucune", "§7Sanctions: §anone")));
             } else {
-                adm.sendSystemMessage(Component.literal("§7Sanctions §8(5 dernières)§7 :"));
+                adm.sendSystemMessage(Component.literal(SrvLang.t(adm, "§7Sanctions §8(5 dernières)§7 :", "§7Sanctions §8(last 5)§7:")));
                 for (String[] s : recent)
-                    adm.sendSystemMessage(Component.literal("§8• §7" + s[0] + " §e" + s[1] + " §7par §f" + s[3]
+                    adm.sendSystemMessage(Component.literal("§8• §7" + s[0] + " §e" + s[1] + SrvLang.t(adm, " §7par §f", " §7by §f") + s[3]
                         + ("—".equals(s[4]) ? "" : " §8(" + s[4] + ")")));
             }
             adm.sendSystemMessage(Component.literal("§6§l━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
@@ -421,11 +423,11 @@ public class DashGameEvents {
                 .executes(ctx -> {
                     ServerPlayer admin = ctx.getSource().getPlayerOrException();
                     ServerPlayer target = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
-                    if (!DashboardAdmin.isMuted(target.getUUID())) { admin.sendSystemMessage(Component.literal("§e" + target.getName().getString() + " n'est pas muet.")); return 0; }
+                    if (!DashboardAdmin.isMuted(target.getUUID())) { admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§e" + target.getName().getString() + " n'est pas muet.", "§e" + target.getName().getString() + " is not muted."))); return 0; }
                     DashboardAdmin.unmute(target.getUUID()); ModerationPersistence.save();
                     DashboardAdmin.addLog(target.getUUID(), "Unmuted par " + admin.getName().getString());
-                    admin.sendSystemMessage(Component.literal("§e" + target.getName().getString() + " n'est plus muet."));
-                    target.sendSystemMessage(Component.literal("§eVous n'êtes plus muet."));
+                    admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§e" + target.getName().getString() + " n'est plus muet.", "§e" + target.getName().getString() + " is no longer muted.")));
+                    target.sendSystemMessage(Component.literal(SrvLang.t(target, "§eVous n'êtes plus muet.", "§eYou are no longer muted.")));
                     return 1;
                 })));
 
@@ -433,21 +435,21 @@ public class DashGameEvents {
         dispatcher.register(Commands.literal("deal").then(Commands.argument("target", net.minecraft.commands.arguments.EntityArgument.player()).executes(ctx -> {
             ServerPlayer sender = ctx.getSource().getPlayerOrException();
             ServerPlayer target = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "target");
-            if (sender == target) { sender.sendSystemMessage(Component.literal("§cVous ne pouvez pas échanger avec vous-même.")); return 0; }
-            if (DealManager.activeSessions.containsKey(sender.getUUID())) { sender.sendSystemMessage(Component.literal("§cVous avez déjà un échange en cours.")); return 0; }
-            if (DealManager.activeSessions.containsKey(target.getUUID())) { sender.sendSystemMessage(Component.literal("§c" + target.getName().getString() + " a déjà un échange en cours.")); return 0; }
-            if (!DashboardAdmin.getPlayerSettings(target.getUUID()).allowTrades) { sender.sendSystemMessage(Component.literal("§c" + target.getName().getString() + " n'accepte pas les échanges.")); return 0; }
-            if (DashboardAdmin.isIgnoring(target.getUUID(), sender.getUUID())) { sender.sendSystemMessage(Component.literal("§c" + target.getName().getString() + " n'accepte pas vos demandes.")); return 0; }
+            if (sender == target) { sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§cVous ne pouvez pas échanger avec vous-même.", "§cYou can't trade with yourself."))); return 0; }
+            if (DealManager.activeSessions.containsKey(sender.getUUID())) { sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§cVous avez déjà un échange en cours.", "§cYou already have a trade in progress."))); return 0; }
+            if (DealManager.activeSessions.containsKey(target.getUUID())) { sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§c" + target.getName().getString() + " a déjà un échange en cours.", "§c" + target.getName().getString() + " already has a trade in progress."))); return 0; }
+            if (!DashboardAdmin.getPlayerSettings(target.getUUID()).allowTrades) { sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§c" + target.getName().getString() + " n'accepte pas les échanges.", "§c" + target.getName().getString() + " doesn't accept trades."))); return 0; }
+            if (DashboardAdmin.isIgnoring(target.getUUID(), sender.getUUID())) { sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§c" + target.getName().getString() + " n'accepte pas vos demandes.", "§c" + target.getName().getString() + " doesn't accept your requests."))); return 0; }
             DealManager.getPendingDeals().put(target.getUUID(), sender.getUUID());
             DealManager.getPendingDealTimestamps().put(target.getUUID(), System.currentTimeMillis());
             String sName = sender.getName().getString();
-            Component msg = Component.literal("§e" + sName + " §7souhaite effectuer un échange. ")
+            Component msg = Component.literal(SrvLang.t(target, "§e" + sName + " §7souhaite effectuer un échange. ", "§e" + sName + " §7wants to trade with you. "))
                 .append(Component.literal("[Y]").withStyle(s -> s.withColor(ChatFormatting.GREEN).withClickEvent(new net.minecraft.network.chat.ClickEvent(net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND, "/dealaccept"))))
                 .append(Component.literal(" "))
                 .append(Component.literal("[N]").withStyle(s -> s.withColor(ChatFormatting.RED).withClickEvent(new net.minecraft.network.chat.ClickEvent(net.minecraft.network.chat.ClickEvent.Action.RUN_COMMAND, "/dealdeny"))));
             target.sendSystemMessage(msg);
-            PacketDistributor.sendToPlayer(target, new NotifPayload("DEAL", "§e⇄ Échange proposé par §f" + sName));
-            sender.sendSystemMessage(Component.literal("§7Demande d'échange envoyée à §e" + target.getName().getString() + "§7."));
+            PacketDistributor.sendToPlayer(target, new NotifPayload("DEAL", SrvLang.t(target, "§e⇄ Échange proposé par §f", "§e⇄ Trade proposed by §f") + sName));
+            sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§7Demande d'échange envoyée à §e" + target.getName().getString() + "§7.", "§7Trade request sent to §e" + target.getName().getString() + "§7.")));
             return 1;
         })));
 
@@ -455,9 +457,9 @@ public class DashGameEvents {
             ServerPlayer target = ctx.getSource().getPlayerOrException();
             java.util.UUID requesterUUID = DealManager.getPendingDeals().remove(target.getUUID());
             DealManager.getPendingDealTimestamps().remove(target.getUUID());
-            if (requesterUUID == null) { target.sendSystemMessage(Component.literal("§cAucune demande d'échange en attente.")); return 0; }
+            if (requesterUUID == null) { target.sendSystemMessage(Component.literal(SrvLang.t(target, "§cAucune demande d'échange en attente.", "§cNo pending trade request."))); return 0; }
             ServerPlayer requester = ctx.getSource().getServer().getPlayerList().getPlayer(requesterUUID);
-            if (requester == null) { target.sendSystemMessage(Component.literal("§cCe joueur n'est plus connecté.")); return 0; }
+            if (requester == null) { target.sendSystemMessage(Component.literal(SrvLang.t(target, "§cCe joueur n'est plus connecté.", "§cThis player is no longer online."))); return 0; }
             DealManager.DealSession session = new DealManager.DealSession(requesterUUID, target.getUUID());
             DealManager.activeSessions.put(requesterUUID, session);
             DealManager.activeSessions.put(target.getUUID(), session);
@@ -473,8 +475,8 @@ public class DashGameEvents {
             DealManager.getPendingDealTimestamps().remove(target.getUUID());
             if (requesterUUID != null) {
                 ServerPlayer requester = ctx.getSource().getServer().getPlayerList().getPlayer(requesterUUID);
-                if (requester != null) requester.sendSystemMessage(Component.literal("§c" + target.getName().getString() + " a refusé votre demande d'échange."));
-                target.sendSystemMessage(Component.literal("§cDemande refusée."));
+                if (requester != null) requester.sendSystemMessage(Component.literal(SrvLang.t(requester, "§c" + target.getName().getString() + " a refusé votre demande d'échange.", "§c" + target.getName().getString() + " declined your trade request.")));
+                target.sendSystemMessage(Component.literal(SrvLang.t(target, "§cDemande refusée.", "§cRequest declined.")));
             }
             return 1;
         }));
@@ -485,13 +487,13 @@ public class DashGameEvents {
             .executes(ctx -> {
                 ServerPlayer player = ctx.getSource().getPlayerOrException();
                 ServerPlayer target = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
-                if (player == target) { player.sendSystemMessage(Component.literal("§cVous ne pouvez pas vous ignorer vous-même.")); return 0; }
+                if (player == target) { player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cVous ne pouvez pas vous ignorer vous-même.", "§cYou can't ignore yourself."))); return 0; }
                 com.lkdm.dashboardadmin.PlayerSettings s = DashboardAdmin.getPlayerSettings(player.getUUID());
                 DashboardAdmin.getPlayerNameCache().put(target.getUUID(), target.getName().getString());
                 if (s.ignoredPlayers.add(target.getUUID())) {
-                    player.sendSystemMessage(Component.literal("§7Vous ignorez maintenant §e" + target.getName().getString() + "§7."));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7Vous ignorez maintenant §e" + target.getName().getString() + "§7.", "§7You are now ignoring §e" + target.getName().getString() + "§7.")));
                 } else {
-                    player.sendSystemMessage(Component.literal("§7Vous ignorez déjà §e" + target.getName().getString() + "§7."));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7Vous ignorez déjà §e" + target.getName().getString() + "§7.", "§7You are already ignoring §e" + target.getName().getString() + "§7.")));
                 }
                 return 1;
             })));
@@ -504,9 +506,9 @@ public class DashGameEvents {
                 ServerPlayer target = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
                 com.lkdm.dashboardadmin.PlayerSettings s = DashboardAdmin.getPlayerSettings(player.getUUID());
                 if (s.ignoredPlayers.remove(target.getUUID())) {
-                    player.sendSystemMessage(Component.literal("§7Vous n'ignorez plus §e" + target.getName().getString() + "§7."));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7Vous n'ignorez plus §e" + target.getName().getString() + "§7.", "§7You are no longer ignoring §e" + target.getName().getString() + "§7.")));
                 } else {
-                    player.sendSystemMessage(Component.literal("§7Vous n'ignoriez pas §e" + target.getName().getString() + "§7."));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§7Vous n'ignoriez pas §e" + target.getName().getString() + "§7.", "§7You weren't ignoring §e" + target.getName().getString() + "§7.")));
                 }
                 return 1;
             })));
@@ -520,7 +522,7 @@ public class DashGameEvents {
                 String name = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "name");
                 WarpManager.getWarps().put(name, player.blockPosition());
                 WarpManager.getWarpsDim().put(name, player.level().dimension().location().toString());
-                player.sendSystemMessage(Component.literal("§aWarp §e'" + name + "' §acréé à votre position."));
+                player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aWarp §e'" + name + "' §acréé à votre position.", "§aWarp §e'" + name + "' §acreated at your position.")));
                 com.lkdm.dashboardadmin.ServerConfig.save();
                 return 1;
             })));
@@ -535,10 +537,10 @@ public class DashGameEvents {
                 String name = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "name");
                 if (WarpManager.getWarps().remove(name) != null) {
                     WarpManager.getWarpsDim().remove(name);
-                    player.sendSystemMessage(Component.literal("§cWarp §e'" + name + "' §csupprimé."));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cWarp §e'" + name + "' §csupprimé.", "§cWarp §e'" + name + "' §cdeleted.")));
                     com.lkdm.dashboardadmin.ServerConfig.save();
                 } else {
-                    player.sendSystemMessage(Component.literal("§cWarp §e'" + name + "' §cintrouvable."));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cWarp §e'" + name + "' §cintrouvable.", "§cWarp §e'" + name + "' §cnot found.")));
                 }
                 return 1;
             })));
@@ -548,9 +550,9 @@ public class DashGameEvents {
             .executes(ctx -> {
                 ServerPlayer player = ctx.getSource().getPlayerOrException();
                 if (WarpManager.getWarps().isEmpty()) {
-                    player.sendSystemMessage(Component.literal("§8Aucun warp disponible."));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§8Aucun warp disponible.", "§8No warps available.")));
                 } else {
-                    player.sendSystemMessage(Component.literal("§6Warps : §f" + String.join("§7, §f", WarpManager.getWarps().keySet())));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§6Warps : §f", "§6Warps: §f") + String.join("§7, §f", WarpManager.getWarps().keySet())));
                 }
                 return 1;
             })
@@ -560,12 +562,12 @@ public class DashGameEvents {
                 ServerPlayer player = ctx.getSource().getPlayerOrException();
                 String name = com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "name");
                 if (com.lkdm.dashboardadmin.command.ZoneCommand.isInBuildMode(player.getUUID())) {
-                    player.sendSystemMessage(Component.literal("§cImpossible d'utiliser §6/warp §cen mode construction."));
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cImpossible d'utiliser §6/warp §cen mode construction.", "§cCannot use §6/warp §cin build mode.")));
                     return 0;
                 }
                 if (!DashboardAdmin.checkCooldown(WarpManager.getLastWarpUse(), player.getUUID(), DashboardAdmin.getCooldownWarp(), player, "/warp")) return 0;
                 net.minecraft.core.BlockPos pos = WarpManager.getWarps().get(name);
-                if (pos == null) { player.sendSystemMessage(Component.literal("§cWarp §e'" + name + "' §cintrouvable.")); return 0; }
+                if (pos == null) { player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cWarp §e'" + name + "' §cintrouvable.", "§cWarp §e'" + name + "' §cnot found."))); return 0; }
                 String dimId = WarpManager.getWarpsDim().getOrDefault(name, "minecraft:overworld");
                 net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimKey = net.minecraft.resources.ResourceKey.create(
                     net.minecraft.world.level.Level.OVERWORLD.registryKey(),
@@ -574,7 +576,7 @@ public class DashGameEvents {
                 if (targetLevel == null) targetLevel = (ServerLevel) player.level();
                 DashboardAdmin.savePosition(player);
                 player.teleportTo(targetLevel, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot());
-                player.sendSystemMessage(Component.literal("§aTéléporté au warp §e'" + name + "'§a."));
+                player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aTéléporté au warp §e'" + name + "'§a.", "§aTeleported to warp §e'" + name + "'§a.")));
                 return 1;
             })));
     }
@@ -589,14 +591,15 @@ public class DashGameEvents {
                          && !DashboardAdmin.getPlayerNameCache().containsKey(player.getUUID());
         DashboardAdmin.getPlayerNameCache().put(player.getUUID(), player.getName().getString());
         DashboardAdmin.getLastActivityTime().put(player.getUUID(), System.currentTimeMillis());
+        String joinName = player.getName().getString();
         if (firstJoin) {
-            server.getPlayerList().broadcastSystemMessage(Component.literal(
-                "§6✦ §e" + player.getName().getString() + " §6rejoint le serveur pour la première fois !"), false);
+            SrvLang.each(server,
+                "§6✦ §e" + joinName + " §6rejoint le serveur pour la première fois !",
+                "§6✦ §e" + joinName + " §6joins the server for the first time!");
         } else {
-            Component joinMsg = Component.literal("§a[+] §f" + player.getName().getString() + " §7a rejoint le serveur.");
             for (ServerPlayer p : server.getPlayerList().getPlayers())
                 if (DashboardAdmin.getPlayerSettings(p.getUUID()).showConnectionAlerts && !p.getUUID().equals(player.getUUID()))
-                    p.sendSystemMessage(joinMsg);
+                    p.sendSystemMessage(Component.literal(SrvLang.t(p, "§a[+] §f" + joinName + " §7a rejoint le serveur.", "§a[+] §f" + joinName + " §7joined the server.")));
         }
         if (!DashboardAdmin.getMotd().isEmpty())
             player.sendSystemMessage(Component.literal("§7" + DashboardAdmin.getMotd()));
@@ -619,10 +622,10 @@ public class DashGameEvents {
         TpaManager.getPendingTpaTimestamps().remove(uid);
         TpaManager.getTpaHere().remove(uid);
         TpaManager.getTpaRequests().entrySet().removeIf(e -> { if (e.getValue().equals(uid)) { TpaManager.getPendingTpaTimestamps().remove(e.getKey()); TpaManager.getTpaHere().remove(e.getKey()); return true; } return false; });
-        Component leftMsg = Component.literal("§c[-] §f" + player.getName().getString() + " §7a quitté le serveur.");
+        String leftName = player.getName().getString();
         for (ServerPlayer p : server.getPlayerList().getPlayers())
             if (DashboardAdmin.getPlayerSettings(p.getUUID()).showConnectionAlerts && !p.getUUID().equals(uid))
-                p.sendSystemMessage(leftMsg);
+                p.sendSystemMessage(Component.literal(SrvLang.t(p, "§c[-] §f" + leftName + " §7a quitté le serveur.", "§c[-] §f" + leftName + " §7left the server.")));
     }
 
     // ─── Living events ────────────────────────────────────────────────────────
@@ -716,8 +719,10 @@ public class DashGameEvents {
         if (DashboardAdmin.isMuted(sender.getUUID())) {
             DashboardAdmin.addLog(sender.getUUID(), "Chat bloqué (muet): " + raw);
             long exp = DashboardAdmin.getMuteExpiry(sender.getUUID());
-            String remain = exp > 0 ? " §7(encore " + DashboardAdmin.formatDurationShort((exp - System.currentTimeMillis()) / 1000) + ")" : "";
-            sender.sendSystemMessage(Component.literal("§cVous êtes muet, vous ne pouvez pas écrire." + remain));
+            String dur = exp > 0 ? DashboardAdmin.formatDurationShort((exp - System.currentTimeMillis()) / 1000) : "";
+            String remainFr = exp > 0 ? " §7(encore " + dur + ")" : "";
+            String remainEn = exp > 0 ? " §7(" + dur + " left)" : "";
+            sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§cVous êtes muet, vous ne pouvez pas écrire." + remainFr, "§cYou are muted, you can't chat." + remainEn)));
             event.setCanceled(true);
             return;
         }
@@ -725,10 +730,10 @@ public class DashGameEvents {
             String text = raw.substring(3).trim();
             if (!text.isEmpty()) {
                 java.util.UUID leader = GroupManager.getLeader(sender.getUUID());
-                String colored = "§a[Groupe] §f" + sender.getName().getString() + "§7: §f" + text;
+                String senderName = sender.getName().getString();
                 GroupManager.getMembers(leader).forEach(uuid -> {
                     ServerPlayer m = ((ServerLevel) sender.level()).getServer().getPlayerList().getPlayer(uuid);
-                    if (m != null) m.sendSystemMessage(Component.literal(colored));
+                    if (m != null) m.sendSystemMessage(Component.literal(SrvLang.t(m, "§a[Groupe] §f", "§a[Group] §f") + senderName + "§7: §f" + text));
                 });
                 DashboardAdmin.addLog(sender.getUUID(), "[Groupe] " + text);
             }
@@ -736,7 +741,7 @@ public class DashGameEvents {
             return;
         }
         if (DashboardAdmin.isChatLocked() && !sender.hasPermissions(2)) {
-            sender.sendSystemMessage(Component.literal("§cLe chat est actuellement bloqué par un admin."));
+            sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§cLe chat est actuellement bloqué par un admin.", "§cChat is currently locked by an admin.")));
             event.setCanceled(true);
             return;
         }
@@ -766,7 +771,7 @@ public class DashGameEvents {
         if (DashboardAdmin.isLocked(pos) && !DashboardAdmin.getOwner(pos).equals(player.getUUID())
                 && !DashboardAdmin.isTrusted(DashboardAdmin.getOwner(pos), player.getUUID())
                 && !GroupManager.isTrustedByGroup(DashboardAdmin.getOwner(pos), player.getUUID())) {
-            if (player instanceof ServerPlayer sp) sp.sendSystemMessage(Component.literal("§cCe bloc est verrouillé."));
+            if (player instanceof ServerPlayer sp) sp.sendSystemMessage(Component.literal(SrvLang.t(sp, "§cCe bloc est verrouillé.", "§cThis block is locked.")));
             event.setCanceled(true);
             return;
         }
@@ -905,12 +910,13 @@ public class DashGameEvents {
                     player.connection.teleport(fp.x, fp.y, fp.z, player.getYRot(), player.getXRot());
             }
             if (DashboardAdmin.isAfk(player.getUUID())) {
-                player.sendSystemMessage(Component.literal("§e[AFK] Vous êtes absent."), true);
+                player.sendSystemMessage(Component.literal(SrvLang.t(player, "§e[AFK] Vous êtes absent.", "§e[AFK] You are away.")), true);
                 if (DashboardAdmin.lastPos.containsKey(player.getUUID()) && player.position().distanceToSqr(DashboardAdmin.lastPos.get(player.getUUID())) > 0.01) {
                     DashboardAdmin.afkPlayers.put(player.getUUID(), false);
                     DashboardAdmin.getLastActivityTime().put(player.getUUID(), nowMs);
-                    player.sendSystemMessage(Component.literal("§eVous n'êtes plus AFK."));
-                    server.getPlayerList().broadcastSystemMessage(Component.literal("§e" + player.getName().getString() + " n'est plus AFK."), false);
+                    player.sendSystemMessage(Component.literal(SrvLang.t(player, "§eVous n'êtes plus AFK.", "§eYou are no longer AFK.")));
+                    String backName = player.getName().getString();
+                    SrvLang.each(server, "§e" + backName + " n'est plus AFK.", "§e" + backName + " is no longer AFK.");
                 }
             } else if (DashboardAdmin.isAfkAutoEnabled() && !DashboardAdmin.isFrozen(player.getUUID())) {
                 net.minecraft.world.phys.Vec3 prevPos = DashboardAdmin.lastPos.get(player.getUUID());
@@ -921,9 +927,10 @@ public class DashGameEvents {
                     if (nowMs - lastAct > (DashboardAdmin.getAfkDelayMinutes() * 60000L)) {
                         DashboardAdmin.afkPlayers.put(player.getUUID(), true);
                         DashboardAdmin.getLastActivityTime().put(player.getUUID(), nowMs);
-                        player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(Component.literal("§eVOUS ÊTES AFK")));
+                        player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(Component.literal(SrvLang.t(player, "§eVOUS ÊTES AFK", "§eYOU ARE AFK"))));
                         player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(10, 40, 10));
-                        server.getPlayerList().broadcastSystemMessage(Component.literal("§e" + player.getName().getString() + " est AFK (inactivité)."), false);
+                        String autoAfkName = player.getName().getString();
+                        SrvLang.each(server, "§e" + autoAfkName + " est AFK (inactivité).", "§e" + autoAfkName + " is AFK (inactivity).");
                     }
                 }
             }
@@ -974,15 +981,16 @@ public class DashGameEvents {
             DashboardAdmin.restartTicks--;
             int t = DashboardAdmin.restartTicks;
             if (t == 0) {
-                server.getPlayerList().broadcastSystemMessage(
-                    Component.literal("§4§l⚠ Redémarrage du serveur — sauvegarde en cours…"), false);
+                SrvLang.each(server,
+                    "§4§l⚠ Redémarrage du serveur — sauvegarde en cours…",
+                    "§4§l⚠ Server restarting — saving…");
                 saveAll();
                 server.getPlayerList().saveAll();
                 server.saveAllChunks(true, true, true);
                 server.halt(false);
             } else if (t % 20 == 0) {
                 int sec = t / 20;
-                String msg = switch (sec) {
+                String msgFr = switch (sec) {
                     case 1800 -> "30 minutes";
                     case 900  -> "15 minutes";
                     case 600  -> "10 minutes";
@@ -993,9 +1001,19 @@ public class DashGameEvents {
                     case 5, 4, 3, 2, 1 -> sec + "…";
                     default   -> null;
                 };
-                if (msg != null)
-                    server.getPlayerList().broadcastSystemMessage(
-                        Component.literal("§c⚠ Redémarrage du serveur dans §e" + msg), false);
+                String msgEn = switch (sec) {
+                    case 1800 -> "30 minutes";
+                    case 900  -> "15 minutes";
+                    case 600  -> "10 minutes";
+                    case 300  -> "5 minutes";
+                    case 60   -> "1 minute";
+                    case 30   -> "30 seconds";
+                    case 10   -> "10 seconds";
+                    case 5, 4, 3, 2, 1 -> sec + "…";
+                    default   -> null;
+                };
+                if (msgFr != null)
+                    SrvLang.each(server, "§c⚠ Redémarrage du serveur dans §e" + msgFr, "§c⚠ Server restarting in §e" + msgEn);
             }
         }
 
@@ -1005,7 +1023,8 @@ public class DashGameEvents {
             if (DashboardAdmin.clearLagTicks == 0) {
                 long count = 0;
                 for (ServerLevel level : server.getAllLevels()) for (net.minecraft.world.entity.Entity e : level.getAllEntities()) if (e instanceof net.minecraft.world.entity.item.ItemEntity) { e.discard(); count++; }
-                server.getPlayerList().broadcastSystemMessage(Component.literal("§eClearLag : §f" + count + " items supprimés."), false);
+                long clearedItems = count;
+                SrvLang.each(server, "§eClearLag : §f" + clearedItems + " items supprimés.", "§eClearLag: §f" + clearedItems + " items removed.");
             }
         }
         if (DashboardAdmin.removeMobsTicks > 0) {
@@ -1013,7 +1032,8 @@ public class DashGameEvents {
             if (DashboardAdmin.removeMobsTicks == 0) {
                 long count = 0;
                 for (ServerLevel level : server.getAllLevels()) for (net.minecraft.world.entity.Entity e : level.getAllEntities()) if (e instanceof net.minecraft.world.entity.monster.Monster && !e.hasCustomName()) { e.discard(); count++; }
-                server.getPlayerList().broadcastSystemMessage(Component.literal("§cMobs supprimés : §f" + count), false);
+                long removedMobs = count;
+                SrvLang.each(server, "§cMobs supprimés : §f" + removedMobs, "§cMobs removed: §f" + removedMobs);
             }
         }
 
@@ -1027,7 +1047,7 @@ public class DashGameEvents {
                 if (me.getValue() != 0 && nowExpire >= me.getValue()) {
                     muteIt.remove();
                     ServerPlayer mp = server.getPlayerList().getPlayer(me.getKey());
-                    if (mp != null) mp.sendSystemMessage(Component.literal("§aVotre mute a expiré, vous pouvez de nouveau écrire."));
+                    if (mp != null) mp.sendSystemMessage(Component.literal(SrvLang.t(mp, "§aVotre mute a expiré, vous pouvez de nouveau écrire.", "§aYour mute has expired, you can chat again.")));
                 }
             }
             java.util.Iterator<java.util.Map.Entry<java.util.UUID, Long>> tpaIt = TpaManager.getPendingTpaTimestamps().entrySet().iterator();
@@ -1041,8 +1061,8 @@ public class DashGameEvents {
                     if (senderUid != null) {
                         ServerPlayer tpaSender = server.getPlayerList().getPlayer(senderUid);
                         ServerPlayer tpaTarget = server.getPlayerList().getPlayer(targetUid);
-                        if (tpaSender != null) tpaSender.sendSystemMessage(Component.literal("§7Votre demande TPA vers §e" + DashboardAdmin.getPlayerNameCache().getOrDefault(targetUid, "?") + "§7 a expiré."));
-                        if (tpaTarget != null) tpaTarget.sendSystemMessage(Component.literal("§7La demande TPA de §e" + DashboardAdmin.getPlayerNameCache().getOrDefault(senderUid, "?") + "§7 a expiré."));
+                        if (tpaSender != null) tpaSender.sendSystemMessage(Component.literal(SrvLang.t(tpaSender, "§7Votre demande TPA vers §e" + DashboardAdmin.getPlayerNameCache().getOrDefault(targetUid, "?") + "§7 a expiré.", "§7Your TPA request to §e" + DashboardAdmin.getPlayerNameCache().getOrDefault(targetUid, "?") + "§7 has expired.")));
+                        if (tpaTarget != null) tpaTarget.sendSystemMessage(Component.literal(SrvLang.t(tpaTarget, "§7La demande TPA de §e" + DashboardAdmin.getPlayerNameCache().getOrDefault(senderUid, "?") + "§7 a expiré.", "§7The TPA request from §e" + DashboardAdmin.getPlayerNameCache().getOrDefault(senderUid, "?") + "§7 has expired.")));
                     }
                 }
             }
@@ -1056,8 +1076,8 @@ public class DashGameEvents {
                     if (senderUid != null) {
                         ServerPlayer dealSender = server.getPlayerList().getPlayer(senderUid);
                         ServerPlayer dealTarget = server.getPlayerList().getPlayer(targetUid);
-                        if (dealSender != null) dealSender.sendSystemMessage(Component.literal("§7Votre demande d'échange a expiré."));
-                        if (dealTarget != null) dealTarget.sendSystemMessage(Component.literal("§7La demande d'échange de §e" + DashboardAdmin.getPlayerNameCache().getOrDefault(senderUid, "?") + "§7 a expiré."));
+                        if (dealSender != null) dealSender.sendSystemMessage(Component.literal(SrvLang.t(dealSender, "§7Votre demande d'échange a expiré.", "§7Your trade request has expired.")));
+                        if (dealTarget != null) dealTarget.sendSystemMessage(Component.literal(SrvLang.t(dealTarget, "§7La demande d'échange de §e" + DashboardAdmin.getPlayerNameCache().getOrDefault(senderUid, "?") + "§7 a expiré.", "§7The trade request from §e" + DashboardAdmin.getPlayerNameCache().getOrDefault(senderUid, "?") + "§7 has expired.")));
                     }
                 }
             }
@@ -1069,7 +1089,8 @@ public class DashGameEvents {
             DashboardAdmin.scheduledCounters.set(i, c);
             if (c <= 0) {
                 DashboardAdmin.scheduledCounters.set(i, DashboardAdmin.getScheduledIntervalsArray()[i]);
-                server.getPlayerList().broadcastSystemMessage(Component.literal("§6§l[Annonce] §r" + DashboardAdmin.getScheduledMsgsArray()[i]), false);
+                String schedMsg = DashboardAdmin.getScheduledMsgsArray()[i];
+                SrvLang.each(server, "§6§l[Annonce] §r" + schedMsg, "§6§l[Announcement] §r" + schedMsg);
             }
         }
 
@@ -1115,8 +1136,8 @@ public class DashGameEvents {
         DashboardAdmin.addLog(target.getUUID(), "Muted " + (seconds <= 0 ? "définitivement" : "pour " + durLabel) + " par " + admin.getName().getString());
         DashboardAdmin.addSanction("MUTE", target.getName().getString(), admin.getName().getString(), durLabel);
         DiscordWebhook.sendSanction(DashboardAdmin.getWebhookSanctions(), admin.getName().getString(), target.getName().getString(), "MUTE", seconds <= 0 ? "permanent" : durLabel);
-        admin.sendSystemMessage(Component.literal("§e" + target.getName().getString() + " est maintenant muet" + suffix + "§e."));
-        target.sendSystemMessage(Component.literal("§cVous avez été rendu muet par un admin" + suffix + "§c."));
+        admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§e" + target.getName().getString() + " est maintenant muet" + suffix + "§e.", "§e" + target.getName().getString() + " is now muted" + suffix + "§e.")));
+        target.sendSystemMessage(Component.literal(SrvLang.t(target, "§cVous avez été rendu muet par un admin" + suffix + "§c.", "§cYou have been muted by an admin" + suffix + "§c.")));
         return 1;
     }
 

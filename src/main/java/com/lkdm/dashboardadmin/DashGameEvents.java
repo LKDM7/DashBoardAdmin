@@ -835,6 +835,38 @@ public class DashGameEvents {
         }
     }
 
+    // ─── Locked-block break (protection + nettoyage du lock) ──────────────────
+    // Sans ça, casser un bloc verrouillé laissait son entrée dans la map des locks :
+    // tout bloc reposé à la même position héritait du lock fantôme.
+    @SubscribeEvent
+    public static void onLockedBlockBreak(BlockEvent.BreakEvent event) {
+        if (event.getLevel().isClientSide()) return;
+        net.minecraft.core.BlockPos pos = event.getPos();
+        if (!DashboardAdmin.isLocked(pos)) return;
+        java.util.UUID owner = DashboardAdmin.getOwner(pos);
+        net.minecraft.world.entity.player.Player p = event.getPlayer();
+        boolean allowed = p != null && (p.getUUID().equals(owner)
+            || DashboardAdmin.isTrusted(owner, p.getUUID())
+            || GroupManager.isTrustedByGroup(owner, p.getUUID())
+            || p.hasPermissions(2));
+        if (!allowed) {
+            if (p instanceof ServerPlayer sp) sp.sendSystemMessage(Component.literal(SrvLang.t(sp, "§cCe bloc est verrouillé.", "§cThis block is locked.")));
+            event.setCanceled(true);
+            return;
+        }
+        // Cassé par le propriétaire / trusted / OP → on retire le lock pour ne pas l'orpheliner.
+        DashboardAdmin.getAllLockedBlocks().remove(pos);
+    }
+
+    // Filet de sécurité : un bloc posé à une position verrouillée signifie que l'ancien
+    // bloc a disparu (explosion, piston, /setblock…) sans nettoyer le lock. Le lock y est
+    // donc obsolète : on le retire (impossible de poser sur un bloc verrouillé encore présent).
+    @SubscribeEvent
+    public static void onPlaceClearStaleLock(BlockEvent.EntityPlaceEvent event) {
+        if (event.getLevel().isClientSide()) return;
+        DashboardAdmin.getAllLockedBlocks().remove(event.getPos());
+    }
+
     // ─── Block break (tree capitator + fast leaf decay) ───────────────────────
     private static volatile boolean isCapitating = false;
 

@@ -11,7 +11,6 @@ import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.ParseResults;
 import com.mojang.brigadier.StringReader;
 import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
-import net.minecraft.commands.arguments.coordinates.Coordinates;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.CommandEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -100,13 +99,16 @@ public class ZoneCommand {
     }
 
     /** Commandes vanilla (niveau OP) débloquées pour un joueur non-OP tant qu'il est en /build. */
-    private static final Set<String> BUILD_ELEVATED_COMMANDS = Set.of("setblock");
+    private static final Set<String> BUILD_ELEVATED_COMMANDS = Set.of("setblock", "fill");
+    /** Commandes prenant deux coins (from/to) : les DEUX doivent tenir dans la zone. */
+    private static final Set<String> TWO_CORNER_COMMANDS = Set.of("fill");
 
     /**
      * En mode /build, autorise un joueur non-OP à lancer certaines commandes vanilla protégées
-     * (setblock) : on ré-analyse la commande avec une source élevée au niveau 2, le temps de
-     * cette exécution uniquement. Les OP ne sont pas concernés (déjà autorisés). La cible du
-     * setblock est restreinte à la zone de build du joueur (les coords hors zone sont refusées).
+     * (setblock, fill) : on ré-analyse la commande avec une source élevée au niveau 2, le temps de
+     * cette exécution uniquement. Les OP ne sont pas concernés (déjà autorisés). La/les cible(s)
+     * sont restreintes à la zone de build du joueur (les coords hors zone sont refusées) ; pour
+     * fill, les deux coins doivent être dans la zone.
      */
     public static void onCommand(CommandEvent event) {
         if (!com.lkdm.dashboardadmin.DashboardAdmin.isSetblockInBuild()) return; // option désactivée dans la config
@@ -128,14 +130,19 @@ public class ZoneCommand {
 
         CommandSourceStack elevated = source.withPermission(2);
 
-        // Restriction zone : la cible doit être DANS la zone de build du joueur.
+        // Restriction zone : la/les cible(s) doivent être DANS la zone de build du joueur.
         if (sp > 0) {
             try {
                 StringReader reader = new StringReader(input);
-                reader.setCursor(sp + 1); // juste après « setblock »
-                Coordinates coords = BlockPosArgument.blockPos().parse(reader);
-                BlockPos target = coords.getBlockPos(elevated);
-                if (!zone.contains(target.getX(), target.getY(), target.getZ())) {
+                reader.setCursor(sp + 1); // juste après le nom de la commande
+                BlockPos corner1 = BlockPosArgument.blockPos().parse(reader).getBlockPos(elevated);
+                boolean inside = zone.contains(corner1.getX(), corner1.getY(), corner1.getZ());
+                if (inside && TWO_CORNER_COMMANDS.contains(name)) {
+                    reader.skipWhitespace(); // espace entre les deux coins
+                    BlockPos corner2 = BlockPosArgument.blockPos().parse(reader).getBlockPos(elevated);
+                    inside = zone.contains(corner2.getX(), corner2.getY(), corner2.getZ());
+                }
+                if (!inside) {
                     player.sendSystemMessage(Component.literal(SrvLang.t(player,
                         "§cVous ne pouvez modifier que des blocs §edans votre zone §6" + zoneName + "§c.",
                         "§cYou can only edit blocks §ewithin your zone §6" + zoneName + "§c.")));

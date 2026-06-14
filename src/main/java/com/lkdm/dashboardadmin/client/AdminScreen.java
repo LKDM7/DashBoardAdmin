@@ -1816,7 +1816,11 @@ public class AdminScreen extends Screen {
 
     // ─── AUDIT (journal d'actions admin) ──────────────────────────────────────────
 
-    private void buildAudit() { /* lecture seule — aucun widget */ }
+    private void buildAudit() {
+        // Bouton d'export du journal vers le webhook Discord (conformité).
+        addRenderableWidget(btn(Lang.t("§eEXPORTER", "§eEXPORT"), b -> send("EXPORT_AUDIT", "", ""))
+            .bounds(px + pw - 96, py + 5, 88, 18).build());
+    }
 
     private void renderAudit(GuiGraphics g) {
         int panelTop = py + 28;

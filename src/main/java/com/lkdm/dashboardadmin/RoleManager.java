@@ -188,7 +188,7 @@ public class RoleManager {
             // ── LOGS / SANCTIONS / WARPS / ZONES
             case "GET_LOGS"      -> "tab.logs";
             case "GET_SANCTIONS" -> "tab.sanctions";
-            case "GET_AUDIT"     -> "tab.audit";
+            case "GET_AUDIT", "EXPORT_AUDIT" -> "tab.audit";
             case "WARP_ADD", "WARP_DELETE", "WARP_TP" -> "tab.warps";
             case "OPEN_ZONES"    -> "tab.zones";
             // ── RÔLES

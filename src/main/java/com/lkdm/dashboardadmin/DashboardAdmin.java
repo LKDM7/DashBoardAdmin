@@ -54,7 +54,7 @@ public class DashboardAdmin {
     private static final java.util.Map<java.util.UUID, java.util.Map<String, String>>                       playerHomesDim = new java.util.HashMap<>();
     static final java.util.Map<java.util.UUID, Boolean>                        frozenPlayers   = new java.util.HashMap<>();
     static final java.util.Map<java.util.UUID, net.minecraft.world.phys.Vec3>  frozenPositions = new java.util.HashMap<>();
-    static final java.util.Set<java.util.UUID>                                 mutedPlayers    = new java.util.HashSet<>();
+    static final java.util.Map<java.util.UUID, Long>                           mutedPlayers    = new java.util.HashMap<>(); // valeur = expiration epoch ms (0 = permanent)
     static final java.util.Set<java.util.UUID>                                 vanishedPlayers = new java.util.HashSet<>();
     private static final java.util.Map<java.util.UUID, java.util.List<String>> playerLogs      = new java.util.HashMap<>();
     static final java.util.Map<String, String> pendingReports  = new java.util.LinkedHashMap<>();
@@ -259,7 +259,33 @@ public class DashboardAdmin {
         return sb.toString();
     }
     public static boolean isFrozen(java.util.UUID uuid)   { return frozenPlayers.getOrDefault(uuid, false); }
-    public static boolean isMuted(java.util.UUID uuid)    { return mutedPlayers.contains(uuid); }
+    /** Muet ? Expire paresseusement les mutes temporaires arrivés à terme. */
+    public static boolean isMuted(java.util.UUID uuid) {
+        Long exp = mutedPlayers.get(uuid);
+        if (exp == null) return false;
+        if (exp != 0 && System.currentTimeMillis() >= exp) { mutedPlayers.remove(uuid); return false; }
+        return true;
+    }
+    /** Expiration du mute en epoch ms (0 = permanent, -1 = non muet). */
+    public static long getMuteExpiry(java.util.UUID uuid) { Long e = mutedPlayers.get(uuid); return e == null ? -1L : e; }
+    /** Mute pour {@code seconds} secondes (≤0 = permanent). */
+    public static void muteFor(java.util.UUID uuid, long seconds) {
+        mutedPlayers.put(uuid, seconds <= 0 ? 0L : System.currentTimeMillis() + seconds * 1000L);
+    }
+    public static void unmute(java.util.UUID uuid) { mutedPlayers.remove(uuid); }
+    public static java.util.Map<java.util.UUID, Long> getMutedPlayers() { return mutedPlayers; }
+    /** "30s","10m","2h","1d", ou un nombre brut de secondes → secondes ; vide/invalide → 0 (permanent). */
+    public static long parseDuration(String s) {
+        if (s == null) return 0;
+        s = s.trim().toLowerCase();
+        if (s.isEmpty()) return 0;
+        try {
+            char u = s.charAt(s.length() - 1);
+            if (Character.isDigit(u)) return Long.parseLong(s);
+            long n = Long.parseLong(s.substring(0, s.length() - 1));
+            return switch (u) { case 's' -> n; case 'm' -> n * 60; case 'h' -> n * 3600; case 'd' -> n * 86400; default -> 0; };
+        } catch (NumberFormatException e) { return 0; }
+    }
     public static boolean isVanished(java.util.UUID uuid) { return vanishedPlayers.contains(uuid); }
     public static boolean isAfk(java.util.UUID uuid)      { return afkPlayers.getOrDefault(uuid, false); }
     public static java.util.Map<java.util.UUID, Long> getLastSeenTimestamps()              { return lastSeenTimestamps; }
@@ -304,7 +330,8 @@ public class DashboardAdmin {
              + "|" + wr + "|" + ws + "|" + motd + "|" + mailSpyEnabled;
     }
     public static String getMutedPlayerNames(net.minecraft.server.MinecraftServer server) {
-        return mutedPlayers.stream().map(uuid -> server.getPlayerList().getPlayer(uuid)).filter(p -> p != null).map(p -> p.getName().getString()).collect(java.util.stream.Collectors.joining(";"));
+        // snapshot des clés car isMuted() peut retirer les mutes expirés
+        return new java.util.ArrayList<>(mutedPlayers.keySet()).stream().filter(DashboardAdmin::isMuted).map(uuid -> server.getPlayerList().getPlayer(uuid)).filter(p -> p != null).map(p -> p.getName().getString()).collect(java.util.stream.Collectors.joining(";"));
     }
     public static String getFrozenPlayerNames(net.minecraft.server.MinecraftServer server) {
         return frozenPlayers.entrySet().stream().filter(java.util.Map.Entry::getValue).map(e -> server.getPlayerList().getPlayer(e.getKey())).filter(p -> p != null).map(p -> p.getName().getString()).collect(java.util.stream.Collectors.joining(";"));
@@ -453,7 +480,7 @@ public class DashboardAdmin {
         if (last != null) {
             long remaining = seconds - (now - last) / 1000;
             if (remaining > 0) {
-                player.sendSystemMessage(Component.literal("§cAttendez encore §e" + remaining + "s §cavant de réutiliser §6" + label + "§c."));
+                player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cAttendez encore §e" + remaining + "s §cavant de réutiliser §6" + label + "§c.", "§cWait §e" + remaining + "s §cbefore using §6" + label + " §cagain.")));
                 return false;
             }
         }

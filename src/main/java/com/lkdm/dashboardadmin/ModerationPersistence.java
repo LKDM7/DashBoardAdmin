@@ -43,6 +43,11 @@ public class ModerationPersistence {
         }
         root.add("adminNotes", notes);
 
+        JsonObject mutes = new JsonObject();
+        for (Map.Entry<UUID, Long> e : DashboardAdmin.getMutedPlayers().entrySet())
+            mutes.addProperty(e.getKey().toString(), e.getValue());
+        root.add("mutes", mutes);
+
         try {
             Files.createDirectories(PATH.getParent());
             Files.writeString(PATH, GSON.toJson(root));
@@ -86,6 +91,15 @@ public class ModerationPersistence {
                             list.add(e.getValue().getAsString()); // rétro-compat ancien format (1 note)
                         if (!list.isEmpty()) notes.put(id, list);
                     } catch (IllegalArgumentException ignored) {}
+                }
+            }
+
+            if (root.has("mutes")) {
+                Map<UUID, Long> mutes = DashboardAdmin.getMutedPlayers();
+                mutes.clear();
+                for (Map.Entry<String, JsonElement> e : root.getAsJsonObject("mutes").entrySet()) {
+                    try { mutes.put(UUID.fromString(e.getKey()), e.getValue().getAsLong()); }
+                    catch (IllegalArgumentException ignored) {}
                 }
             }
         } catch (IOException ex) { ex.printStackTrace(); }

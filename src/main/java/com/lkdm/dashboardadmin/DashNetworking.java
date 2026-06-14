@@ -148,8 +148,22 @@ public class DashNetworking {
             }
             case "MUTE" -> {
                 if (target != null) {
-                    if (DashboardAdmin.mutedPlayers.contains(target.getUUID())) { DashboardAdmin.mutedPlayers.remove(target.getUUID()); DashboardAdmin.addLog(target.getUUID(), "Unmuted par " + admin.getName().getString()); admin.sendSystemMessage(Component.literal("§e" + target.getName().getString() + " n'est plus muet.")); target.sendSystemMessage(Component.literal("§eVous n'êtes plus muet.")); }
-                    else { DashboardAdmin.mutedPlayers.add(target.getUUID()); DiscordWebhook.sendSanction(DashboardAdmin.getWebhookSanctions(), admin.getName().getString(), target.getName().getString(), "MUTE", ""); DashboardAdmin.addLog(target.getUUID(), "Muted par " + admin.getName().getString()); DashboardAdmin.addSanction("MUTE", target.getName().getString(), admin.getName().getString(), ""); admin.sendSystemMessage(Component.literal("§e" + target.getName().getString() + " est maintenant muet.")); target.sendSystemMessage(Component.literal("§cVous avez été rendu muet par un admin.")); }
+                    if (DashboardAdmin.isMuted(target.getUUID())) {
+                        DashboardAdmin.unmute(target.getUUID()); ModerationPersistence.save();
+                        DashboardAdmin.addLog(target.getUUID(), "Unmuted par " + admin.getName().getString());
+                        admin.sendSystemMessage(Component.literal("§e" + target.getName().getString() + " n'est plus muet."));
+                        target.sendSystemMessage(Component.literal("§eVous n'êtes plus muet."));
+                    } else {
+                        long secs = DashboardAdmin.parseDuration(payload.value()); // value vide = permanent
+                        String durLabel = secs <= 0 ? "" : DashboardAdmin.formatDurationShort(secs);
+                        String durSuffix = secs <= 0 ? "" : " §7(" + durLabel + ")";
+                        DashboardAdmin.muteFor(target.getUUID(), secs); ModerationPersistence.save();
+                        DiscordWebhook.sendSanction(DashboardAdmin.getWebhookSanctions(), admin.getName().getString(), target.getName().getString(), "MUTE", secs <= 0 ? "permanent" : durLabel);
+                        DashboardAdmin.addLog(target.getUUID(), "Muted " + (secs <= 0 ? "définitivement" : "pour " + durLabel) + " par " + admin.getName().getString());
+                        DashboardAdmin.addSanction("MUTE", target.getName().getString(), admin.getName().getString(), durLabel);
+                        admin.sendSystemMessage(Component.literal("§e" + target.getName().getString() + " est maintenant muet" + durSuffix + "§e."));
+                        target.sendSystemMessage(Component.literal("§cVous avez été rendu muet par un admin" + durSuffix + "§c."));
+                    }
                 }
             }
             case "HEAL"    -> { if (target != null) { target.setHealth(target.getMaxHealth()); target.getFoodData().eat(20, 1.0f); DashboardAdmin.addLog(target.getUUID(), "Heal par " + admin.getName().getString()); admin.sendSystemMessage(Component.literal("§aJoueur soigné.")); } }
@@ -290,6 +304,17 @@ public class DashNetworking {
             case "OPEN_ZONES"    -> com.lkdm.dashboardadmin.command.ZoneCommand.sendZoneScreen(admin, admin.getServer());
             case "GET_SANCTIONS" -> PacketDistributor.sendToPlayer(admin, new OpenSanctionsPayload(DashboardAdmin.getSanctionsSerialized()));
             case "GET_AUDIT"     -> PacketDistributor.sendToPlayer(admin, new OpenAuditPayload(DashboardAdmin.getAuditSerialized()));
+            case "EXPORT_AUDIT" -> {
+                String url = DashboardAdmin.getWebhookSanctions();
+                if (url == null || url.isBlank()) { admin.sendSystemMessage(Component.literal("§cAucun webhook Discord configuré (onglet Features).")); return; }
+                StringBuilder sb = new StringBuilder();
+                for (String[] e : DashboardAdmin.getAuditLog())
+                    sb.append(e[0]).append("  ").append(e[1]).append(" -> ").append(e[2])
+                      .append("—".equals(e[3]) ? "" : " " + e[3])
+                      .append("—".equals(e[4]) ? "" : " (" + e[4] + ")").append('\n');
+                DiscordWebhook.sendAuditExport(url, sb.length() == 0 ? "(journal vide)" : sb.toString());
+                admin.sendSystemMessage(Component.literal("§a✔ Journal d'audit (" + DashboardAdmin.getAuditLog().size() + " entrées) exporté vers le webhook."));
+            }
             case "GAMEMODE" -> { if (target != null) { net.minecraft.world.level.GameType next = switch (target.gameMode.getGameModeForPlayer()) { case SURVIVAL -> net.minecraft.world.level.GameType.CREATIVE; case CREATIVE -> net.minecraft.world.level.GameType.SPECTATOR; default -> net.minecraft.world.level.GameType.SURVIVAL; }; target.setGameMode(next); admin.sendSystemMessage(Component.literal("Mode de jeu changé en: " + next.getName())); } }
             case "SCHEDULE_ADD"  -> { String[] parts = payload.value().split("\t", 2); if (parts.length == 2) { try { int minutes = Integer.parseInt(parts[1].trim()); DashboardAdmin.addScheduledBroadcast(parts[0], minutes * 1200); admin.sendSystemMessage(Component.literal("§aBroadcast programmé ajouté.")); } catch (NumberFormatException ignored) {} } }
             case "SCHEDULE_REMOVE" -> { try { int idx = Integer.parseInt(payload.value()); if (DashboardAdmin.removeScheduledBroadcast(idx)) { ServerConfig.save(); admin.sendSystemMessage(Component.literal("§cBroadcast supprimé.")); } } catch (NumberFormatException ignored) {} }

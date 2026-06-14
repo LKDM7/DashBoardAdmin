@@ -391,9 +391,43 @@ public class DashGameEvents {
                 int logCount = DashboardAdmin.getPlayerLogs().getOrDefault(cacheEntry.getKey(), java.util.Collections.emptyList()).size();
                 adm.sendSystemMessage(Component.literal("§7Logs : §f" + logCount + " entrée" + (logCount > 1 ? "s" : "")));
             });
+            // 5 dernières sanctions du joueur (sanctionsLog = [ts, type, player, admin, reason])
+            java.util.List<String[]> sl = DashboardAdmin.getSanctionsLog();
+            java.util.List<String[]> recent = new java.util.ArrayList<>();
+            for (int i = sl.size() - 1; i >= 0 && recent.size() < 5; i--)
+                if (sl.get(i)[2].equalsIgnoreCase(targetName)) recent.add(sl.get(i));
+            if (recent.isEmpty()) {
+                adm.sendSystemMessage(Component.literal("§7Sanctions : §aaucune"));
+            } else {
+                adm.sendSystemMessage(Component.literal("§7Sanctions §8(5 dernières)§7 :"));
+                for (String[] s : recent)
+                    adm.sendSystemMessage(Component.literal("§8• §7" + s[0] + " §e" + s[1] + " §7par §f" + s[3]
+                        + ("—".equals(s[4]) ? "" : " §8(" + s[4] + ")")));
+            }
             adm.sendSystemMessage(Component.literal("§6§l━━━━━━━━━━━━━━━━━━━━━━━━━━━"));
             return 1;
         })));
+
+        // /mute <joueur> [durée]  — durée: 30s/10m/2h/1d ou secondes ; absente = permanent
+        dispatcher.register(Commands.literal("mute").requires(s -> s.hasPermission(2))
+            .then(Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
+                .executes(ctx -> applyMute(ctx, 0))
+                .then(Commands.argument("duration", com.mojang.brigadier.arguments.StringArgumentType.word())
+                    .executes(ctx -> applyMute(ctx, DashboardAdmin.parseDuration(com.mojang.brigadier.arguments.StringArgumentType.getString(ctx, "duration")))))));
+
+        // /unmute <joueur>
+        dispatcher.register(Commands.literal("unmute").requires(s -> s.hasPermission(2))
+            .then(Commands.argument("player", net.minecraft.commands.arguments.EntityArgument.player())
+                .executes(ctx -> {
+                    ServerPlayer admin = ctx.getSource().getPlayerOrException();
+                    ServerPlayer target = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
+                    if (!DashboardAdmin.isMuted(target.getUUID())) { admin.sendSystemMessage(Component.literal("§e" + target.getName().getString() + " n'est pas muet.")); return 0; }
+                    DashboardAdmin.unmute(target.getUUID()); ModerationPersistence.save();
+                    DashboardAdmin.addLog(target.getUUID(), "Unmuted par " + admin.getName().getString());
+                    admin.sendSystemMessage(Component.literal("§e" + target.getName().getString() + " n'est plus muet."));
+                    target.sendSystemMessage(Component.literal("§eVous n'êtes plus muet."));
+                    return 1;
+                })));
 
         // /deal
         dispatcher.register(Commands.literal("deal").then(Commands.argument("target", net.minecraft.commands.arguments.EntityArgument.player()).executes(ctx -> {
@@ -681,7 +715,9 @@ public class DashGameEvents {
         String raw = event.getRawText();
         if (DashboardAdmin.isMuted(sender.getUUID())) {
             DashboardAdmin.addLog(sender.getUUID(), "Chat bloqué (muet): " + raw);
-            sender.sendSystemMessage(Component.literal("§cVous êtes muet, vous ne pouvez pas écrire."));
+            long exp = DashboardAdmin.getMuteExpiry(sender.getUUID());
+            String remain = exp > 0 ? " §7(encore " + DashboardAdmin.formatDurationShort((exp - System.currentTimeMillis()) / 1000) + ")" : "";
+            sender.sendSystemMessage(Component.literal("§cVous êtes muet, vous ne pouvez pas écrire." + remain));
             event.setCanceled(true);
             return;
         }
@@ -984,6 +1020,16 @@ public class DashGameEvents {
         // TPA and deal request expiry (every 20 ticks = 1 second)
         if (server.getTickCount() % 20 == 0) {
             long nowExpire = System.currentTimeMillis();
+            // Expiration des mutes temporaires : retire + notifie le joueur en ligne.
+            java.util.Iterator<java.util.Map.Entry<java.util.UUID, Long>> muteIt = DashboardAdmin.getMutedPlayers().entrySet().iterator();
+            while (muteIt.hasNext()) {
+                java.util.Map.Entry<java.util.UUID, Long> me = muteIt.next();
+                if (me.getValue() != 0 && nowExpire >= me.getValue()) {
+                    muteIt.remove();
+                    ServerPlayer mp = server.getPlayerList().getPlayer(me.getKey());
+                    if (mp != null) mp.sendSystemMessage(Component.literal("§aVotre mute a expiré, vous pouvez de nouveau écrire."));
+                }
+            }
             java.util.Iterator<java.util.Map.Entry<java.util.UUID, Long>> tpaIt = TpaManager.getPendingTpaTimestamps().entrySet().iterator();
             while (tpaIt.hasNext()) {
                 java.util.Map.Entry<java.util.UUID, Long> te = tpaIt.next();
@@ -1055,6 +1101,23 @@ public class DashGameEvents {
         } catch (Exception e) {
             System.err.println("[DashBoardAdmin] Autosave failed for " + label + ": " + e.getMessage());
         }
+    }
+
+    /** Applique un mute (temporaire si {@code seconds}>0, sinon permanent) avec log, sanction, webhook et persistance. */
+    private static int applyMute(com.mojang.brigadier.context.CommandContext<net.minecraft.commands.CommandSourceStack> ctx, long seconds)
+            throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+        ServerPlayer admin = ctx.getSource().getPlayerOrException();
+        ServerPlayer target = net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "player");
+        DashboardAdmin.muteFor(target.getUUID(), seconds);
+        ModerationPersistence.save();
+        String durLabel = seconds <= 0 ? "" : DashboardAdmin.formatDurationShort(seconds);
+        String suffix   = seconds <= 0 ? "" : " §7(" + durLabel + ")";
+        DashboardAdmin.addLog(target.getUUID(), "Muted " + (seconds <= 0 ? "définitivement" : "pour " + durLabel) + " par " + admin.getName().getString());
+        DashboardAdmin.addSanction("MUTE", target.getName().getString(), admin.getName().getString(), durLabel);
+        DiscordWebhook.sendSanction(DashboardAdmin.getWebhookSanctions(), admin.getName().getString(), target.getName().getString(), "MUTE", seconds <= 0 ? "permanent" : durLabel);
+        admin.sendSystemMessage(Component.literal("§e" + target.getName().getString() + " est maintenant muet" + suffix + "§e."));
+        target.sendSystemMessage(Component.literal("§cVous avez été rendu muet par un admin" + suffix + "§c."));
+        return 1;
     }
 
     // ─── Utility ──────────────────────────────────────────────────────────────

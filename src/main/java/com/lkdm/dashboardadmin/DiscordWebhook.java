@@ -68,6 +68,23 @@ public class DiscordWebhook {
         sendJson(url, wrapEmbed(embed).toString());
     }
 
+    // ── Export du journal d'audit (conformité) ──────────────────────────────────
+
+    public static void sendAuditExport(String url, String body) {
+        if (url == null || url.isBlank()) return;
+        // Garde les entrées les plus récentes (fin du texte) sous la limite Discord (~4096 / description).
+        String desc = body.length() > 3800 ? "…\n" + body.substring(body.length() - 3800) : body;
+        JsonObject embed = new JsonObject();
+        embed.addProperty("title", "📋 Export du journal d'audit");
+        embed.addProperty("color", 0x5865F2);
+        embed.addProperty("description", "```\n" + desc + "\n```");
+        embed.addProperty("timestamp", Instant.now().toString());
+        JsonObject footer = new JsonObject();
+        footer.addProperty("text", "DashboardAdmin • Conformité");
+        embed.add("footer", footer);
+        sendJson(url, wrapEmbed(embed).toString());
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static JsonObject buildEmbed(String title, int color,

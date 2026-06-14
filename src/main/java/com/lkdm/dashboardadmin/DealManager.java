@@ -82,8 +82,8 @@ public final class DealManager {
         ServerPlayer p2 = server.getPlayerList().getPlayer(session.player2);
         for (ItemStack stack : session.offer2) if (!stack.isEmpty() && p1 != null) p1.getInventory().add(stack.copy());
         for (ItemStack stack : session.offer1) if (!stack.isEmpty() && p2 != null) p2.getInventory().add(stack.copy());
-        if (p1 != null) { PacketDistributor.sendToPlayer(p1, new OpenDealPayload("", true, "", false, false, List.of(), List.of())); p1.sendSystemMessage(Component.literal("§aÉchange complété !")); }
-        if (p2 != null) { PacketDistributor.sendToPlayer(p2, new OpenDealPayload("", true, "", false, false, List.of(), List.of())); p2.sendSystemMessage(Component.literal("§aÉchange complété !")); }
+        if (p1 != null) { PacketDistributor.sendToPlayer(p1, new OpenDealPayload("", true, "", false, false, List.of(), List.of())); p1.sendSystemMessage(Component.literal(SrvLang.t(p1, "§aÉchange complété !", "§aTrade completed!"))); }
+        if (p2 != null) { PacketDistributor.sendToPlayer(p2, new OpenDealPayload("", true, "", false, false, List.of(), List.of())); p2.sendSystemMessage(Component.literal(SrvLang.t(p2, "§aÉchange complété !", "§aTrade completed!"))); }
     }
     static void handleDealDisconnect(ServerPlayer disconnecting, MinecraftServer server) {
         UUID uid = disconnecting.getUUID();

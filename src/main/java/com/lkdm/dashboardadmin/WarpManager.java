@@ -46,13 +46,13 @@ public final class WarpManager {
     /** Téléporte vers un warp (dimension comprise) — utilisé par le GUI admin et le menu joueur. */
     public static void teleportToWarp(ServerPlayer player, String name) {
         BlockPos pos = warps.get(name);
-        if (pos == null) { player.sendSystemMessage(Component.literal("§cWarp §e" + name + " §cintrouvable.")); return; }
+        if (pos == null) { player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cWarp §e" + name + " §cintrouvable.", "§cWarp §e" + name + " §cnot found."))); return; }
         String dimId = warpsDim.getOrDefault(name, "minecraft:overworld");
         ResourceKey<Level> dimKey = ResourceKey.create(Level.OVERWORLD.registryKey(), ResourceLocation.parse(dimId));
         ServerLevel targetLevel = player.getServer().getLevel(dimKey);
         if (targetLevel == null) targetLevel = (ServerLevel) player.level();
         DashboardAdmin.savePosition(player);
         player.teleportTo(targetLevel, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot());
-        player.sendSystemMessage(Component.literal("§aTéléporté au warp §e'" + name + "'§a."));
+        player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aTéléporté au warp §e'" + name + "'§a.", "§aTeleported to warp §e'" + name + "'§a.")));
     }
 }

@@ -44,22 +44,22 @@ public final class TpaManager {
                 ServerPlayer target = EntityArgument.getPlayer(context, "target");
                 if (sender == target) return 0;
                 if (com.lkdm.dashboardadmin.command.ZoneCommand.isInBuildMode(sender.getUUID())) {
-                    sender.sendSystemMessage(Component.literal("§cImpossible d'utiliser §6/tpa §cen mode construction."));
+                    sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§cImpossible d'utiliser §6/tpa §cen mode construction.", "§cYou can't use §6/tpa §cwhile in build mode.")));
                     return 0;
                 }
                 if (!DashboardAdmin.checkCooldown(lastTpaUse, sender.getUUID(), DashboardAdmin.getCooldownTpa(), sender, "/tpa")) return 0;
                 if (!DashboardAdmin.getPlayerSettings(target.getUUID()).allowTpaRequests) {
-                    sender.sendSystemMessage(Component.literal("§c" + target.getName().getString() + " n'accepte pas les demandes de téléportation."));
+                    sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§c" + target.getName().getString() + " n'accepte pas les demandes de téléportation.", "§c" + target.getName().getString() + " doesn't accept teleport requests.")));
                     return 0;
                 }
                 tpaRequests.put(target.getUUID(), sender.getUUID());
                 pendingTpaTimestamps.put(target.getUUID(), System.currentTimeMillis());
-                Component msg = Component.literal(sender.getName().getString() + " veut se tp à vous. ")
-                    .append(Component.literal("[OUI]").withStyle(s -> s.withColor(ChatFormatting.GREEN).withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpaccept"))))
+                Component msg = Component.literal(SrvLang.t(target, sender.getName().getString() + " veut se tp à vous. ", sender.getName().getString() + " wants to teleport to you. "))
+                    .append(Component.literal(SrvLang.t(target, "[OUI]", "[YES]")).withStyle(s -> s.withColor(ChatFormatting.GREEN).withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpaccept"))))
                     .append(Component.literal(" "))
-                    .append(Component.literal("[NON]").withStyle(s -> s.withColor(ChatFormatting.RED).withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpdeny"))));
+                    .append(Component.literal(SrvLang.t(target, "[NON]", "[NO]")).withStyle(s -> s.withColor(ChatFormatting.RED).withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpdeny"))));
                 target.sendSystemMessage(msg);
-                sender.sendSystemMessage(Component.literal("§aRequête envoyée à " + target.getName().getString()));
+                sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§aRequête envoyée à " + target.getName().getString(), "§aRequest sent to " + target.getName().getString())));
                 return 1;
             })));
         dispatcher.register(Commands.literal("tpahere")
@@ -69,23 +69,23 @@ public final class TpaManager {
                 ServerPlayer target = EntityArgument.getPlayer(context, "target");
                 if (sender == target) return 0;
                 if (com.lkdm.dashboardadmin.command.ZoneCommand.isInBuildMode(sender.getUUID())) {
-                    sender.sendSystemMessage(Component.literal("§cImpossible d'utiliser §6/tpahere §cen mode construction."));
+                    sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§cImpossible d'utiliser §6/tpahere §cen mode construction.", "§cYou can't use §6/tpahere §cwhile in build mode.")));
                     return 0;
                 }
                 if (!DashboardAdmin.checkCooldown(lastTpaUse, sender.getUUID(), DashboardAdmin.getCooldownTpa(), sender, "/tpahere")) return 0;
                 if (!DashboardAdmin.getPlayerSettings(target.getUUID()).allowTpaRequests) {
-                    sender.sendSystemMessage(Component.literal("§c" + target.getName().getString() + " n'accepte pas les demandes de téléportation."));
+                    sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§c" + target.getName().getString() + " n'accepte pas les demandes de téléportation.", "§c" + target.getName().getString() + " doesn't accept teleport requests.")));
                     return 0;
                 }
                 tpaRequests.put(target.getUUID(), sender.getUUID());
                 tpaHere.add(target.getUUID());
                 pendingTpaTimestamps.put(target.getUUID(), System.currentTimeMillis());
-                Component msg = Component.literal(sender.getName().getString() + " veut que vous vous tp à lui. ")
-                    .append(Component.literal("[OUI]").withStyle(s -> s.withColor(ChatFormatting.GREEN).withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpaccept"))))
+                Component msg = Component.literal(SrvLang.t(target, sender.getName().getString() + " veut que vous vous tp à lui. ", sender.getName().getString() + " wants you to teleport to them. "))
+                    .append(Component.literal(SrvLang.t(target, "[OUI]", "[YES]")).withStyle(s -> s.withColor(ChatFormatting.GREEN).withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpaccept"))))
                     .append(Component.literal(" "))
-                    .append(Component.literal("[NON]").withStyle(s -> s.withColor(ChatFormatting.RED).withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpdeny"))));
+                    .append(Component.literal(SrvLang.t(target, "[NON]", "[NO]")).withStyle(s -> s.withColor(ChatFormatting.RED).withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/tpdeny"))));
                 target.sendSystemMessage(msg);
-                sender.sendSystemMessage(Component.literal("§aRequête envoyée à " + target.getName().getString()));
+                sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§aRequête envoyée à " + target.getName().getString(), "§aRequest sent to " + target.getName().getString())));
                 return 1;
             })));
         dispatcher.register(Commands.literal("tpaccept").executes(context -> {
@@ -93,11 +93,11 @@ public final class TpaManager {
             UUID senderUUID = tpaRequests.remove(target.getUUID());
             pendingTpaTimestamps.remove(target.getUUID());
             boolean here = tpaHere.remove(target.getUUID());
-            if (senderUUID == null) { target.sendSystemMessage(Component.literal("§cAucune demande en attente.")); return 0; }
+            if (senderUUID == null) { target.sendSystemMessage(Component.literal(SrvLang.t(target, "§cAucune demande en attente.", "§cNo pending request."))); return 0; }
             String senderName = DashboardAdmin.getPlayerNameCache().getOrDefault(senderUUID, "?");
             ServerPlayer sender = context.getSource().getServer().getPlayerList().getPlayer(senderUUID);
             if (sender == null) {
-                target.sendSystemMessage(Component.literal("§c" + senderName + " n'est plus connecté."));
+                target.sendSystemMessage(Component.literal(SrvLang.t(target, "§c" + senderName + " n'est plus connecté.", "§c" + senderName + " is no longer online.")));
                 return 0;
             }
             if (here) {
@@ -106,8 +106,8 @@ public final class TpaManager {
             } else {
                 sender.teleportTo((ServerLevel) target.level(), target.getX(), target.getY(), target.getZ(), Set.of(), sender.getYRot(), sender.getXRot());
             }
-            target.sendSystemMessage(Component.literal("§a✔ Vous avez accepté la demande de §e" + sender.getName().getString() + "§a."));
-            sender.sendSystemMessage(Component.literal("§a✔ §e" + target.getName().getString() + "§a a accepté — téléporté !"));
+            target.sendSystemMessage(Component.literal(SrvLang.t(target, "§a✔ Vous avez accepté la demande de §e" + sender.getName().getString() + "§a.", "§a✔ You accepted §e" + sender.getName().getString() + "§a's request.")));
+            sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§a✔ §e" + target.getName().getString() + "§a a accepté — téléporté !", "§a✔ §e" + target.getName().getString() + "§a accepted — teleported!")));
             return 1;
         }));
         dispatcher.register(Commands.literal("tpdeny").executes(context -> {
@@ -115,11 +115,11 @@ public final class TpaManager {
             pendingTpaTimestamps.remove(target.getUUID());
             tpaHere.remove(target.getUUID());
             UUID senderUUID = tpaRequests.remove(target.getUUID());
-            if (senderUUID == null) { target.sendSystemMessage(Component.literal("§cAucune demande en attente.")); return 0; }
+            if (senderUUID == null) { target.sendSystemMessage(Component.literal(SrvLang.t(target, "§cAucune demande en attente.", "§cNo pending request."))); return 0; }
             String senderName = DashboardAdmin.getPlayerNameCache().getOrDefault(senderUUID, "?");
             ServerPlayer sender = context.getSource().getServer().getPlayerList().getPlayer(senderUUID);
-            target.sendSystemMessage(Component.literal("§c✘ Vous avez refusé la demande de §e" + senderName + "§c."));
-            if (sender != null) sender.sendSystemMessage(Component.literal("§c✘ §e" + target.getName().getString() + "§c a refusé votre demande de téléportation."));
+            target.sendSystemMessage(Component.literal(SrvLang.t(target, "§c✘ Vous avez refusé la demande de §e" + senderName + "§c.", "§c✘ You denied §e" + senderName + "§c's request.")));
+            if (sender != null) sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§c✘ §e" + target.getName().getString() + "§c a refusé votre demande de téléportation.", "§c✘ §e" + target.getName().getString() + "§c denied your teleport request.")));
             return 1;
         }));
     }

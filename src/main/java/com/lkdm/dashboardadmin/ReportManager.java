@@ -26,50 +26,50 @@ public final class ReportManager {
         boolean hasImg = img != null && img.length > 0;
         DashboardAdmin.pendingReports.put(name, message);
         if (hasImg) DashboardAdmin.reportImages.put(name, img);
-        player.sendSystemMessage(Component.literal("§aVotre rapport a été envoyé aux administrateurs."));
+        player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aVotre rapport a été envoyé aux administrateurs.", "§aYour report has been sent to the staff.")));
         notifyAdmins(player.getServer(), name, message, hasImg);
         DiscordWebhook.sendReport(DashboardAdmin.getWebhookReports(), name, message, hasImg ? img : null);
     }
 
     /** Prévient chaque admin en ligne (chat cliquable + toast) d'un nouveau report. */
     private static void notifyAdmins(MinecraftServer server, String name, String message, boolean hasImg) {
-        Component notif = Component.literal("§c§l[REPORT] §r§e" + name + " §7» §f" + message + "  ")
-            .append(Component.literal("[ACCEPTER]").withStyle(s -> s.withColor(ChatFormatting.GREEN)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/reportaccept " + name))))
-            .append(Component.literal("  "))
-            .append(Component.literal("[REFUSER]").withStyle(s -> s.withColor(ChatFormatting.RED)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/reportdeny " + name))));
         for (ServerPlayer op : server.getPlayerList().getPlayers())
             if (op.hasPermissions(2)) {
+                Component notif = Component.literal("§c§l[REPORT] §r§e" + name + " §7» §f" + message + "  ")
+                    .append(Component.literal(SrvLang.t(op, "[ACCEPTER]", "[ACCEPT]")).withStyle(s -> s.withColor(ChatFormatting.GREEN)
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/reportaccept " + name))))
+                    .append(Component.literal("  "))
+                    .append(Component.literal(SrvLang.t(op, "[REFUSER]", "[DENY]")).withStyle(s -> s.withColor(ChatFormatting.RED)
+                        .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/reportdeny " + name))));
                 op.sendSystemMessage(notif);
                 PacketDistributor.sendToPlayer(op, new NotifPayload("REPORT",
-                    "§c⚑ Report de §f" + name + (hasImg ? " §8[IMG]" : "")));
+                    SrvLang.t(op, "§c⚑ Report de §f" + name + (hasImg ? " §8[IMG]" : ""), "§c⚑ Report from §f" + name + (hasImg ? " §8[IMG]" : ""))));
             }
     }
 
     /** Prend en charge un report en attente. Renvoie false (avec message) s'il n'existe pas. */
     public static boolean accept(ServerPlayer admin, String name) {
         if (!DashboardAdmin.pendingReports.containsKey(name)) {
-            admin.sendSystemMessage(Component.literal("§cAucun rapport en attente de §e" + name + "§c."));
+            admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cAucun rapport en attente de §e" + name + "§c.", "§cNo pending report from §e" + name + "§c.")));
             return false;
         }
         DashboardAdmin.acceptedReports.put(name, DashboardAdmin.pendingReports.remove(name));
         byte[] img = DashboardAdmin.reportImages.remove(name);
         if (img != null) DashboardAdmin.acceptedReportImages.put(name, img);
         ServerPlayer reporter = admin.getServer().getPlayerList().getPlayerByName(name);
-        if (reporter != null) reporter.sendSystemMessage(Component.literal("§aVotre signalement a été pris en charge."));
-        admin.sendSystemMessage(Component.literal("§aRapport de §e" + name + " §apris en charge."));
+        if (reporter != null) reporter.sendSystemMessage(Component.literal(SrvLang.t(reporter, "§aVotre signalement a été pris en charge.", "§aYour report is now being handled.")));
+        admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aRapport de §e" + name + " §apris en charge.", "§aReport from §e" + name + " §ataken in charge.")));
         return true;
     }
 
     /** Refuse (supprime) un report en attente. Renvoie false (avec message) s'il n'existe pas. */
     public static boolean refuse(ServerPlayer admin, String name) {
         if (DashboardAdmin.pendingReports.remove(name) == null) {
-            admin.sendSystemMessage(Component.literal("§cAucun rapport de §e" + name + "§c."));
+            admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cAucun rapport de §e" + name + "§c.", "§cNo report from §e" + name + "§c.")));
             return false;
         }
         DashboardAdmin.reportImages.remove(name);
-        admin.sendSystemMessage(Component.literal("§cRapport de §e" + name + " §crefusé."));
+        admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cRapport de §e" + name + " §crefusé.", "§cReport from §e" + name + " §cdenied.")));
         return true;
     }
 
@@ -77,7 +77,7 @@ public final class ReportManager {
     public static boolean close(ServerPlayer admin, String name) {
         String msg = DashboardAdmin.acceptedReports.remove(name);
         if (msg == null) {
-            admin.sendSystemMessage(Component.literal("§cAucun rapport en cours pour §e" + name + "§c."));
+            admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cAucun rapport en cours pour §e" + name + "§c.", "§cNo ongoing report for §e" + name + "§c.")));
             return false;
         }
         if (DashboardAdmin.closedReports.size() >= 15) {
@@ -89,8 +89,8 @@ public final class ReportManager {
         byte[] img = DashboardAdmin.acceptedReportImages.remove(name);
         if (img != null) DashboardAdmin.closedReportImages.put(name, img);
         ServerPlayer reporter = admin.getServer().getPlayerList().getPlayerByName(name);
-        if (reporter != null) reporter.sendSystemMessage(Component.literal("§aVotre signalement a été résolu."));
-        admin.sendSystemMessage(Component.literal("§aSignalement de §e" + name + " §aclôturé."));
+        if (reporter != null) reporter.sendSystemMessage(Component.literal(SrvLang.t(reporter, "§aVotre signalement a été résolu.", "§aYour report has been resolved.")));
+        admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aSignalement de §e" + name + " §aclôturé.", "§aReport from §e" + name + " §aclosed.")));
         return true;
     }
 

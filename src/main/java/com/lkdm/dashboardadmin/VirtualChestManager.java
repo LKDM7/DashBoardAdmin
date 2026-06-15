@@ -40,10 +40,8 @@ public class VirtualChestManager {
                 if (stack.isEmpty()) continue;
                 JsonObject item = new JsonObject();
                 item.addProperty("slot", i);
-                // NBT complet de l'item : préserve enchantements / nom / composants.
-                CompoundTag tag = new CompoundTag();
-                stack.save(registries, tag);
-                item.addProperty("nbt", tag.toString());
+                // NBT complet de l'item (valeur de RETOUR de save : save(reg, tag) ne remplit PAS tag).
+                item.addProperty("nbt", stack.save(registries).toString());
                 list.add(item);
             }
             data.add(entry.getKey().toString(), list);

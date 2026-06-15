@@ -860,9 +860,9 @@ public class ZoneCommand {
             for (int i = 0; i < st.items().size(); i++) {
                 ItemStack s = st.items().get(i);
                 if (s.isEmpty()) continue;
-                CompoundTag it = new CompoundTag();
+                // valeur de RETOUR de save (save(reg, prefix) ne remplit PAS prefix) ; on y ajoute le slot.
+                CompoundTag it = (CompoundTag) s.save(reg);
                 it.putInt("Slot", i);
-                s.save(reg, it);
                 items.add(it);
             }
             p.put("items", items);

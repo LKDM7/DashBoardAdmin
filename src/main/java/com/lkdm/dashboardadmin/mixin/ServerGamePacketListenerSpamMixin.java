@@ -11,24 +11,21 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Contournement de l'anti-spam chat vanilla pour les joueurs exemptés (OP + rôles de modération,
- * uniquement si le toggle Features est activé — voir {@link DashboardAdmin#isAntiSpamBypassed}).
+ * uniquement si le toggle est activé — voir {@link DashboardAdmin#isAntiSpamBypassed}).
  *
- * Vanilla incrémente {@code chatSpamTickCount} de 20 par message et déconnecte au-delà de 200
- * (≈ 10 messages très rapprochés). Plutôt que de toucher à la logique de déconnexion, on remet le
- * compteur à zéro à chaque tick pour les joueurs exemptés : il n'atteint donc jamais le seuil.
- *
- * NB : en 1.21.1 ce champ est un {@code int} (pas un AtomicInteger), non final → on l'écrit directement.
+ * Vanilla appelle {@code detectRateSpam()} après chaque message : +20 au compteur, déconnexion
+ * au-delà de 200 (≈ 10 messages rapprochés). On annule purement l'appel pour les joueurs exemptés :
+ * le compteur n'est jamais incrémenté ni testé → aucun kick possible, quel que soit le débit.
  */
 @Mixin(ServerGamePacketListenerImpl.class)
 public abstract class ServerGamePacketListenerSpamMixin {
 
     @Shadow public ServerPlayer player;
-    @Shadow private int chatSpamTickCount;
 
-    @Inject(method = "tick", at = @At("HEAD"))
+    @Inject(method = "detectRateSpam", at = @At("HEAD"), cancellable = true)
     private void dashboardadmin$bypassChatSpam(CallbackInfo ci) {
         if (DashboardAdmin.isAntiSpamBypassed(player)) {
-            this.chatSpamTickCount = 0;
+            ci.cancel();
         }
     }
 }

@@ -84,9 +84,11 @@ public class AdminScreen extends Screen {
     private boolean  pvpEnabled;
     private boolean  chatLocked          = com.lkdm.dashboardadmin.DashboardAdmin.isChatLocked();
     private boolean  weatherCycleEnabled = com.lkdm.dashboardadmin.DashboardAdmin.isWeatherCycleEnabled();
+    private boolean  daylightCycleEnabled = com.lkdm.dashboardadmin.DashboardAdmin.isDaylightCycleEnabled();
     private boolean  afkAutoEnabled           = false;
     private boolean  proportionalSleepEnabled = false;
     private boolean  treeCapitatorEnabled     = false;
+    private boolean  antiSpamBypassEnabled    = false;
     private boolean  fastLeafDecayEnabled     = false;
     private boolean  doubleDoorEnabled          = false;
     private boolean  cropTrampleEnabled         = false;
@@ -248,6 +250,7 @@ public class AdminScreen extends Screen {
                 if (feats.length >= 12) webhookSanctions = feats[11];
                 if (feats.length >= 13) motd             = feats[12];
                 if (feats.length >= 14) mailSpyEnabled   = Boolean.parseBoolean(feats[13]);
+                if (feats.length >= 15) antiSpamBypassEnabled = Boolean.parseBoolean(feats[14]);
             }
         }
         String grpRaw = payload.groupsSerialized();
@@ -603,9 +606,13 @@ public class AdminScreen extends Screen {
         addRenderableWidget(btn(Lang.t("SOLEIL", "CLEAR"),   b -> send("SET_WEATHER_CLEAR",   "", "")).bounds(lx,       my, 72, 20).build());
         addRenderableWidget(btn(Lang.t("PLUIE", "RAIN"),     b -> send("SET_WEATHER_RAIN",    "", "")).bounds(lx + 76,  my, 72, 20).build());
         addRenderableWidget(btn(Lang.t("ORAGE", "THUNDER"),  b -> send("SET_WEATHER_THUNDER", "", "")).bounds(lx + 152, my, 72, 20).build());
-        addRenderableWidget(btn(Lang.t("CYCLE MÉTÉO: ", "WEATHER CYCLE: ") + (weatherCycleEnabled ? "§aON" : "§cOFF"),
+        addRenderableWidget(btn(Lang.t("CYCLE MÉTÉO: ", "WEATHER: ") + (weatherCycleEnabled ? "§aON" : "§cOFF"),
             b -> { send("TOGGLE_WEATHER_CYCLE", "", ""); weatherCycleEnabled = !weatherCycleEnabled; init(); })
-            .bounds(lx, my + 26, 162, 20).build());
+            .bounds(lx, my + 26, 118, 20).build());
+        // Cycle jour/nuit (gamerule doDaylightCycle) — fige l'heure quand OFF, même logique que le cycle météo.
+        addRenderableWidget(btn(Lang.t("CYCLE J/N: ", "DAY/NIGHT: ") + (daylightCycleEnabled ? "§aON" : "§cOFF"),
+            b -> { send("TOGGLE_DAYLIGHT_CYCLE", "", ""); daylightCycleEnabled = !daylightCycleEnabled; init(); })
+            .bounds(lx + 122, my + 26, 118, 20).build());
 
         int oy = py + 168;
         int bw3 = Math.min(92, (px + pw - 12 - lx - 8) / 3);
@@ -947,6 +954,11 @@ public class AdminScreen extends Screen {
         addRenderableWidget(btn(Lang.t("SPY MP : ", "PM SPY: ") + (mailSpyEnabled ? "§aON" : "§cOFF"),
             b -> { send("TOGGLE_MAIL_SPY", "", ""); mailSpyEnabled = !mailSpyEnabled; init(); })
             .bounds(contentX + contentW - 90, aY + 101, 90, 14).build());
+
+        // Contournement anti-spam vanilla pour OP + rôles de modération (figé OFF = anti-spam actif pour tous).
+        addRenderableWidget(btn(Lang.t("BYPASS SPAM (staff) : ", "SPAM BYPASS (staff): ") + (antiSpamBypassEnabled ? "§aON" : "§cOFF"),
+            b -> { send("TOGGLE_ANTISPAM_BYPASS", "", ""); antiSpamBypassEnabled = !antiSpamBypassEnabled; init(); })
+            .bounds(contentX, aY + 101, 150, 14).build());
 
         // ── Section BROADCASTS ───────────────────────────────────────────────────
         int bY = py + 168;

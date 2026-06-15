@@ -164,7 +164,7 @@ public class RoleManager {
             // ── MONDE
             case "TOGGLE_PVP", "SET_DAY", "SET_MORNING", "SET_EVENING", "SET_NIGHT",
                  "SET_WEATHER_CLEAR", "SET_WEATHER_RAIN", "SET_WEATHER_THUNDER",
-                 "TOGGLE_WEATHER_CYCLE", "CLEAR_LAG", "SET_SPAWN", "REMOVE_MOBS" -> "tab.monde";
+                 "TOGGLE_WEATHER_CYCLE", "TOGGLE_DAYLIGHT_CYCLE", "CLEAR_LAG", "SET_SPAWN", "REMOVE_MOBS" -> "tab.monde";
             case "VANISH" -> "act.vanish";
             case "SCHEDULE_RESTART", "CANCEL_RESTART" -> "act.restart";
             // ── JOUEURS
@@ -179,7 +179,7 @@ public class RoleManager {
             case "ACCEPT_REPORT", "CLOSE_REPORT", "REFUSE_REPORT", "FETCH_REPORT_IMAGE" -> "tab.reports";
             // ── CHAT
             case "ANNOUNCE", "LOCK_CHAT", "GET_CHAT", "SET_MOTD", "TOGGLE_MAIL_SPY",
-                 "SCHEDULE_ADD", "SCHEDULE_REMOVE" -> "tab.chat";
+                 "TOGGLE_ANTISPAM_BYPASS", "SCHEDULE_ADD", "SCHEDULE_REMOVE" -> "tab.chat";
             // ── FEATURES
             case "SET_MAX_HOMES", "SET_WEBHOOKS", "SET_COOLDOWNS", "SET_AFK_DELAY",
                  "TOGGLE_CROP_TRAMPLE", "TOGGLE_AFK_AUTO", "TOGGLE_PROPORTIONAL_SLEEP",

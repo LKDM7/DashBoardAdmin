@@ -1018,6 +1018,9 @@ public class DashGameEvents {
                     "§4§l⚠ Redémarrage du serveur — sauvegarde en cours…",
                     "§4§l⚠ Server restarting — saving…");
                 saveAll();
+                // Build state explicitement persisté ici : ne pas dépendre que de ServerStoppingEvent
+                // (sinon un arrêt non propre derrière le halt perdrait l'inventaire des joueurs en /build).
+                com.lkdm.dashboardadmin.command.ZoneCommand.saveBuildState(server);
                 server.getPlayerList().saveAll();
                 server.saveAllChunks(true, true, true);
                 server.halt(false);
@@ -1131,6 +1134,8 @@ public class DashGameEvents {
         // since the regular persistence only fires on a clean ServerStoppingEvent.
         if (server.getTickCount() > 0 && server.getTickCount() % 6000 == 0) {
             saveAll();
+            // Build state inclus dans l'autosave : sans ça, un crash en mode /build perdait l'inventaire réel.
+            com.lkdm.dashboardadmin.command.ZoneCommand.saveBuildState(server);
         }
     }
 

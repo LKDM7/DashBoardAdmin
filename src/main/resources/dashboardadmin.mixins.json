@@ -3,7 +3,8 @@
     "package": "com.lkdm.dashboardadmin.mixin",
     "compatibilityLevel": "JAVA_21",
     "mixins": [
-        "FarmBlockMixin"
+        "FarmBlockMixin",
+        "ServerGamePacketListenerSpamMixin"
     ],
     "client": [],
     "injectors": {

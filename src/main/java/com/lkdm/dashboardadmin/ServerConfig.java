@@ -34,11 +34,13 @@ public class ServerConfig {
 
         JsonObject features = new JsonObject();
         features.addProperty("weatherCycle",       DashboardAdmin.isWeatherCycleEnabled());
+        features.addProperty("daylightCycle",      DashboardAdmin.isDaylightCycleEnabled());
         features.addProperty("cropTrample",        DashboardAdmin.isCropTrampleEnabled());
         features.addProperty("chatLocked",         DashboardAdmin.isChatLocked());
         features.addProperty("afkAuto",            DashboardAdmin.isAfkAutoEnabled());
         features.addProperty("proportionalSleep",  DashboardAdmin.isProportionalSleepEnabled());
         features.addProperty("treeCapitator",      DashboardAdmin.isTreeCapitatorEnabled());
+        features.addProperty("antiSpamBypass",     DashboardAdmin.isAntiSpamBypassEnabled());
         features.addProperty("fastLeafDecay",      DashboardAdmin.isFastLeafDecayEnabled());
         features.addProperty("doubleDoor",         DashboardAdmin.isDoubleDoorEnabled());
         features.addProperty("rightClickHarvest",  DashboardAdmin.isRightClickHarvestEnabled());
@@ -101,11 +103,13 @@ public class ServerConfig {
             if (root.has("features")) {
                 JsonObject f = root.getAsJsonObject("features");
                 if (f.has("weatherCycle"))      DashboardAdmin.setWeatherCycleEnabled(f.get("weatherCycle").getAsBoolean());
+                if (f.has("daylightCycle"))     DashboardAdmin.setDaylightCycleEnabled(f.get("daylightCycle").getAsBoolean());
                 if (f.has("cropTrample"))       DashboardAdmin.setCropTrampleEnabled(f.get("cropTrample").getAsBoolean());
                 if (f.has("chatLocked"))        DashboardAdmin.setChatLocked(f.get("chatLocked").getAsBoolean());
                 if (f.has("afkAuto"))           DashboardAdmin.setAfkAutoEnabled(f.get("afkAuto").getAsBoolean());
                 if (f.has("proportionalSleep")) DashboardAdmin.setProportionalSleepEnabled(f.get("proportionalSleep").getAsBoolean());
                 if (f.has("treeCapitator"))     DashboardAdmin.setTreeCapitatorEnabled(f.get("treeCapitator").getAsBoolean());
+                if (f.has("antiSpamBypass"))    DashboardAdmin.setAntiSpamBypassEnabled(f.get("antiSpamBypass").getAsBoolean());
                 if (f.has("fastLeafDecay"))     DashboardAdmin.setFastLeafDecayEnabled(f.get("fastLeafDecay").getAsBoolean());
                 if (f.has("doubleDoor"))        DashboardAdmin.setDoubleDoorEnabled(f.get("doubleDoor").getAsBoolean());
                 if (f.has("rightClickHarvest")) DashboardAdmin.setRightClickHarvestEnabled(f.get("rightClickHarvest").getAsBoolean());

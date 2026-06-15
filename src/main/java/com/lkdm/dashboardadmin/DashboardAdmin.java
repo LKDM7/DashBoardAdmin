@@ -28,11 +28,13 @@ public class DashboardAdmin {
     private static boolean setblockInBuild = true; // /setblock autorisé aux non-OP en mode build
     private static boolean chatLocked = false;
     private static boolean weatherCycleEnabled = true;
+    private static boolean daylightCycleEnabled = true;
     private static boolean cropTrampleEnabled = false;
     private static volatile boolean afkAutoEnabled           = false;
     private static volatile long    afkDelayMs               = 5 * 60 * 1000L;
     private static volatile boolean proportionalSleepEnabled = false;
     private static volatile boolean treeCapitatorEnabled     = false;
+    private static volatile boolean antiSpamBypassEnabled    = false;
     private static volatile boolean fastLeafDecayEnabled     = false;
     private static volatile boolean doubleDoorEnabled        = false;
     private static volatile boolean rightClickHarvestEnabled = false;
@@ -172,22 +174,31 @@ public class DashboardAdmin {
     public static void   setSetblockInBuild(boolean v)    { setblockInBuild = v; }
     public static boolean isChatLocked()                  { return chatLocked; }
     public static boolean isWeatherCycleEnabled()         { return weatherCycleEnabled; }
+    public static boolean isDaylightCycleEnabled()        { return daylightCycleEnabled; }
     public static boolean isCropTrampleEnabled()          { return cropTrampleEnabled; }
     public static boolean isAfkAutoEnabled()              { return afkAutoEnabled; }
     public static int     getAfkDelayMinutes()            { return (int)(afkDelayMs / 60000L); }
     public static void    setAfkDelayMinutes(int mins)    { afkDelayMs = Math.max(1, mins) * 60000L; }
     public static boolean isProportionalSleepEnabled()    { return proportionalSleepEnabled; }
     public static boolean isTreeCapitatorEnabled()        { return treeCapitatorEnabled; }
+    public static boolean isAntiSpamBypassEnabled()       { return antiSpamBypassEnabled; }
+    /** Vrai si l'anti-spam vanilla doit être contourné pour ce joueur (toggle ON + OP ou rôle de modération). */
+    public static boolean isAntiSpamBypassed(ServerPlayer p) {
+        return antiSpamBypassEnabled && p != null
+            && (p.hasPermissions(2) || RoleManager.hasAnyRole(p.getUUID()));
+    }
     public static boolean isFastLeafDecayEnabled()        { return fastLeafDecayEnabled; }
     public static boolean isDoubleDoorEnabled()           { return doubleDoorEnabled; }
     public static boolean isRightClickHarvestEnabled()    { return rightClickHarvestEnabled; }
     public static boolean isDispenserHarvestEnabled()     { return dispenserHarvestEnabled; }
     public static void setChatLocked(boolean v)               { chatLocked = v; }
     public static void setWeatherCycleEnabled(boolean v)      { weatherCycleEnabled = v; }
+    public static void setDaylightCycleEnabled(boolean v)     { daylightCycleEnabled = v; }
     public static void setCropTrampleEnabled(boolean v)       { cropTrampleEnabled = v; }
     public static void setAfkAutoEnabled(boolean v)           { afkAutoEnabled = v; }
     public static void setProportionalSleepEnabled(boolean v) { proportionalSleepEnabled = v; }
     public static void setTreeCapitatorEnabled(boolean v)     { treeCapitatorEnabled = v; }
+    public static void setAntiSpamBypassEnabled(boolean v)    { antiSpamBypassEnabled = v; }
     public static void setFastLeafDecayEnabled(boolean v)     { fastLeafDecayEnabled = v; }
     public static void setDoubleDoorEnabled(boolean v)        { doubleDoorEnabled = v; }
     public static void setRightClickHarvestEnabled(boolean v) { rightClickHarvestEnabled = v; }
@@ -327,7 +338,8 @@ public class DashboardAdmin {
              + "|" + fastLeafDecayEnabled + "|" + doubleDoorEnabled + "|" + getAfkDelayMinutes()
              + "|" + rightClickHarvestEnabled + "|" + dispenserHarvestEnabled
              + "|" + cropTrampleEnabled + "|" + maxHomes
-             + "|" + wr + "|" + ws + "|" + motd + "|" + mailSpyEnabled;
+             + "|" + wr + "|" + ws + "|" + motd + "|" + mailSpyEnabled
+             + "|" + antiSpamBypassEnabled;
     }
     public static String getMutedPlayerNames(net.minecraft.server.MinecraftServer server) {
         // snapshot des clés car isMuted() peut retirer les mutes expirés

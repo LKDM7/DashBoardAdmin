@@ -949,17 +949,14 @@ public class AdminScreen extends Screen {
             b -> { send("LOCK_CHAT", "", ""); chatLocked = !chatLocked; init(); })
             .bounds(contentX + (btnW + 6) * 2, aY + 44, btnW, 20).build());
 
-        // Spy des messages privés (les MP sont relayés aux admins en ligne).
-        // Posé sur la ligne du label BROADCASTS (divY+2 côté droit, libre) — voir renderChat.
-        // Contournement anti-spam vanilla pour OP + rôles de modération (ligne propre, sous la divider).
+        // Ligne dédiée sous la divider (le label BROADCASTS est descendu à aY+123 dans renderChat
+        // pour ne plus chevaucher ces deux boutons) : BYPASS anti-spam à gauche, SPY MP à droite.
         addRenderableWidget(btn(Lang.t("BYPASS SPAM (staff) : ", "SPAM BYPASS (staff): ") + (antiSpamBypassEnabled ? "§aON" : "§cOFF"),
             b -> { send("TOGGLE_ANTISPAM_BYPASS", "", ""); antiSpamBypassEnabled = !antiSpamBypassEnabled; init(); })
-            .bounds(contentX, aY + 101, 150, 14).build());
-
-        // Spy des messages privés — sur la ligne du label BROADCASTS (côté droit, libre).
+            .bounds(contentX, aY + 103, 150, 14).build());
         addRenderableWidget(btn(Lang.t("SPY MP : ", "PM SPY: ") + (mailSpyEnabled ? "§aON" : "§cOFF"),
             b -> { send("TOGGLE_MAIL_SPY", "", ""); mailSpyEnabled = !mailSpyEnabled; init(); })
-            .bounds(contentX + contentW - 90, aY + 119, 90, 14).build());
+            .bounds(contentX + contentW - 90, aY + 103, 90, 14).build());
 
         // ── Section BROADCASTS ───────────────────────────────────────────────────
         int bY = py + 186;
@@ -1592,7 +1589,7 @@ public class AdminScreen extends Screen {
         // ── Section BROADCASTS ───────────────────────────────────────────────────
         int bY    = py + 186;
         int listY = bY + 26;
-        lbl(g, Lang.t("BROADCASTS PROGRAMMÉS", "SCHEDULED BROADCASTS"), contentX, divY + 22);
+        lbl(g, Lang.t("BROADCASTS PROGRAMMÉS", "SCHEDULED BROADCASTS"), contentX, divY + 24);
         g.drawString(font, "§8min", contentX + contentW - 68, bY + 3, 0xFF444444);
 
         if (schedBroadcasts.isEmpty()) {

@@ -951,17 +951,18 @@ public class AdminScreen extends Screen {
 
         // Spy des messages privés (les MP sont relayés aux admins en ligne).
         // Posé sur la ligne du label BROADCASTS (divY+2 côté droit, libre) — voir renderChat.
-        addRenderableWidget(btn(Lang.t("SPY MP : ", "PM SPY: ") + (mailSpyEnabled ? "§aON" : "§cOFF"),
-            b -> { send("TOGGLE_MAIL_SPY", "", ""); mailSpyEnabled = !mailSpyEnabled; init(); })
-            .bounds(contentX + contentW - 90, aY + 101, 90, 14).build());
-
-        // Contournement anti-spam vanilla pour OP + rôles de modération (figé OFF = anti-spam actif pour tous).
+        // Contournement anti-spam vanilla pour OP + rôles de modération (ligne propre, sous la divider).
         addRenderableWidget(btn(Lang.t("BYPASS SPAM (staff) : ", "SPAM BYPASS (staff): ") + (antiSpamBypassEnabled ? "§aON" : "§cOFF"),
             b -> { send("TOGGLE_ANTISPAM_BYPASS", "", ""); antiSpamBypassEnabled = !antiSpamBypassEnabled; init(); })
             .bounds(contentX, aY + 101, 150, 14).build());
 
+        // Spy des messages privés — sur la ligne du label BROADCASTS (côté droit, libre).
+        addRenderableWidget(btn(Lang.t("SPY MP : ", "PM SPY: ") + (mailSpyEnabled ? "§aON" : "§cOFF"),
+            b -> { send("TOGGLE_MAIL_SPY", "", ""); mailSpyEnabled = !mailSpyEnabled; init(); })
+            .bounds(contentX + contentW - 90, aY + 119, 90, 14).build());
+
         // ── Section BROADCASTS ───────────────────────────────────────────────────
-        int bY = py + 168;
+        int bY = py + 186;
         broadcastMsgBox = new EditBox(font, contentX, bY, contentW - 78, 18, Component.literal("Message du broadcast..."));
         broadcastIntervalBox = new EditBox(font, contentX + contentW - 72, bY, 34, 18, Component.literal("min"));
         broadcastIntervalBox.setMaxLength(4);
@@ -1589,9 +1590,9 @@ public class AdminScreen extends Screen {
         g.fill(contentX, divY, contentX + contentW, divY + 1, C_DIV);
 
         // ── Section BROADCASTS ───────────────────────────────────────────────────
-        int bY    = py + 168;
+        int bY    = py + 186;
         int listY = bY + 26;
-        lbl(g, Lang.t("BROADCASTS PROGRAMMÉS", "SCHEDULED BROADCASTS"), contentX, divY + 6);
+        lbl(g, Lang.t("BROADCASTS PROGRAMMÉS", "SCHEDULED BROADCASTS"), contentX, divY + 22);
         g.drawString(font, "§8min", contentX + contentW - 68, bY + 3, 0xFF444444);
 
         if (schedBroadcasts.isEmpty()) {

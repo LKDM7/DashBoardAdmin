@@ -767,8 +767,9 @@ public class DashGameEvents {
         net.minecraft.core.BlockPos pos = event.getHitVec().getBlockPos();
         net.minecraft.world.entity.player.Player player = event.getEntity();
 
-        // Lock check
-        if (DashboardAdmin.isLocked(pos) && !DashboardAdmin.getOwner(pos).equals(player.getUUID())
+        // Lock check — les admins (OP niv. 2) accèdent à tous les blocs verrouillés (cohérent avec onLockedBlockBreak).
+        if (DashboardAdmin.isLocked(pos) && !player.hasPermissions(2)
+                && !DashboardAdmin.getOwner(pos).equals(player.getUUID())
                 && !DashboardAdmin.isTrusted(DashboardAdmin.getOwner(pos), player.getUUID())
                 && !GroupManager.isTrustedByGroup(DashboardAdmin.getOwner(pos), player.getUUID())) {
             if (player instanceof ServerPlayer sp) sp.sendSystemMessage(Component.literal(SrvLang.t(sp, "§cCe bloc est verrouillé.", "§cThis block is locked.")));

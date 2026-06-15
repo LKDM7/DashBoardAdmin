@@ -182,8 +182,8 @@ public class DashNetworking {
             }
             case "KICK"        -> { if (target != null) { DashboardAdmin.addLog(target.getUUID(), "Kicked par " + admin.getName().getString()); DashboardAdmin.addSanction("KICK", target.getName().getString(), admin.getName().getString(), ""); DiscordWebhook.sendSanction(DashboardAdmin.getWebhookSanctions(), admin.getName().getString(), target.getName().getString(), "KICK", ""); target.connection.disconnect(Component.literal(SrvLang.t(target, "Expulsé par un admin.", "Kicked by an admin."))); } }
             case "TELEPORT_TO" -> { if (target != null) { DashboardAdmin.addLog(target.getUUID(), "TP vers par " + admin.getName().getString()); admin.teleportTo((ServerLevel) target.level(), target.getX(), target.getY(), target.getZ(), Set.of(), admin.getYRot(), admin.getXRot()); } }
-            case "OPEN_INV"    -> { if (target != null) admin.openMenu(new SimpleMenuProvider((id, inv, p) -> new EditablePlayerInventoryMenu(id, inv, target.getInventory()), Component.literal("Inv: " + target.getName().getString()))); }
-            case "ENDERCHEST"  -> { if (target != null) admin.openMenu(new SimpleMenuProvider((id, inv, p) -> new ChestMenu(MenuType.GENERIC_9x3, id, inv, target.getEnderChestInventory(), 3), Component.literal("Ender: " + target.getName().getString()))); }
+            case "OPEN_INV"    -> { if (target != null) admin.openMenu(new SimpleMenuProvider((id, inv, p) -> new EditablePlayerInventoryMenu(id, inv, target.getInventory()), Component.literal("Inv: " + target.getName().getString()))); else OfflinePlayerInventory.openInventory(admin, payload.target()); }
+            case "ENDERCHEST"  -> { if (target != null) admin.openMenu(new SimpleMenuProvider((id, inv, p) -> new ChestMenu(MenuType.GENERIC_9x3, id, inv, target.getEnderChestInventory(), 3), Component.literal("Ender: " + target.getName().getString()))); else OfflinePlayerInventory.openEnderchest(admin, payload.target()); }
             case "BRING"       -> { if (target != null) { DashboardAdmin.addLog(target.getUUID(), "Bring par " + admin.getName().getString()); target.teleportTo((ServerLevel) admin.level(), admin.getX(), admin.getY(), admin.getZ(), Set.of(), target.getYRot(), target.getXRot()); } }
             case "FREEZE" -> {
                 if (target != null) {
@@ -290,19 +290,38 @@ public class DashNetworking {
                     : SrvLang.t(admin, "§aMOTD mis à jour : §7" + DashboardAdmin.getMotd(), "§aMOTD updated: §7" + DashboardAdmin.getMotd())));
             }
             case "BAN" -> {
+                String[] banParts = payload.value().split("\t", 2);
+                long banSeconds = 0; String reason = "Banni par un admin."; boolean customReason = false;
+                try { banSeconds = Long.parseLong(banParts[0]); } catch (NumberFormatException ignored) {}
+                if (banParts.length > 1 && !banParts[1].isEmpty()) { reason = banParts[1]; customReason = true; }
+                java.util.Date expires = banSeconds > 0 ? new java.util.Date(System.currentTimeMillis() + banSeconds * 1000L) : null;
+                String sanctionReason = (banSeconds > 0 ? "(" + DashboardAdmin.formatDurationShort(banSeconds) + ") " : "") + reason;
+
+                // Cible en ligne → profil direct ; sinon on résout le joueur hors ligne via le cache de noms.
+                com.mojang.authlib.GameProfile profile;
+                java.util.UUID targetUuid;
+                String targetName;
                 if (target != null) {
-                    String[] banParts = payload.value().split("\t", 2);
-                    long banSeconds = 0; String reason = "Banni par un admin."; boolean customReason = false;
-                    try { banSeconds = Long.parseLong(banParts[0]); } catch (NumberFormatException ignored) {}
-                    if (banParts.length > 1 && !banParts[1].isEmpty()) { reason = banParts[1]; customReason = true; }
-                    java.util.Date expires = banSeconds > 0 ? new java.util.Date(System.currentTimeMillis() + banSeconds * 1000L) : null;
-                    String sanctionReason = (banSeconds > 0 ? "(" + DashboardAdmin.formatDurationShort(banSeconds) + ") " : "") + reason;
-                    DashboardAdmin.addLog(target.getUUID(), "Banned par " + admin.getName().getString() + " (" + sanctionReason + ")");
-                    DashboardAdmin.addSanction("BAN", target.getName().getString(), admin.getName().getString(), sanctionReason);
-                    DiscordWebhook.sendSanction(DashboardAdmin.getWebhookSanctions(), admin.getName().getString(), target.getName().getString(), "BAN", sanctionReason);
-                    admin.getServer().getPlayerList().getBans().add(new net.minecraft.server.players.UserBanListEntry(target.getGameProfile(), null, "admin", expires, reason));
-                    target.connection.disconnect(Component.literal(customReason ? reason : SrvLang.t(target, "Banni par un admin.", "Banned by an admin.")));
+                    profile    = target.getGameProfile();
+                    targetUuid = target.getUUID();
+                    targetName = target.getName().getString();
+                } else {
+                    targetUuid = RoleManager.resolveUuid(payload.target(), admin.getServer());
+                    if (targetUuid == null) {
+                        admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cJoueur introuvable.", "§cPlayer not found.")));
+                        return;
+                    }
+                    targetName = DashboardAdmin.getPlayerNameCache().getOrDefault(targetUuid, payload.target());
+                    profile    = new com.mojang.authlib.GameProfile(targetUuid, targetName);
                 }
+
+                DashboardAdmin.addLog(targetUuid, "Banned par " + admin.getName().getString() + " (" + sanctionReason + ")");
+                DashboardAdmin.addSanction("BAN", targetName, admin.getName().getString(), sanctionReason);
+                DiscordWebhook.sendSanction(DashboardAdmin.getWebhookSanctions(), admin.getName().getString(), targetName, "BAN", sanctionReason);
+                admin.getServer().getPlayerList().getBans().add(new net.minecraft.server.players.UserBanListEntry(profile, null, "admin", expires, reason));
+                if (target != null)
+                    target.connection.disconnect(Component.literal(customReason ? reason : SrvLang.t(target, "Banni par un admin.", "Banned by an admin.")));
+                admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§a" + targetName + " a été banni.", "§a" + targetName + " has been banned.")));
             }
             case "UNBAN" -> { String name = payload.target(); DashboardAdmin.addSanction("UNBAN", name, admin.getName().getString(), ""); DashboardAdmin.getPlayerNameCache().entrySet().stream().filter(e -> e.getValue().equalsIgnoreCase(name)).map(java.util.Map.Entry::getKey).findFirst().ifPresent(uuid -> DashboardAdmin.addLog(uuid, "Débanni par " + admin.getName().getString())); admin.getServer().getCommands().performPrefixedCommand(admin.getServer().createCommandSourceStack(), "pardon " + name); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§a" + name + " a été débanni.", "§a" + name + " has been unbanned."))); }
             case "KEEP_INVENTORY" -> { if (target != null) { PlayerSettings ks = DashboardAdmin.getPlayerSettings(target.getUUID()); ks.keepInventory = !ks.keepInventory; admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aKeepInventory " + (ks.keepInventory ? "§aactivé" : "§cdésactivé") + " §apour §e" + target.getName().getString(), "§aKeepInventory " + (ks.keepInventory ? "§aenabled" : "§cdisabled") + " §afor §e" + target.getName().getString()))); target.sendSystemMessage(Component.literal(ks.keepInventory ? SrvLang.t(target, "§aVotre inventaire sera conservé à la mort.", "§aYour inventory will be kept on death.") : SrvLang.t(target, "§cVotre inventaire ne sera plus conservé à la mort.", "§cYour inventory will no longer be kept on death."))); } }

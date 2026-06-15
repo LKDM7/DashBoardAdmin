@@ -33,6 +33,8 @@ public class AdminScreen extends Screen {
     private String  selPlayer   = null;
     private String  selGamemode = "???";
     private String  search      = "";
+    private int     sortMode    = 0;     // 0 = récent (défaut), 1 = A→Z, 2 = nb sanctions
+    private boolean sanctionsRequested = false; // évite de re-demander les sanctions en boucle pour le tri
     private java.util.Set<String>         mutedPlayers    = new java.util.HashSet<>();
     private java.util.Set<String>         frozenPlayers   = new java.util.HashSet<>();
     private java.util.Set<String>         keepInvPlayers  = new java.util.HashSet<>();
@@ -63,7 +65,7 @@ public class AdminScreen extends Screen {
     private java.util.List<String> logsEntries = new java.util.ArrayList<>();
     private int                    logsScroll  = 0;
     private java.util.List<String[]> schedBroadcasts  = new java.util.ArrayList<>();
-    private java.util.List<String[]> bannedPlayers    = new java.util.ArrayList<>(); // [name, reason]
+    private java.util.List<String[]> bannedPlayers    = new java.util.ArrayList<>(); // [name, reason, expiresMs]
     private java.util.List<String[]> sanctionsEntries = new java.util.ArrayList<>(); // [ts, type, player, admin, reason]
     private java.util.List<String[]> auditEntries     = new java.util.ArrayList<>(); // [ts, admin, action, target, detail]
     private int  auditScroll          = 0;
@@ -223,8 +225,10 @@ public class AdminScreen extends Screen {
         }
         String banRaw = payload.bannedPlayers();
         if (!banRaw.isEmpty()) for (String entry : banRaw.split("\\|")) {
-            int ci = entry.indexOf(':');
-            if (ci > 0) bannedPlayers.add(new String[]{ entry.substring(0, ci), entry.substring(ci + 1) });
+            // Format : nom:raison:expirationMs (raison et nom sans ':' ; expiration absente sur ancien format)
+            String[] f = entry.split(":");
+            if (f.length >= 1 && !f[0].isEmpty())
+                bannedPlayers.add(new String[]{ f[0], f.length > 1 ? f[1] : "", f.length > 2 ? f[2] : "0" });
         }
         String featRaw = payload.features();
         if (!featRaw.isEmpty()) {
@@ -624,8 +628,8 @@ public class AdminScreen extends Screen {
 
     /** Y du haut de la section HORS LIGNE — formule partagée entre init() et render(). */
     private int offlineSectionTop() {
-        return py + 48 + filteredPlayers().size() * 16 + 8 + bannedPlayers.size() * 18
-            + (bannedPlayers.isEmpty() ? 0 : 6);
+        return py + 48 + filteredPlayers().size() * 16 + 8 + filteredBanned().size() * 18
+            + (filteredBanned().isEmpty() ? 0 : 6);
     }
 
     /** Réplique client de DashboardAdmin.formatTimeAgo (la fiche Activité reçoit des timestamps bruts). */
@@ -640,7 +644,25 @@ public class AdminScreen extends Screen {
         return day + "j" + (hr % 24 > 0 ? " " + hr % 24 + "h" : "");
     }
 
-    /** Joueurs en ligne filtrés par la recherche — même liste pour init() et render() (têtes). */
+    /** Durée restante avant une échéance future, format compact ("2j 3h", "45 min", "12s"). */
+    private static String timeUntil(long futureMs) {
+        long sec = (futureMs - System.currentTimeMillis()) / 1000;
+        if (sec <= 0) return "0s";
+        if (sec < 60)   return sec + "s";
+        long min = sec / 60;
+        if (min < 60)   return min + " min";
+        long hr = min / 60;
+        if (hr < 24)    return hr + "h" + (min % 60 > 0 ? min % 60 : "");
+        long day = hr / 24;
+        return day + "j" + (hr % 24 > 0 ? " " + hr % 24 + "h" : "");
+    }
+
+    /** Nombre de sanctions enregistrées pour un joueur (alimente le tri + la fiche Activité). */
+    private long sanctionCountOf(String name) {
+        return sanctionsEntries.stream().filter(e -> e[2].equalsIgnoreCase(name)).count();
+    }
+
+    /** Joueurs en ligne filtrés par la recherche puis triés — même liste pour init() et render() (têtes). */
     private java.util.List<PlayerInfo> filteredPlayers() {
         if (Minecraft.getInstance().getConnection() == null) return java.util.List.of();
         java.util.List<PlayerInfo> out = new java.util.ArrayList<>();
@@ -649,6 +671,35 @@ public class AdminScreen extends Screen {
             if (!search.isEmpty() && !info.getProfile().getName().toLowerCase().contains(search.toLowerCase())) continue;
             out.add(info);
         }
+        if (sortMode == 1)
+            out.sort(java.util.Comparator.comparing(i -> i.getProfile().getName().toLowerCase()));
+        else if (sortMode == 2)
+            out.sort(java.util.Comparator.comparingLong((PlayerInfo i) -> sanctionCountOf(i.getProfile().getName())).reversed());
+        return out;
+    }
+
+    /** Joueurs hors ligne filtrés par la recherche puis triés ([nom, lastSeenMs] ; déjà récent→ancien par défaut). */
+    private java.util.List<String[]> filteredOffline() {
+        java.util.List<String[]> out = new java.util.ArrayList<>();
+        for (String[] off : offlinePlayers) {
+            if (!search.isEmpty() && !off[0].toLowerCase().contains(search.toLowerCase())) continue;
+            out.add(off);
+        }
+        if (sortMode == 1)
+            out.sort(java.util.Comparator.comparing(o -> o[0].toLowerCase()));
+        else if (sortMode == 2)
+            out.sort(java.util.Comparator.comparingLong((String[] o) -> sanctionCountOf(o[0])).reversed());
+        return out;
+    }
+
+    /** Joueurs bannis filtrés par la recherche ([nom, raison, expirationMs]). */
+    private java.util.List<String[]> filteredBanned() {
+        java.util.List<String[]> out = new java.util.ArrayList<>();
+        for (String[] ban : bannedPlayers) {
+            if (!search.isEmpty() && !ban[0].toLowerCase().contains(search.toLowerCase())) continue;
+            out.add(ban);
+        }
+        if (sortMode == 1) out.sort(java.util.Comparator.comparing(o -> o[0].toLowerCase()));
         return out;
     }
 
@@ -659,6 +710,21 @@ public class AdminScreen extends Screen {
         searchBox.setResponder(s -> { if (!s.equals(search)) { search = s; init(); } });
         searchBox.setValue(search);
         addRenderableWidget(searchBox);
+
+        // Le tri par nb de sanctions a besoin de la liste complète : on la demande une fois.
+        if (sortMode == 2 && !sanctionsRequested && sanctionsEntries.isEmpty()) {
+            sanctionsRequested = true;
+            send("GET_SANCTIONS", "", "");
+        }
+
+        // Bouton de tri (cycle : Récent → A-Z → Sanctions), s'applique aux listes en ligne ET hors ligne.
+        String sortLbl = switch (sortMode) {
+            case 1  -> "§e⇅ A-Z";
+            case 2  -> Lang.t("§e⇅ Sanc.", "§e⇅ Sanc.");
+            default -> Lang.t("§e⇅ Récent", "§e⇅ Recent");
+        };
+        addRenderableWidget(btn(sortLbl, b -> { sortMode = (sortMode + 1) % 3; init(); })
+            .bounds(px + pw - 130, py + 29, 62, 14).build());
 
         // Consultation de toutes les notes admin (coin droit de la barre d'en-tête du détail)
         int totalNotes = adminNotes.values().stream().mapToInt(java.util.List::size).sum();
@@ -687,7 +753,7 @@ public class AdminScreen extends Screen {
 
         // Section BANNIS
         yOff += 8;
-        for (String[] ban : bannedPlayers) {
+        for (String[] ban : filteredBanned()) {
             final String banName = ban[0];
             if (can("act.unban"))
                 addRenderableWidget(btn(Lang.t("§aDÉBAN", "§aUNBAN"), b -> {
@@ -702,7 +768,7 @@ public class AdminScreen extends Screen {
         if (!offlinePlayers.isEmpty()) {
             int offY = offlineSectionTop() + 12;
             int maxBottom = py + ph - 8;
-            for (String[] off : offlinePlayers) {
+            for (String[] off : filteredOffline()) {
                 if (offY + 13 > maxBottom) break;
                 final String name = off[0];
                 boolean sel = name.equals(selPlayer);
@@ -745,14 +811,38 @@ public class AdminScreen extends Screen {
         }
 
         if (selOffline) {
-            // Joueur hors ligne : seules les consultations ont un sens.
+            // Joueur hors ligne : consultations + ban (le serveur résout la cible via le cache de noms).
             int divX2 = cx + 98;
             int areaW2 = px + pw - divX2 - 6;
             int bw2 = Math.max(60, Math.min(120, areaW2 - 16));
+            int bx2 = divX2 + 2 + (areaW2 - bw2) / 2;
+            int oy2 = py + 68;
+            // Inventaire / enderchest en lecture seule (chargés depuis le .dat du joueur hors ligne).
+            if (can("act.inv")) {
+                addRenderableWidget(btn(Lang.t("INVENTAIRE", "INVENTORY"), b -> send("OPEN_INV",   selPlayer, "")).bounds(bx2, oy2, bw2, 20).build());
+                oy2 += 24;
+                addRenderableWidget(btn("ENDERCHEST", b -> send("ENDERCHEST", selPlayer, "")).bounds(bx2, oy2, bw2, 20).build());
+                oy2 += 24;
+            }
             addRenderableWidget(btn("§eLOGS", b -> {
                 logsPlayer = null; logsEntries = new java.util.ArrayList<>(); logsScroll = 0;
                 send("GET_LOGS", selPlayer, ""); currentTab = 5; init();
-            }).bounds(divX2 + 2 + (areaW2 - bw2) / 2, py + 68, bw2, 20).build());
+            }).bounds(bx2, oy2, bw2, 20).build());
+            oy2 += 24;
+            // DÉBAN si le joueur est banni, sinon BAN (le serveur résout la cible hors ligne).
+            boolean offBanned = bannedPlayers.stream().anyMatch(e -> e[0].equalsIgnoreCase(selPlayer));
+            if (offBanned) {
+                if (can("act.unban")) {
+                    final String unbanName = selPlayer;
+                    addRenderableWidget(btn(Lang.t("§aDÉBAN", "§aUNBAN"), b -> {
+                        send("UNBAN", unbanName, "");
+                        bannedPlayers.removeIf(e -> e[0].equalsIgnoreCase(unbanName));
+                        init();
+                    }).bounds(bx2, oy2, bw2, 20).build());
+                }
+            } else if (can("act.ban")) {
+                addRenderableWidget(btn("§4BAN", b -> { isBanning = true; init(); }).bounds(bx2, oy2, bw2, 20).build());
+            }
             return;
         }
 
@@ -1298,24 +1388,26 @@ public class AdminScreen extends Screen {
         }
 
         // Section BANNIS dans le panneau gauche
-        if (!bannedPlayers.isEmpty()) {
+        java.util.List<String[]> bannedShown = filteredBanned();
+        if (!bannedShown.isEmpty()) {
             int searchCount = shown.size();
             int banY = py + 48 + searchCount * 16 + 8;
             g.drawString(font, Lang.t("BANNIS", "BANNED"), cx + 6, banY - 2, 0xFF888888);
             g.fill(cx + 4, banY + 6, cx + 94, banY + 7, C_DIV);
-            for (int i = 0; i < bannedPlayers.size(); i++) {
-                String bname  = bannedPlayers.get(i)[0];
-                String reason = bannedPlayers.get(i)[1];
+            for (int i = 0; i < bannedShown.size(); i++) {
+                String bname = bannedShown.get(i)[0];
+                long expires = 0L; try { expires = Long.parseLong(bannedShown.get(i)[2]); } catch (NumberFormatException ignored) {}
                 int by = banY + 10 + i * 18;
                 g.fill(cx + 4, by, cx + 94, by + 14, 0x22FF4444);
                 g.drawString(font, "§c" + truncate(bname, 9), cx + 6, by + 2, 0xFFFF6666);
-                if (!reason.isEmpty())
-                    g.drawString(font, "§8" + truncate(reason, 9), cx + 6, by + 10, 0xFF555555);
+                // Sous-texte : compte à rebours pour un ban temporaire, ∞ pour un ban permanent.
+                String sub = expires > 0 ? "§e⌛ " + timeUntil(expires) : "§8∞";
+                g.drawString(font, sub, cx + 6, by + 10, 0xFFAAAA55);
             }
         }
 
         // Section HORS LIGNE (en-tête + dernière connexion en sous-texte des boutons)
-        if (!offlinePlayers.isEmpty()) {
+        if (!filteredOffline().isEmpty()) {
             int offTop = offlineSectionTop();
             g.drawString(font, Lang.t("HORS LIGNE", "OFFLINE"), cx + 6, offTop, 0xFF888888);
             g.fill(cx + 4, offTop + 8, cx + 94, offTop + 9, C_DIV);

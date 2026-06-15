@@ -397,7 +397,8 @@ public class DashboardAdmin {
         for (net.minecraft.server.players.UserBanListEntry entry : server.getPlayerList().getBans().getEntries()) {
             String name   = entry.getDisplayName().getString();
             String reason = entry.getReason() != null ? entry.getReason().replace("|", " ").replace(":", " ") : "";
-            sj.add(name + ":" + reason);
+            long expires  = entry.getExpires() != null ? entry.getExpires().getTime() : 0L; // 0 = permanent
+            sj.add(name + ":" + reason + ":" + expires);
         }
         return sj.toString();
     }

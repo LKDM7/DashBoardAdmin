@@ -4,13 +4,14 @@ Mod d'administration pour serveur SMP, sous NeoForge pour Minecraft 1.21.1.
 
 ## Téléchargement
 
-**[Télécharger la v1.5.1 (.jar)](https://github.com/LKDM7/DashBoardAdmin/raw/master/releases/dashboardadmin-1.5.1.jar)**
+**[Télécharger la v1.6.0 (.jar)](https://github.com/LKDM7/DashBoardAdmin/raw/master/releases/dashboardadmin-1.6.0.jar)**
 
 Les versions précédentes sont disponibles dans le dossier [`releases/`](releases/). Tous les joueurs doivent utiliser la même version que le serveur (vérification réseau stricte).
 
 ## Fonctionnalités
 
-- **Interface admin** : menu graphique (`/admin`) — joueurs (en ligne et hors ligne, fiche d'activité avec notes de modération multiples), santé serveur (TPS, RAM, entités), historique du chat persistant, spy des messages privés, restart programmé, warps, MOTD, journal d'actions admin (audit)
+- **Interface admin** : menu graphique (`/admin`) — joueurs (en ligne et hors ligne, fiche d'activité avec notes de modération multiples), recherche et tri de la liste (récent / A-Z / nb de sanctions), santé serveur (TPS, RAM, entités), historique du chat persistant, spy des messages privés, restart programmé, warps, MOTD, journal d'actions admin (audit)
+- **Modération hors ligne** : ban et déban d'un joueur déconnecté, consultation en lecture seule de son inventaire et de son enderchest ; liste des bannis avec compte à rebours de la durée restante
 - **Rôles de modération** : création de rôles personnalisés avec permissions (onglets + actions sensibles) et assignation de joueurs ; les modérateurs ouvrent `/admin` sans OP et n'accèdent qu'à ce que leur rôle autorise
 - **Paramètres joueur** : écran de configuration des paramètres individuels
 - **Inventaires virtuels** : gestion des coffres virtuels par joueur
@@ -37,7 +38,7 @@ Le fichier `.jar` généré se trouve dans `build/libs/`.
 
 ## Infos
 
-- **Version du mod :** 1.5.1
+- **Version du mod :** 1.6.0
 - **Version Minecraft :** 1.21.1
 - **Loader :** NeoForge `21.1.232`
 - **Auteur :** LKDM

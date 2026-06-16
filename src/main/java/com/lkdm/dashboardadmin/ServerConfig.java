@@ -27,6 +27,7 @@ public class ServerConfig {
         root.addProperty("maxHomes",        DashboardAdmin.getMaxHomes());
         root.addProperty("webhookReports",   DashboardAdmin.getWebhookReports());
         root.addProperty("webhookSanctions", DashboardAdmin.getWebhookSanctions());
+        root.addProperty("webhookAudit",     DashboardAdmin.getWebhookAudit());
         root.addProperty("motd",             DashboardAdmin.getMotd());
 
         root.addProperty("pvpEnabled", DashboardAdmin.isPvpEnabled());
@@ -98,6 +99,7 @@ public class ServerConfig {
             if (root.has("maxHomes"))        DashboardAdmin.setMaxHomes(root.get("maxHomes").getAsInt());
             if (root.has("webhookReports"))   DashboardAdmin.setWebhookReports(root.get("webhookReports").getAsString());
             if (root.has("webhookSanctions")) DashboardAdmin.setWebhookSanctions(root.get("webhookSanctions").getAsString());
+            if (root.has("webhookAudit"))     DashboardAdmin.setWebhookAudit(root.get("webhookAudit").getAsString());
             if (root.has("motd"))             DashboardAdmin.setMotd(root.get("motd").getAsString());
 
             if (root.has("features")) {

@@ -4,7 +4,8 @@
     "compatibilityLevel": "JAVA_21",
     "mixins": [
         "FarmBlockMixin",
-        "ServerGamePacketListenerSpamMixin"
+        "ServerGamePacketListenerSpamMixin",
+        "TrackedEntityVanishMixin"
     ],
     "client": [],
     "injectors": {

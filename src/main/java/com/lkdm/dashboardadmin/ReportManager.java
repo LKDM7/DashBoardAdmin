@@ -20,8 +20,13 @@ public final class ReportManager {
 
     private ReportManager() {}
 
+    /** Délai minimal entre deux signalements d'un même joueur (anti-spam /report + webhook). */
+    private static final int REPORT_COOLDOWN_SECONDS = 30;
+
     /** Soumet un signalement, prévient les admins en ligne et relaie au webhook Discord. */
     public static void submit(ServerPlayer player, String message, byte[] img) {
+        if (!DashboardAdmin.checkCooldown(DashboardAdmin.getLastReportUse(), player.getUUID(), REPORT_COOLDOWN_SECONDS, player, "/report"))
+            return;
         String name    = player.getName().getString();
         boolean hasImg = img != null && img.length > 0;
         DashboardAdmin.pendingReports.put(name, message);

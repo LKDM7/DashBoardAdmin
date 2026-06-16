@@ -68,6 +68,7 @@ public class DashboardAdmin {
     private static volatile int    maxHomes         = 3;
     private static volatile String webhookReports   = "";
     private static volatile String webhookSanctions = "";
+    private static volatile String webhookAudit     = "";
     private static volatile String motd             = "";
     private static final java.util.List<String> chatHistory = new java.util.ArrayList<>();
     private static final java.util.Map<java.util.UUID, java.util.List<String>> adminNotes = new java.util.HashMap<>();
@@ -82,6 +83,7 @@ public class DashboardAdmin {
     private static volatile int cooldownWarp = 10;
     private static volatile int cooldownRtp  = 300;
     private static final java.util.Map<java.util.UUID, Long> lastRtpUse = new java.util.HashMap<>();
+    private static final java.util.Map<java.util.UUID, Long> lastReportUse = new java.util.HashMap<>();
     private static final java.util.List<String>  scheduledMsgs      = new java.util.ArrayList<>();
     private static final java.util.List<Integer> scheduledIntervals = new java.util.ArrayList<>();
     static final java.util.List<Integer>         scheduledCounters  = new java.util.ArrayList<>();
@@ -221,6 +223,8 @@ public class DashboardAdmin {
     public static void   setWebhookReports(String v)      { webhookReports   = v == null ? "" : v; }
     public static String getWebhookSanctions()            { return webhookSanctions; }
     public static void   setWebhookSanctions(String v)    { webhookSanctions = v == null ? "" : v; }
+    public static String getWebhookAudit()                { return webhookAudit; }
+    public static void   setWebhookAudit(String v)        { webhookAudit     = v == null ? "" : v; }
     public static String getMotd()                        { return motd; }
     public static void   setMotd(String v)                { motd = v == null ? "" : v.replace("|", " ").trim(); }
     /** Historique du chat public (300 derniers messages), consultable depuis l'onglet LOGS. */
@@ -311,6 +315,7 @@ public class DashboardAdmin {
     public static int  getCooldownRtp()                    { return cooldownRtp; }
     public static void setCooldownRtp(int v)               { cooldownRtp = Math.max(0, v); }
     public static java.util.Map<java.util.UUID, Long> getLastRtpUse() { return lastRtpUse; }
+    public static java.util.Map<java.util.UUID, Long> getLastReportUse() { return lastReportUse; }
     public static boolean isIgnoring(java.util.UUID ignorer, java.util.UUID target) {
         return getPlayerSettings(ignorer).ignoredPlayers.contains(target);
     }
@@ -334,12 +339,13 @@ public class DashboardAdmin {
     public static String getFeaturesSerialized(boolean includeSecrets) {
         String wr = includeSecrets ? webhookReports   : "";
         String ws = includeSecrets ? webhookSanctions : "";
+        String wa = includeSecrets ? webhookAudit     : "";
         return afkAutoEnabled + "|" + proportionalSleepEnabled + "|" + treeCapitatorEnabled
              + "|" + fastLeafDecayEnabled + "|" + doubleDoorEnabled + "|" + getAfkDelayMinutes()
              + "|" + rightClickHarvestEnabled + "|" + dispenserHarvestEnabled
              + "|" + cropTrampleEnabled + "|" + maxHomes
              + "|" + wr + "|" + ws + "|" + motd + "|" + mailSpyEnabled
-             + "|" + antiSpamBypassEnabled;
+             + "|" + antiSpamBypassEnabled + "|" + wa;
     }
     public static String getMutedPlayerNames(net.minecraft.server.MinecraftServer server) {
         // snapshot des clés car isMuted() peut retirer les mutes expirés

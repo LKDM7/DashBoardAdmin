@@ -18,8 +18,6 @@ import java.util.Set;
 
 public class DashNetworking {
 
-    private static final org.slf4j.Logger LOGGER = com.mojang.logging.LogUtils.getLogger();
-
     @SubscribeEvent
     public static void onRegisterPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar reg = event.registrar("1");
@@ -105,41 +103,22 @@ public class DashNetworking {
             case "REMOVE_MOBS" -> { SrvLang.each(admin.getServer(), "§cSuppression des mobs dans 30 secondes !", "§cRemoving mobs in 30 seconds!"); DashboardAdmin.removeMobsTicks = 30 * 20; }
             case "LOCK_CHAT"   -> { DashboardAdmin.setChatLocked(!DashboardAdmin.isChatLocked()); boolean chatLocked = DashboardAdmin.isChatLocked(); SrvLang.each(admin.getServer(), "§cLe chat a été " + (chatLocked ? "bloqué" : "débloqué") + " !", "§cChat has been " + (chatLocked ? "locked" : "unlocked") + "!"); ServerConfig.save(); }
             case "VANISH" -> {
+                // L'entité est masquée aux autres joueurs par TrackedEntityVanishMixin (suivi
+                // d'entités), SANS toucher au suivi de chunks → l'admin n'est plus gelé et ses
+                // chunks chargent normalement. Ici on ne gère que le set + la tab-list.
                 net.minecraft.server.MinecraftServer vanishSrv = admin.getServer();
-                ServerLevel vanishLevel = (ServerLevel) admin.level();
-                net.minecraft.server.level.ChunkMap chunkMap = vanishLevel.getChunkSource().chunkMap;
                 if (DashboardAdmin.vanishedPlayers.contains(admin.getUUID())) {
                     DashboardAdmin.vanishedPlayers.remove(admin.getUUID());
-                    // Re-add to tab lists first (client needs profile before entity spawn)
+                    // Re-add to tab lists (le tracker re-spawn l'entité chez les observateurs au tick suivant)
                     net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket showInfo =
                         net.minecraft.network.protocol.game.ClientboundPlayerInfoUpdatePacket
                             .createPlayerInitializing(java.util.List.of(admin));
                     for (ServerPlayer other : vanishSrv.getPlayerList().getPlayers())
                         if (!other.getUUID().equals(admin.getUUID())) other.connection.send(showInfo);
-                    // Re-add entity to chunk tracker via reflection (protected access)
-                    try {
-                        java.lang.reflect.Method addEntity = chunkMap.getClass()
-                            .getDeclaredMethod("addEntity", net.minecraft.world.entity.Entity.class);
-                        addEntity.setAccessible(true);
-                        addEntity.invoke(chunkMap, admin);
-                    } catch (ReflectiveOperationException e) {
-                        LOGGER.error("[DashBoardAdmin] Vanish OFF: échec ChunkMap.addEntity par réflexion (API NeoForge changée ?)", e);
-                        admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cErreur interne du vanish (voir logs serveur).", "§cInternal vanish error (see server logs).")));
-                    }
                     admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§eVanish : OFF", "§eVanish: OFF")));
                 } else {
                     DashboardAdmin.vanishedPlayers.add(admin.getUUID());
-                    // Remove entity from chunk tracker via reflection (broadcasts remove to clients)
-                    try {
-                        java.lang.reflect.Method removeEntity = chunkMap.getClass()
-                            .getDeclaredMethod("removeEntity", net.minecraft.world.entity.Entity.class);
-                        removeEntity.setAccessible(true);
-                        removeEntity.invoke(chunkMap, admin);
-                    } catch (ReflectiveOperationException e) {
-                        LOGGER.error("[DashBoardAdmin] Vanish ON: échec ChunkMap.removeEntity par réflexion (API NeoForge changée ?)", e);
-                        admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cErreur interne du vanish (voir logs serveur).", "§cInternal vanish error (see server logs).")));
-                    }
-                    // Remove from tab lists
+                    // Remove from tab lists (l'entité est masquée par le mixin au tick de suivi suivant)
                     net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket removeInfo =
                         new net.minecraft.network.protocol.game.ClientboundPlayerInfoRemovePacket(java.util.List.of(admin.getUUID()));
                     for (ServerPlayer other : vanishSrv.getPlayerList().getPlayers())
@@ -200,7 +179,7 @@ public class DashNetworking {
             case "REFUSE_REPORT"      -> ReportManager.refuse(admin, payload.target());
             case "FETCH_REPORT_IMAGE" -> ReportManager.fetchImage(admin, payload.target());
             case "SET_MAX_HOMES"  -> { try { DashboardAdmin.setMaxHomes(Integer.parseInt(payload.value())); ServerConfig.save(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aMax homes fixé à §e" + DashboardAdmin.getMaxHomes() + "§a.", "§aMax homes set to §e" + DashboardAdmin.getMaxHomes() + "§a."))); } catch (NumberFormatException ignored) {} }
-            case "SET_WEBHOOKS"   -> { DashboardAdmin.setWebhookReports(payload.target()); DashboardAdmin.setWebhookSanctions(payload.value()); ServerConfig.save(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aWebhooks Discord mis à jour.", "§aDiscord webhooks updated."))); }
+            case "SET_WEBHOOKS"   -> { String[] wh = payload.value().split("\t", 2); DashboardAdmin.setWebhookReports(payload.target()); DashboardAdmin.setWebhookSanctions(wh[0]); DashboardAdmin.setWebhookAudit(wh.length > 1 ? wh[1] : ""); ServerConfig.save(); admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§aWebhooks Discord mis à jour.", "§aDiscord webhooks updated."))); }
             case "GET_LOGS" -> {
                 // Fonctionne aussi pour un joueur hors ligne (résolution via le cache de noms).
                 java.util.UUID logsUuid = target != null ? target.getUUID()
@@ -330,8 +309,8 @@ public class DashNetworking {
             case "GET_SANCTIONS" -> PacketDistributor.sendToPlayer(admin, new OpenSanctionsPayload(DashboardAdmin.getSanctionsSerialized()));
             case "GET_AUDIT"     -> PacketDistributor.sendToPlayer(admin, new OpenAuditPayload(DashboardAdmin.getAuditSerialized()));
             case "EXPORT_AUDIT" -> {
-                String url = DashboardAdmin.getWebhookSanctions();
-                if (url == null || url.isBlank()) { admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cAucun webhook Discord configuré (onglet Features).", "§cNo Discord webhook configured (Features tab)."))); return; }
+                String url = DashboardAdmin.getWebhookAudit();
+                if (url == null || url.isBlank()) { admin.sendSystemMessage(Component.literal(SrvLang.t(admin, "§cAucun webhook Audit configuré (onglet Features).", "§cNo Audit webhook configured (Features tab)."))); return; }
                 StringBuilder sb = new StringBuilder();
                 for (String[] e : DashboardAdmin.getAuditLog())
                     sb.append(e[0]).append("  ").append(e[1]).append(" -> ").append(e[2])

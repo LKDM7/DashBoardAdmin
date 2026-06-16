@@ -21,16 +21,16 @@ public class AdminScreen extends Screen {
     private static final int C_BG      = 0xF01A1A1A;
     private static final int C_SIDE    = 0xFF0C0C0C;
     private static final int C_HBAR    = 0xFF111111;
-    private static final int C_ACCENT  = 0xFF00E5FF;
-    private static final int C_DIV     = 0x33FFFFFF;
-    private static final int C_ROW     = 0x11FFFFFF;
+    static final int C_ACCENT  = 0xFF00E5FF;
+    static final int C_DIV     = 0x33FFFFFF;
+    static final int C_ROW     = 0x11FFFFFF;
     private static final int C_TABSEL  = 0x1A00AAFF;
     private static final int SIDE_W      = 100;
     private static final int ZONE_LIST_W = 100;
 
     // State
     private int     currentTab  = 0;
-    private String  selPlayer   = null;
+    String  selPlayer   = null;   // joueur sélectionné — partagé Joueurs/Logs
     private String  selGamemode = "???";
     private String  search      = "";
     private int     sortMode    = 0;     // 0 = récent (défaut), 1 = A→Z, 2 = nb sanctions
@@ -40,10 +40,10 @@ public class AdminScreen extends Screen {
     private java.util.Set<String>         keepInvPlayers  = new java.util.HashSet<>();
     private java.util.Set<String>         afkPlayers      = new java.util.HashSet<>();
     private final java.util.List<String[]> offlinePlayers = new java.util.ArrayList<>(); // [nom, lastSeenMs]
-    private String[] serverStats = null; // tps|mspt|ramU|ramM|entités|chunks|uptimeSec
+    String[] serverStats = null; // tps|mspt|ramU|ramM|entités|chunks|uptimeSec
     private boolean  selOffline  = false;
-    private final java.util.List<String[]> warpsList = new java.util.ArrayList<>(); // [nom, "x, y, z", dim]
-    private EditBox warpNameBox;
+    final java.util.List<String[]> warpsList = new java.util.ArrayList<>(); // [nom, "x, y, z", dim] — rempli par le payload
+    private final WarpsTab warpsTab = new WarpsTab(this); // onglet WARPS extrait
     private final java.util.Map<String, java.util.List<String>> adminNotes = new java.util.HashMap<>(); // nomLower → notes
     private EditBox noteBox;
     private boolean showNotesList = false;
@@ -54,37 +54,38 @@ public class AdminScreen extends Screen {
     private java.util.Map<String, String> closedReports   = new java.util.LinkedHashMap<>();
     private String   hoverReportMsg = null; // message complet du report survolé (tooltip)
     private EditBox  announceBox, banReasonBox, searchBox;
-    private boolean  isBanning = false, isKicking = false, isRemovingMobs = false, isRestarting = false;
+    boolean  isBanning = false, isKicking = false, isRemovingMobs = false, isRestarting = false;
     private long     banDurationSecs   = 0;   // 0=permanent, sinon durée en secondes
     private int      restartMinutes    = 5;
     private EditBox  banDayBox, banHourBox, banMinBox, banSecBox;
-    private String   confirmUnbanPlayer = null; // non-null = confirmation déban SANCTIONS
+    String   confirmUnbanPlayer = null; // non-null = confirmation déban SANCTIONS (dialog central)
     private String   broadcastTarget   = "";  // ""=TOUS, playerName, "GROUP:leaderName"
     private java.util.List<String[]> availableGroups = new java.util.ArrayList<>(); // [leaderName, groupName, count]
-    private String                 logsPlayer  = null;
-    private java.util.List<String> logsEntries = new java.util.ArrayList<>();
-    private int                    logsScroll  = 0;
+    private final LogsTab logsTab = new LogsTab(this); // onglet LOGS extrait
     private java.util.List<String[]> schedBroadcasts  = new java.util.ArrayList<>();
-    private java.util.List<String[]> bannedPlayers    = new java.util.ArrayList<>(); // [name, reason, expiresMs]
-    private java.util.List<String[]> sanctionsEntries = new java.util.ArrayList<>(); // [ts, type, player, admin, reason]
-    private java.util.List<String[]> auditEntries     = new java.util.ArrayList<>(); // [ts, admin, action, target, detail]
-    private int  auditScroll          = 0;
+    final java.util.List<String[]> bannedPlayers    = new java.util.ArrayList<>(); // [name, reason, expiresMs]
+    final java.util.List<String[]> sanctionsEntries = new java.util.ArrayList<>(); // [ts, type, player, admin, reason]
+    private final AuditTab auditTab = new AuditTab(this); // onglet AUDIT extrait (état + build/render)
     private int  deletingBroadcastIdx = -1;
-    private int  sanctionsScroll      = 0;
+    int  sanctionsScroll      = 0;
+    private final SanctionsTab sanctionsTab = new SanctionsTab(this); // onglet SANCTIONS extrait
+    private final MondeTab mondeTab = new MondeTab(this); // onglet MONDE extrait
     private int  cdHome = 30, cdBack = 10, cdTpa = 60, cdAfk = 5;
     private EditBox broadcastMsgBox, broadcastIntervalBox, cdHomeBox, cdBackBox, cdTpaBox, afkDelayBox;
     private int     maxHomes         = 3;
     private String  webhookReports   = "";
     private String  webhookSanctions = "";
+    private String  webhookAudit     = "";
     private String  motd             = "";
     private boolean mailSpyEnabled   = false;
     private EditBox maxHomesBox;
     private EditBox webhookReportsBox;
     private EditBox webhookSanctionsBox;
+    private EditBox webhookAuditBox;
     private boolean  pvpEnabled;
     private boolean  chatLocked          = com.lkdm.dashboardadmin.DashboardAdmin.isChatLocked();
-    private boolean  weatherCycleEnabled = com.lkdm.dashboardadmin.DashboardAdmin.isWeatherCycleEnabled();
-    private boolean  daylightCycleEnabled = com.lkdm.dashboardadmin.DashboardAdmin.isDaylightCycleEnabled();
+    boolean  weatherCycleEnabled = com.lkdm.dashboardadmin.DashboardAdmin.isWeatherCycleEnabled();
+    boolean  daylightCycleEnabled = com.lkdm.dashboardadmin.DashboardAdmin.isDaylightCycleEnabled();
     private boolean  afkAutoEnabled           = false;
     private boolean  proportionalSleepEnabled = false;
     private boolean  treeCapitatorEnabled     = false;
@@ -132,7 +133,15 @@ public class AdminScreen extends Screen {
     private final java.util.Set<String> viewerPerms = new java.util.HashSet<>();
 
     /** Le joueur courant peut-il accéder à cette permission (OP = tout) ? */
-    private boolean can(String perm) { return viewerAllPerms || viewerPerms.contains(perm); }
+    boolean can(String perm) { return viewerAllPerms || viewerPerms.contains(perm); }
+
+    // ── Accès partagé pour les classes d'onglet (même package) ──────────────────
+    net.minecraft.client.gui.Font font() { return this.font; }
+    <T extends net.minecraft.client.gui.components.events.GuiEventListener
+             & net.minecraft.client.gui.components.Renderable
+             & net.minecraft.client.gui.narration.NarratableEntry> T add(T w) {
+        return addRenderableWidget(w);
+    }
 
     private String tabPerm(int id) {
         return switch (id) {
@@ -153,9 +162,9 @@ public class AdminScreen extends Screen {
         };
     }
 
-    // Layout (computed in init)
-    private int px, py, pw, ph;
-    private int cx, midX, midY;
+    // Layout (computed in init) — package-private : lu par les classes d'onglet.
+    int px, py, pw, ph;
+    int cx, midX, midY;
     private final int[] tabYMap = new int[11]; // Y position of each tab button, for highlight
     // Sidebar nav layout (computed in init from ph, mirrored by render for labels/dividers)
     private int navTabH = 20;
@@ -248,6 +257,7 @@ public class AdminScreen extends Screen {
                 if (feats.length >= 10) try { maxHomes  = Integer.parseInt(feats[9]); } catch (NumberFormatException ignored) {}
                 if (feats.length >= 11) webhookReports   = feats[10];
                 if (feats.length >= 12) webhookSanctions = feats[11];
+                if (feats.length >= 16) webhookAudit     = feats[15];
                 if (feats.length >= 13) motd             = feats[12];
                 if (feats.length >= 14) mailSpyEnabled   = Boolean.parseBoolean(feats[13]);
                 if (feats.length >= 15) antiSpamBypassEnabled = Boolean.parseBoolean(feats[14]);
@@ -506,17 +516,17 @@ public class AdminScreen extends Screen {
 
         // ── Tab content (uniquement si le joueur a la permission de l'onglet) ──────
         if (can(tabPerm(currentTab))) switch (currentTab) {
-            case 0 -> buildMonde();
+            case 0 -> mondeTab.build();
             case 1 -> buildJoueurs();
             case 2 -> buildChat();
             case 3 -> buildFeatures();
             case 4 -> buildReports();
-            case 5 -> buildLogs();
+            case 5 -> logsTab.build();
             case 6 -> buildZones();
-            case 7 -> buildSanctions();
-            case 8 -> buildWarps();
+            case 7 -> sanctionsTab.build();
+            case 8 -> warpsTab.build();
             case 9 -> buildRoles();
-            case 10 -> buildAudit();
+            case 10 -> auditTab.build();
         }
     }
 
@@ -574,7 +584,7 @@ public class AdminScreen extends Screen {
         }
     }
 
-    private Button.Builder btn(String label, Button.OnPress handler) {
+    Button.Builder btn(String label, Button.OnPress handler) {
         return Button.builder(Component.literal(label), handler);
     }
 
@@ -594,42 +604,6 @@ public class AdminScreen extends Screen {
 
     // ─── MONDE ───────────────────────────────────────────────────────────────────
 
-    private void buildMonde() {
-        int lx = cx + 12;
-        int ty = py + 56;
-        addRenderableWidget(btn(Lang.t("MATIN", "MORNING"),  b -> send("SET_MORNING",  "", "")).bounds(lx,       ty, 58, 20).build());
-        addRenderableWidget(btn(Lang.t("JOUR", "DAY"),       b -> send("SET_DAY",      "", "")).bounds(lx + 62,  ty, 58, 20).build());
-        addRenderableWidget(btn(Lang.t("SOIR", "EVENING"),   b -> send("SET_EVENING",  "", "")).bounds(lx + 124, ty, 58, 20).build());
-        addRenderableWidget(btn(Lang.t("NUIT", "NIGHT"),     b -> send("SET_NIGHT",    "", "")).bounds(lx + 186, ty, 58, 20).build());
-
-        int my = py + 103;
-        addRenderableWidget(btn(Lang.t("SOLEIL", "CLEAR"),   b -> send("SET_WEATHER_CLEAR",   "", "")).bounds(lx,       my, 72, 20).build());
-        addRenderableWidget(btn(Lang.t("PLUIE", "RAIN"),     b -> send("SET_WEATHER_RAIN",    "", "")).bounds(lx + 76,  my, 72, 20).build());
-        addRenderableWidget(btn(Lang.t("ORAGE", "THUNDER"),  b -> send("SET_WEATHER_THUNDER", "", "")).bounds(lx + 152, my, 72, 20).build());
-        addRenderableWidget(btn(Lang.t("CYCLE MÉTÉO: ", "WEATHER: ") + (weatherCycleEnabled ? "§aON" : "§cOFF"),
-            b -> { send("TOGGLE_WEATHER_CYCLE", "", ""); weatherCycleEnabled = !weatherCycleEnabled; init(); })
-            .bounds(lx, my + 26, 118, 20).build());
-        // Cycle jour/nuit (gamerule doDaylightCycle) — fige l'heure quand OFF, même logique que le cycle météo.
-        addRenderableWidget(btn(Lang.t("CYCLE J/N: ", "DAY/NIGHT: ") + (daylightCycleEnabled ? "§aON" : "§cOFF"),
-            b -> { send("TOGGLE_DAYLIGHT_CYCLE", "", ""); daylightCycleEnabled = !daylightCycleEnabled; init(); })
-            .bounds(lx + 122, my + 26, 118, 20).build());
-
-        int oy = py + 168;
-        int bw3 = Math.min(92, (px + pw - 12 - lx - 8) / 3);
-        addRenderableWidget(btn("CLEAR LAG",   b -> send("CLEAR_LAG", "", "")).bounds(lx,                oy, bw3, 20).build());
-        addRenderableWidget(btn("REMOVE MOBS", b -> { isRemovingMobs = true; init(); }).bounds(lx + bw3 + 4,      oy, bw3, 20).build());
-        addRenderableWidget(btn("SET SPAWN",   b -> send("SET_SPAWN", "", "")).bounds(lx + (bw3 + 4) * 2, oy, bw3, 20).build());
-        if (can("act.vanish"))
-            addRenderableWidget(btn("VANISH",      b -> send("VANISH",    "", "")).bounds(lx,                oy + 26, bw3, 20).build());
-        if (can("act.restart")) {
-            addRenderableWidget(btn("§cRESTART",   b -> { isRestarting = true; init(); }).bounds(lx + bw3 + 4,      oy + 26, bw3, 20).build());
-            addRenderableWidget(btn(Lang.t("§7ANNULER R.", "§7CANCEL R."), b -> send("CANCEL_RESTART", "", "")).bounds(lx + (bw3 + 4) * 2, oy + 26, bw3, 20).build());
-        }
-
-        // Santé serveur — bouton de rafraîchissement (les stats sont un instantané)
-        addRenderableWidget(btn("§b⟳", b -> send("REFRESH_ADMIN", "", ""))
-            .bounds(px + pw - 26, oy + 56, 18, 14).build());
-    }
 
     // ─── JOUEURS ─────────────────────────────────────────────────────────────────
 
@@ -832,7 +806,7 @@ public class AdminScreen extends Screen {
                 oy2 += 24;
             }
             addRenderableWidget(btn("§eLOGS", b -> {
-                logsPlayer = null; logsEntries = new java.util.ArrayList<>(); logsScroll = 0;
+                logsTab.reset();
                 send("GET_LOGS", selPlayer, ""); currentTab = 5; init();
             }).bounds(bx2, oy2, bw2, 20).build());
             oy2 += 24;
@@ -871,7 +845,7 @@ public class AdminScreen extends Screen {
         addRenderableWidget(btn("BRING",      b -> send("BRING",        selPlayer, "")).bounds(lCol, aY + 48,  bw, 20).build());
         addRenderableWidget(btn(Lang.t("TP VERS", "TP TO"), b -> send("TELEPORT_TO",  selPlayer, "")).bounds(lCol, aY + 72,  bw, 20).build());
         addRenderableWidget(btn("§aHEAL",     b -> send("HEAL",         selPlayer, "")).bounds(lCol, aY + 96,  bw, 20).build());
-        addRenderableWidget(btn("§eLOGS",     b -> { logsPlayer = null; logsEntries = new java.util.ArrayList<>(); logsScroll = 0; send("GET_LOGS", selPlayer, ""); currentTab = 5; init(); }).bounds(lCol, aY + 120, bw, 20).build());
+        addRenderableWidget(btn("§eLOGS",     b -> { logsTab.reset(); send("GET_LOGS", selPlayer, ""); currentTab = 5; init(); }).bounds(lCol, aY + 120, bw, 20).build());
 
         boolean frozen  = frozenPlayers.contains(selPlayer);
         boolean muted   = mutedPlayers.contains(selPlayer);
@@ -1097,17 +1071,23 @@ public class AdminScreen extends Screen {
         int wBoxW = bw - wLblW;
         webhookReportsBox   = new EditBox(font, wBoxX, whY,      wBoxW, 16, Component.empty());
         webhookSanctionsBox = new EditBox(font, wBoxX, whY + 22, wBoxW, 16, Component.empty());
+        webhookAuditBox     = new EditBox(font, wBoxX, whY + 44, wBoxW, 16, Component.empty());
         webhookReportsBox.setMaxLength(300);
         webhookSanctionsBox.setMaxLength(300);
+        webhookAuditBox.setMaxLength(300);
         webhookReportsBox.setValue(webhookReports);
         webhookSanctionsBox.setValue(webhookSanctions);
+        webhookAuditBox.setValue(webhookAudit);
         addRenderableWidget(webhookReportsBox);
         addRenderableWidget(webhookSanctionsBox);
+        addRenderableWidget(webhookAuditBox);
         addRenderableWidget(btn(Lang.t("§aSAUVEGARDER WEBHOOKS", "§aSAVE WEBHOOKS"), b -> {
             webhookReports   = webhookReportsBox.getValue().trim();
             webhookSanctions = webhookSanctionsBox.getValue().trim();
-            send("SET_WEBHOOKS", webhookReports, webhookSanctions);
-        }).bounds(midX - 70, whY + 40, 140, 18).build());
+            webhookAudit     = webhookAuditBox.getValue().trim();
+            // value = sanctions + TAB + audit (target = reports)
+            send("SET_WEBHOOKS", webhookReports, webhookSanctions + "\t" + webhookAudit);
+        }).bounds(midX - 70, whY + 62, 140, 18).build());
     }
 
     // ─── REPORTS ─────────────────────────────────────────────────────────────────
@@ -1171,7 +1151,7 @@ public class AdminScreen extends Screen {
         }
     }
 
-    private void send(String action, String target, String value) {
+    void send(String action, String target, String value) {
         PacketDistributor.sendToServer(new AdminActionPayload(action, target, value));
     }
 
@@ -1261,17 +1241,17 @@ public class AdminScreen extends Screen {
             || (reportImagePlayer != null && reportOverlayTexLoc != null);
         if (!dialogOpen && can(tabPerm(currentTab))) {
             switch (currentTab) {
-                case 0 -> renderMonde(g);
+                case 0 -> mondeTab.render(g);
                 case 1 -> renderJoueurs(g);
                 case 2 -> renderChat(g);
                 case 3 -> renderFeatures(g);
                 case 4 -> renderReports(g, mx, my);
-                case 5 -> renderLogs(g);
+                case 5 -> logsTab.render(g);
                 case 6 -> renderZones(g);
-                case 7 -> renderSanctions(g);
-                case 8 -> renderWarps(g);
+                case 7 -> sanctionsTab.render(g);
+                case 8 -> warpsTab.render(g);
                 case 9 -> renderRoles(g, mx, my);
-                case 10 -> renderAudit(g);
+                case 10 -> auditTab.render(g);
             }
         }
 
@@ -1333,55 +1313,6 @@ public class AdminScreen extends Screen {
         super.render(g, mx, my, delta);
     }
 
-    private void renderMonde(GuiGraphics g) {
-        int lx = cx + 12;
-        g.fill(cx, py + 38, px + pw, py + 55, 0x0AFFFFFF);
-        lbl(g, Lang.t("TEMPS", "TIME"),  lx, py + 43); g.fill(lx, py + 53, px + pw - 12, py + 54, C_DIV);
-        g.fill(cx, py + 85, px + pw, py + 102, 0x0AFFFFFF);
-        lbl(g, Lang.t("MÉTÉO", "WEATHER"),  lx, py + 90); g.fill(lx, py + 100, px + pw - 12, py + 101, C_DIV);
-        g.fill(cx, py + 150, px + pw, py + 167, 0x0AFFFFFF);
-        lbl(g, Lang.t("OUTILS", "TOOLS"), lx, py + 155); g.fill(lx, py + 165, px + pw - 12, py + 166, C_DIV);
-
-        // ── Santé serveur ────────────────────────────────────────────────────
-        int oy = py + 168;
-        int sY = oy + 54;
-        g.fill(cx, sY, px + pw, sY + 17, 0x0AFFFFFF);
-        lbl(g, Lang.t("SANTÉ SERVEUR", "SERVER HEALTH"), lx, sY + 5); g.fill(lx, sY + 15, px + pw - 12, sY + 16, C_DIV);
-        if (serverStats == null || serverStats.length < 7) {
-            g.drawString(font, Lang.t("§8Indisponible", "§8Unavailable"), lx, sY + 22, 0xFF444444);
-            return;
-        }
-        double tps = 0, mspt = 0;
-        long ramU = 0, ramM = 1;
-        try {
-            tps  = Double.parseDouble(serverStats[0]);
-            mspt = Double.parseDouble(serverStats[1]);
-            ramU = Long.parseLong(serverStats[2]);
-            ramM = Long.parseLong(serverStats[3]);
-        } catch (NumberFormatException ignored) {}
-        String tpsCol = tps >= 18 ? "§a" : tps >= 14 ? "§e" : "§c";
-        long upSec = 0;
-        try { upSec = Long.parseLong(serverStats[6]); } catch (NumberFormatException ignored) {}
-        String uptime = upSec >= 3600 ? (upSec / 3600) + "h" + (upSec % 3600) / 60 + "m"
-                                       : (upSec / 60) + "m" + (upSec % 60) + "s";
-
-        int line = sY + 22;
-        g.drawString(font, "§7TPS" + Lang.t(" : ", ": ") + tpsCol + serverStats[0] + " §8(" + serverStats[1] + " ms/tick)", lx, line, 0xFFAAAAAA);
-        line += 12;
-        // RAM : texte + barre de progression
-        g.drawString(font, "§7RAM" + Lang.t(" : ", ": ") + "§f" + ramU + " §7/ " + ramM + Lang.t(" Mo", " MB"), lx, line, 0xFFAAAAAA);
-        int barX = lx + 130, barW = px + pw - 40 - barX;
-        if (barW > 30) {
-            float frac = Math.min(1f, (float) ramU / Math.max(1, ramM));
-            int fillCol = frac < 0.7f ? 0xFF00CC44 : frac < 0.9f ? 0xFFFFAA00 : 0xFFFF4444;
-            g.fill(barX, line + 1, barX + barW, line + 7, 0x33FFFFFF);
-            g.fill(barX, line + 1, barX + (int)(barW * frac), line + 7, fillCol);
-        }
-        line += 12;
-        g.drawString(font, Lang.t("§7Entités : §f", "§7Entities: §f") + serverStats[4]
-            + Lang.t("   §7Chunks : §f", "   §7Chunks: §f") + serverStats[5]
-            + Lang.t("   §7Uptime : §f", "   §7Uptime: §f") + uptime, lx, line, 0xFFAAAAAA);
-    }
 
     private void renderJoueurs(GuiGraphics g) {
         int divX = cx + 98;
@@ -1659,6 +1590,7 @@ public class AdminScreen extends Screen {
         lbl(g, "DISCORD WEBHOOKS", bx, whY - 8);
         g.drawString(font, "§8Reports",   bx, whY + 4,  0xFF666666);
         g.drawString(font, "§8Sanctions", bx, whY + 26, 0xFF666666);
+        g.drawString(font, "§8Audit",     bx, whY + 48, 0xFF666666);
     }
 
     private void renderReports(GuiGraphics g, int mx, int my) {
@@ -1737,172 +1669,7 @@ public class AdminScreen extends Screen {
 
     // ─── LOGS ────────────────────────────────────────────────────────────────────
 
-    private void buildLogs() {
-        if (Minecraft.getInstance().getConnection() == null) return;
-        java.util.Collection<net.minecraft.client.multiplayer.PlayerInfo> players =
-            Minecraft.getInstance().getConnection().getOnlinePlayers();
 
-        // Historique du chat public du serveur (réutilise le visualiseur de logs)
-        String chatLbl = Lang.t("CHAT GLOBAL", "GLOBAL CHAT");
-        addRenderableWidget(btn(("Chat global".equals(selPlayer) ? "§b§l" : "§b") + chatLbl, b -> {
-            selPlayer   = "Chat global";
-            logsPlayer  = null;
-            logsEntries = new java.util.ArrayList<>();
-            logsScroll  = 0;
-            send("GET_CHAT", "", "");
-            init();
-        }).bounds(cx + 4, py + 28, 90, 14).build());
-
-        int yOff = py + 48;
-        for (net.minecraft.client.multiplayer.PlayerInfo info : players) {
-            if (info.getProfile() == null) continue;
-            String name = info.getProfile().getName();
-            boolean sel = name.equals(selPlayer);
-            Component lbl = Component.literal((sel ? "§f§l" : "§7") + name);
-            addRenderableWidget(Button.builder(lbl, b -> {
-                selPlayer   = name;
-                logsPlayer  = null;
-                logsEntries = new java.util.ArrayList<>();
-                logsScroll  = 0;
-                send("GET_LOGS", name, "");
-                init();
-            }).bounds(cx + 16, yOff, 78, 14).build());
-            yOff += 16;
-        }
-    }
-
-    private void renderLogs(GuiGraphics g) {
-        int divX = cx + 98;
-        g.fill(divX, py + 26, divX + 1, py + ph - 5, C_DIV);
-
-        // Têtes de skin dans la liste de gauche
-        if (Minecraft.getInstance().getConnection() != null) {
-            int yOff = py + 48;
-            for (PlayerInfo info : Minecraft.getInstance().getConnection().getOnlinePlayers()) {
-                if (info.getProfile() == null) continue;
-                net.minecraft.client.gui.components.PlayerFaceRenderer.draw(g, info.getSkin(), cx + 5, yOff + 3, 8);
-                yOff += 16;
-            }
-        }
-
-        if (selPlayer == null) {
-            g.drawCenteredString(font, Lang.t("§8← Sélectionnez un joueur", "§8← Select a player"), (divX + px + pw) / 2, py + ph / 2, 0xFF555555);
-            return;
-        }
-
-        // Header
-        g.fill(divX + 1, py + 26, px + pw, py + 46, 0xFF0A0A0A);
-        g.drawString(font, "§e§l" + selPlayer + " §8— Logs", divX + 8, py + 31, 0xFFFFFFFF);
-        g.fill(divX + 1, py + 45, px + pw, py + 46, C_DIV);
-
-        if (logsPlayer == null) {
-            g.drawCenteredString(font, Lang.t("§8Chargement des logs...", "§8Loading logs..."), (divX + px + pw) / 2, py + ph / 2, 0xFF666666);
-            return;
-        }
-
-        if (logsEntries.isEmpty()) {
-            g.drawCenteredString(font, Lang.t("§8Aucun log", "§8No logs"), (divX + px + pw) / 2, py + ph / 2, 0xFF444444);
-            return;
-        }
-
-        int entryH    = 11;
-        int panelTop  = py + 48;
-        int panelBot  = py + ph - 6;
-        int visH      = panelBot - panelTop;
-        int maxVis    = Math.max(1, visH / entryH);
-        int maxScroll = Math.max(0, logsEntries.size() - maxVis);
-        if (logsScroll > maxScroll) logsScroll = maxScroll;
-        if (logsScroll < 0)         logsScroll = 0;
-
-        int sbX = px + pw - 6;
-
-        g.enableScissor(divX + 2, panelTop, sbX - 2, panelBot);
-        int y = panelTop;
-        for (int i = logsScroll; i < logsEntries.size() && i < logsScroll + maxVis; i++) {
-            if (i % 2 == 0) g.fill(divX + 2, y - 1, sbX - 2, y + entryH, 0x0AFFFFFF);
-            g.drawString(font, "§7" + logsEntries.get(i), divX + 6, y + 1, 0xFFAAAAAA);
-            y += entryH;
-        }
-        g.disableScissor();
-
-        // Scrollbar
-        if (logsEntries.size() > maxVis) {
-            int sbH    = panelBot - panelTop;
-            int thumbH = Math.max(8, sbH * maxVis / logsEntries.size());
-            int thumbY = maxScroll > 0 ? panelTop + (sbH - thumbH) * logsScroll / maxScroll : panelTop;
-            g.fill(sbX, panelTop, sbX + 4, panelBot, 0x33FFFFFF);
-            g.fill(sbX, thumbY,   sbX + 4, thumbY + thumbH, C_ACCENT);
-        }
-    }
-
-    private void buildSanctions() {
-        if (sanctionsEntries.isEmpty()) return;
-        int panelTop = py + 28;
-        int panelBot = py + ph - 6;
-        int entryH   = 18;
-        int maxVis   = Math.max(1, (panelBot - panelTop) / entryH);
-
-        int y = panelTop;
-        for (int i = sanctionsScroll; i < sanctionsEntries.size() && i < sanctionsScroll + maxVis; i++) {
-            String[] e = sanctionsEntries.get(i);
-            if ("BAN".equals(e[1])) {
-                final String playerName = e[2];
-                boolean isBanned = bannedPlayers.stream().anyMatch(b -> b[0].equalsIgnoreCase(playerName));
-                if (isBanned) {
-                    addRenderableWidget(btn(Lang.t("§aDÉBAN", "§aUNBAN"), b -> {
-                        confirmUnbanPlayer = playerName;
-                        init();
-                    }).bounds(px + pw - 62, y + 2, 54, 14).build());
-                }
-            }
-            y += entryH;
-        }
-    }
-
-    private void renderSanctions(GuiGraphics g) {
-        int panelTop = py + 28;
-        int panelBot = py + ph - 6;
-        int sbX      = px + pw - 6;
-        int entryH   = 18;
-
-        if (sanctionsEntries.isEmpty()) {
-            g.drawCenteredString(font, Lang.t("§8Aucune sanction enregistrée", "§8No sanctions recorded"), midX, py + ph / 2, 0xFF444444);
-            return;
-        }
-
-        int maxVis    = Math.max(1, (panelBot - panelTop) / entryH);
-        int maxScroll = Math.max(0, sanctionsEntries.size() - maxVis);
-        if (sanctionsScroll > maxScroll) sanctionsScroll = maxScroll;
-        if (sanctionsScroll < 0)         sanctionsScroll = 0;
-
-        g.enableScissor(cx, panelTop, sbX - 2, panelBot);
-        int y = panelTop;
-        for (int i = sanctionsScroll; i < sanctionsEntries.size() && i < sanctionsScroll + maxVis; i++) {
-            String[] e = sanctionsEntries.get(i);
-            if (i % 2 == 0) g.fill(cx + 4, y, sbX - 4, y + entryH - 2, C_ROW);
-            int typeColor = switch (e[1]) {
-                case "BAN"  -> 0xFFFF5555;
-                case "KICK" -> 0xFFFFAA00;
-                case "MUTE" -> 0xFFFFFF55;
-                case "UNBAN"-> 0xFF55FF55;
-                default     -> 0xFFAAAAAA;
-            };
-            g.fill(cx + 4, y, cx + 5, y + entryH - 2, typeColor);
-            String line = "§8" + e[0] + " §r" + e[2] + " §8— " + e[1] + " §8| §7" + e[3]
-                + (e[4].equals("—") ? "" : " §8| §7" + truncate(e[4], 20));
-            g.drawString(font, line, cx + 10, y + 4, typeColor, false);
-            y += entryH;
-        }
-        g.disableScissor();
-
-        if (sanctionsEntries.size() > maxVis) {
-            int sbH    = panelBot - panelTop;
-            int thumbH = Math.max(8, sbH * maxVis / sanctionsEntries.size());
-            int thumbY = maxScroll > 0 ? panelTop + (sbH - thumbH) * sanctionsScroll / maxScroll : panelTop;
-            g.fill(sbX, panelTop, sbX + 4, panelBot, 0x33FFFFFF);
-            g.fill(sbX, thumbY,   sbX + 4, thumbY + thumbH, C_ACCENT);
-        }
-    }
 
     public void onSanctionsReceived(String data) {
         sanctionsEntries.clear();
@@ -1918,71 +1685,9 @@ public class AdminScreen extends Screen {
 
     // ─── AUDIT (journal d'actions admin) ──────────────────────────────────────────
 
-    private void buildAudit() {
-        // Bouton d'export du journal vers le webhook Discord (conformité).
-        addRenderableWidget(btn(Lang.t("§eEXPORTER", "§eEXPORT"), b -> send("EXPORT_AUDIT", "", ""))
-            .bounds(px + pw - 96, py + 5, 88, 18).build());
-    }
+    public void onAuditReceived(String data) { auditTab.onReceived(data); }
 
-    private void renderAudit(GuiGraphics g) {
-        int panelTop = py + 28;
-        int panelBot = py + ph - 6;
-        int sbX      = px + pw - 6;
-        int entryH   = 18;
-
-        if (auditEntries.isEmpty()) {
-            g.drawCenteredString(font, Lang.t("§8Aucune action enregistrée", "§8No actions recorded"), midX, py + ph / 2, 0xFF444444);
-            return;
-        }
-
-        int maxVis    = Math.max(1, (panelBot - panelTop) / entryH);
-        int maxScroll = Math.max(0, auditEntries.size() - maxVis);
-        if (auditScroll > maxScroll) auditScroll = maxScroll;
-        if (auditScroll < 0)         auditScroll = 0;
-
-        g.enableScissor(cx, panelTop, sbX - 2, panelBot);
-        int y = panelTop;
-        for (int i = auditScroll; i < auditEntries.size() && i < auditScroll + maxVis; i++) {
-            String[] e = auditEntries.get(i); // [ts, admin, action, target, detail]
-            if (i % 2 == 0) g.fill(cx + 4, y, sbX - 4, y + entryH - 2, C_ROW);
-            g.fill(cx + 4, y, cx + 5, y + entryH - 2, 0xFF00E5FF);
-            String line = "§8" + e[0] + " §b" + e[1] + " §8» §f" + e[2]
-                + ("—".equals(e[3]) ? "" : " §7" + e[3])
-                + ("—".equals(e[4]) ? "" : " §8(" + truncate(e[4], 24) + ")");
-            g.drawString(font, line, cx + 10, y + 4, 0xFFAAAAAA, false);
-            y += entryH;
-        }
-        g.disableScissor();
-
-        if (auditEntries.size() > maxVis) {
-            int sbH    = panelBot - panelTop;
-            int thumbH = Math.max(8, sbH * maxVis / auditEntries.size());
-            int thumbY = maxScroll > 0 ? panelTop + (sbH - thumbH) * auditScroll / maxScroll : panelTop;
-            g.fill(sbX, panelTop, sbX + 4, panelBot, 0x33FFFFFF);
-            g.fill(sbX, thumbY,   sbX + 4, thumbY + thumbH, C_ACCENT);
-        }
-    }
-
-    public void onAuditReceived(String data) {
-        auditEntries.clear();
-        if (!data.isEmpty()) {
-            for (String line : data.split("\\|")) {
-                String[] parts = line.split("\t", 5);
-                if (parts.length == 5) auditEntries.add(parts);
-            }
-        }
-        auditScroll = 0;
-        init();
-    }
-
-    public void onLogsReceived(String playerName, String logsSerialized) {
-        this.logsPlayer  = playerName;
-        this.logsEntries = logsSerialized.isEmpty()
-            ? new java.util.ArrayList<>()
-            : new java.util.ArrayList<>(java.util.Arrays.asList(logsSerialized.split("\n")));
-        this.logsScroll  = 0;
-        init();
-    }
+    public void onLogsReceived(String playerName, String logsSerialized) { logsTab.onReceived(playerName, logsSerialized); }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
@@ -1990,24 +1695,14 @@ public class AdminScreen extends Screen {
             notesScroll = Math.max(0, notesScroll - (int) scrollY);
             return true;
         }
-        if (currentTab == 5 && !logsEntries.isEmpty()) {
-            logsScroll -= (int)(scrollY * 3);
-            if (logsScroll < 0) logsScroll = 0;
-            return true;
+        if (currentTab == 5 && logsTab.hasEntries()) {
+            return logsTab.mouseScrolled(scrollY);
         }
-        if (currentTab == 7 && !sanctionsEntries.isEmpty()) {
-            int maxVis = Math.max(1, (py + ph - 6 - (py + 28)) / 18);
-            int maxScroll = Math.max(0, sanctionsEntries.size() - maxVis);
-            sanctionsScroll = Math.max(0, Math.min(sanctionsScroll - (int)(scrollY * 3), maxScroll));
-            init();
-            return true;
+        if (currentTab == 7 && sanctionsTab.hasEntries()) {
+            return sanctionsTab.mouseScrolled(scrollY);
         }
-        if (currentTab == 10 && !auditEntries.isEmpty()) {
-            int maxVis = Math.max(1, (py + ph - 6 - (py + 28)) / 18);
-            int maxScroll = Math.max(0, auditEntries.size() - maxVis);
-            auditScroll = Math.max(0, Math.min(auditScroll - (int)(scrollY * 3), maxScroll));
-            init();
-            return true;
+        if (currentTab == 10 && auditTab.hasEntries()) {
+            return auditTab.mouseScrolled(scrollY);
         }
         if (currentTab == 6 && mouseX >= cx && mouseX < cx + ZONE_LIST_W) {
             int maxVis   = Math.max(1, (py + ph - 28 - (py + 30)) / 20);
@@ -2208,12 +1903,12 @@ public class AdminScreen extends Screen {
         };
     }
 
-    private String truncate(String s, int max) {
+    String truncate(String s, int max) {
         if (s == null) return "";
         return s.length() > max ? s.substring(0, max) + "…" : s;
     }
 
-    private void lbl(GuiGraphics g, String text, int x, int y) {
+    void lbl(GuiGraphics g, String text, int x, int y) {
         g.drawString(font, text, x, y, 0xFF888888);
     }
 
@@ -2226,59 +1921,6 @@ public class AdminScreen extends Screen {
 
     // ─── WARPS ───────────────────────────────────────────────────────────────────
 
-    private void buildWarps() {
-        int lx = cx + 8;
-        int y = py + 48;
-        int maxBottom = py + ph - 36;
-        for (String[] w : warpsList) {
-            if (y + 18 > maxBottom) break;
-            final String wn = w[0];
-            addRenderableWidget(btn("§bTP", b -> { send("WARP_TP", "", wn); onClose(); })
-                .bounds(px + pw - 66, y, 28, 14).build());
-            addRenderableWidget(btn("§c✕", b -> send("WARP_DELETE", "", wn))
-                .bounds(px + pw - 34, y, 18, 14).build());
-            y += 20;
-        }
-        // Création d'un warp à la position actuelle de l'admin
-        warpNameBox = new EditBox(font, lx, py + ph - 28, 120, 18, Component.literal("nom du warp"));
-        warpNameBox.setMaxLength(24);
-        addRenderableWidget(warpNameBox);
-        addRenderableWidget(btn(Lang.t("§aCRÉER ICI", "§aCREATE HERE"), b -> {
-            String n = warpNameBox.getValue().trim();
-            if (!n.isEmpty()) { send("WARP_ADD", "", n); warpNameBox.setValue(""); }
-        }).bounds(lx + 126, py + ph - 28, 90, 18).build());
-    }
-
-    private void renderWarps(GuiGraphics g) {
-        int lx = cx + 8;
-        lbl(g, Lang.t("WARPS PUBLICS", "PUBLIC WARPS") + (warpsList.isEmpty() ? "" : " (" + warpsList.size() + ")"), lx, py + 32);
-        g.fill(lx, py + 42, px + pw - 12, py + 43, C_DIV);
-
-        if (warpsList.isEmpty()) {
-            g.drawCenteredString(font, Lang.t("§8Aucun warp défini", "§8No warps defined"), midX, py + ph / 2 - 6, 0xFF444444);
-            g.drawCenteredString(font, Lang.t("§8Créez-en un à votre position ci-dessous", "§8Create one at your position below"), midX, py + ph / 2 + 6, 0xFF333333);
-        }
-
-        int y = py + 48;
-        int maxBottom = py + ph - 36;
-        int shown = 0;
-        for (String[] w : warpsList) {
-            if (y + 18 > maxBottom) {
-                g.drawString(font, "§8+" + (warpsList.size() - shown) + "…", lx, y, 0xFF444444);
-                break;
-            }
-            if (shown % 2 == 0) g.fill(cx + 4, y - 2, px + pw - 4, y + 14, C_ROW);
-            g.drawString(font, "§b◈ §f" + w[0], lx, y + 2, 0xFFFFFFFF);
-            g.drawString(font, "§8" + w[1] + "  §7[" + w[2] + "]",
-                lx + 8 + font.width("§b◈ §f" + w[0]), y + 2, 0xFF777777);
-            y += 20;
-            shown++;
-        }
-
-        g.fill(lx, py + ph - 36, px + pw - 12, py + ph - 35, C_DIV);
-        g.drawString(font, Lang.t("§8Le warp est créé à votre position actuelle.",
-            "§8The warp is created at your current position."), lx + 222, py + ph - 23, 0xFF444444);
-    }
 
     // ─── ZONES ───────────────────────────────────────────────────────────────────
 

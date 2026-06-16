@@ -17,9 +17,11 @@ import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.event.ServerChatEvent;
+import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
+import net.neoforged.neoforge.event.entity.player.ItemEntityPickupEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
@@ -622,6 +624,10 @@ public class DashGameEvents {
         TpaManager.getPendingTpaTimestamps().remove(uid);
         TpaManager.getTpaHere().remove(uid);
         TpaManager.getTpaRequests().entrySet().removeIf(e -> { if (e.getValue().equals(uid)) { TpaManager.getPendingTpaTimestamps().remove(e.getKey()); TpaManager.getTpaHere().remove(e.getKey()); return true; } return false; });
+        // Vanish : pas d'annonce de départ, et on nettoie l'état (le vanish ne survit pas au relog).
+        boolean wasVanished = DashboardAdmin.isVanished(uid);
+        DashboardAdmin.vanishedPlayers.remove(uid);
+        if (wasVanished) return;
         String leftName = player.getName().getString();
         for (ServerPlayer p : server.getPlayerList().getPlayers())
             if (DashboardAdmin.getPlayerSettings(p.getUUID()).showConnectionAlerts && !p.getUUID().equals(uid))
@@ -697,6 +703,25 @@ public class DashGameEvents {
             if (!DashboardAdmin.isPvpEnabled()) { event.setCanceled(true); return; }
             if (DashboardAdmin.isAfk(target.getUUID())) event.setCanceled(true);
         }
+    }
+
+    // ─── Vanish : invisibilité complète ─────────────────────────────────────────
+    // Un joueur vanished est déjà retiré du suivi de chunk (invisible) et de la tab-list
+    // (voir DashNetworking#VANISH). Ici on complète : les mobs l'ignorent et il ne ramasse
+    // plus les items au sol — sinon un mob qui le suit ou un item qui « vole » vers le vide
+    // trahirait sa position.
+
+    @SubscribeEvent
+    public static void onChangeTarget(LivingChangeTargetEvent event) {
+        if (event.getNewAboutToBeSetTarget() instanceof ServerPlayer p
+                && DashboardAdmin.isVanished(p.getUUID()))
+            event.setCanceled(true);
+    }
+
+    @SubscribeEvent
+    public static void onVanishedItemPickup(ItemEntityPickupEvent.Pre event) {
+        if (DashboardAdmin.isVanished(event.getPlayer().getUUID()))
+            event.setCanPickup(net.neoforged.neoforge.common.util.TriState.FALSE);
     }
 
     // ─── Dimension change (freeze check) ─────────────────────────────────────

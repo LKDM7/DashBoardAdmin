@@ -3,12 +3,14 @@ package com.lkdm.dashboardadmin.client;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Onglet LOGS du dashboard admin : liste des joueurs en ligne (+ chat global) à gauche,
@@ -23,13 +25,24 @@ class LogsTab {
     private String       player  = null; // joueur dont les logs sont chargés
     private List<String> entries = new ArrayList<>();
     private int          scroll  = 0;
+    private String       filter  = "";   // filtre live sur les lignes du journal
+    private EditBox      searchBox;
 
     LogsTab(AdminScreen screen) { this.s = screen; }
 
     boolean hasEntries() { return !entries.isEmpty(); }
 
     /** Réinitialise l'affichage du journal (avant une nouvelle requête GET_LOGS / GET_CHAT). */
-    void reset() { player = null; entries = new ArrayList<>(); scroll = 0; }
+    void reset() { player = null; entries = new ArrayList<>(); scroll = 0; filter = ""; }
+
+    /** Lignes filtrées par {@link #filter} (insensible à la casse). */
+    private List<String> filtered() {
+        if (filter == null || filter.isBlank()) return entries;
+        String q = filter.toLowerCase(Locale.ROOT);
+        List<String> out = new ArrayList<>();
+        for (String e : entries) if (e.toLowerCase(Locale.ROOT).contains(q)) out.add(e);
+        return out;
+    }
 
     void build() {
         if (Minecraft.getInstance().getConnection() == null) return;
@@ -57,6 +70,18 @@ class LogsTab {
                 s.init();
             }).bounds(s.cx + 16, yOff, 78, 14).build());
             yOff += 16;
+        }
+
+        // Champ de filtre des lignes (panneau droit) — seulement quand un journal est chargé.
+        if (player != null && !entries.isEmpty()) {
+            int divX = s.cx + 98;
+            String hint = Lang.t("Filtrer les lignes…", "Filter lines…");
+            searchBox = new EditBox(s.font(), divX + 8, s.py + 48, s.px + s.pw - (divX + 8) - 8, 14, Component.literal(hint));
+            searchBox.setHint(Component.literal(hint));
+            searchBox.setMaxLength(48);
+            searchBox.setValue(filter);
+            searchBox.setResponder(v -> { filter = v; scroll = 0; });
+            s.add(searchBox);
         }
     }
 
@@ -94,12 +119,17 @@ class LogsTab {
             return;
         }
 
+        List<String> list = filtered();
         int entryH    = 11;
-        int panelTop  = s.py + 48;
+        int panelTop  = s.py + 66;   // sous la ligne de filtre (py+48..62)
         int panelBot  = s.py + s.ph - 6;
+        if (list.isEmpty()) {
+            g.drawCenteredString(s.font(), Lang.t("§8Aucun résultat", "§8No result"), (divX + s.px + s.pw) / 2, s.py + s.ph / 2, 0xFF444444);
+            return;
+        }
         int visH      = panelBot - panelTop;
         int maxVis    = Math.max(1, visH / entryH);
-        int maxScroll = Math.max(0, entries.size() - maxVis);
+        int maxScroll = Math.max(0, list.size() - maxVis);
         if (scroll > maxScroll) scroll = maxScroll;
         if (scroll < 0)         scroll = 0;
 
@@ -107,17 +137,17 @@ class LogsTab {
 
         g.enableScissor(divX + 2, panelTop, sbX - 2, panelBot);
         int y = panelTop;
-        for (int i = scroll; i < entries.size() && i < scroll + maxVis; i++) {
+        for (int i = scroll; i < list.size() && i < scroll + maxVis; i++) {
             if (i % 2 == 0) g.fill(divX + 2, y - 1, sbX - 2, y + entryH, 0x0AFFFFFF);
-            g.drawString(s.font(), "§7" + entries.get(i), divX + 6, y + 1, 0xFFAAAAAA);
+            g.drawString(s.font(), "§7" + list.get(i), divX + 6, y + 1, 0xFFAAAAAA);
             y += entryH;
         }
         g.disableScissor();
 
         // Scrollbar
-        if (entries.size() > maxVis) {
+        if (list.size() > maxVis) {
             int sbH    = panelBot - panelTop;
-            int thumbH = Math.max(8, sbH * maxVis / entries.size());
+            int thumbH = Math.max(8, sbH * maxVis / list.size());
             int thumbY = maxScroll > 0 ? panelTop + (sbH - thumbH) * scroll / maxScroll : panelTop;
             g.fill(sbX, panelTop, sbX + 4, panelBot, 0x33FFFFFF);
             g.fill(sbX, thumbY,   sbX + 4, thumbY + thumbH, AdminScreen.C_ACCENT);

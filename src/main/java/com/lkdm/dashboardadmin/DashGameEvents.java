@@ -1078,23 +1078,28 @@ public class DashGameEvents {
             }
         }
 
-        // ClearLag
+        // ClearLag — collecte AVANT discard : muter la collection pendant l'itération de
+        // getAllEntities() fait sauter des éléments (certains items survivaient au clear).
         if (DashboardAdmin.clearLagTicks > 0) {
             DashboardAdmin.clearLagTicks--;
             if (DashboardAdmin.clearLagTicks == 0) {
-                long count = 0;
-                for (ServerLevel level : server.getAllLevels()) for (net.minecraft.world.entity.Entity e : level.getAllEntities()) if (e instanceof net.minecraft.world.entity.item.ItemEntity) { e.discard(); count++; }
-                long clearedItems = count;
-                SrvLang.each(server, "§eClearLag : §f" + clearedItems + " items supprimés.", "§eClearLag: §f" + clearedItems + " items removed.");
+                java.util.List<net.minecraft.world.entity.Entity> toRemove = new java.util.ArrayList<>();
+                for (ServerLevel level : server.getAllLevels())
+                    for (net.minecraft.world.entity.Entity e : level.getAllEntities())
+                        if (e instanceof net.minecraft.world.entity.item.ItemEntity) toRemove.add(e);
+                for (net.minecraft.world.entity.Entity e : toRemove) e.discard();
+                SrvLang.each(server, "§eClearLag : §f" + toRemove.size() + " items supprimés.", "§eClearLag: §f" + toRemove.size() + " items removed.");
             }
         }
         if (DashboardAdmin.removeMobsTicks > 0) {
             DashboardAdmin.removeMobsTicks--;
             if (DashboardAdmin.removeMobsTicks == 0) {
-                long count = 0;
-                for (ServerLevel level : server.getAllLevels()) for (net.minecraft.world.entity.Entity e : level.getAllEntities()) if (e instanceof net.minecraft.world.entity.monster.Monster && !e.hasCustomName()) { e.discard(); count++; }
-                long removedMobs = count;
-                SrvLang.each(server, "§cMobs supprimés : §f" + removedMobs, "§cMobs removed: §f" + removedMobs);
+                java.util.List<net.minecraft.world.entity.Entity> toRemove = new java.util.ArrayList<>();
+                for (ServerLevel level : server.getAllLevels())
+                    for (net.minecraft.world.entity.Entity e : level.getAllEntities())
+                        if (e instanceof net.minecraft.world.entity.monster.Monster && !e.hasCustomName()) toRemove.add(e);
+                for (net.minecraft.world.entity.Entity e : toRemove) e.discard();
+                SrvLang.each(server, "§cMobs supprimés : §f" + toRemove.size(), "§cMobs removed: §f" + toRemove.size());
             }
         }
 

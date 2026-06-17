@@ -25,7 +25,9 @@ class WarpsTab {
             final String wn = w[0];
             s.add(s.btn("§bTP", b -> { s.send("WARP_TP", "", wn); s.onClose(); })
                 .bounds(s.px + s.pw - 66, y, 28, 14).build());
-            s.add(s.btn("§c✕", b -> s.send("WARP_DELETE", "", wn))
+            s.add(s.btn("§c✕", b -> s.askConfirm(
+                    Lang.t("Supprimer le warp « " + wn + " » ?", "Delete warp \"" + wn + "\"?"),
+                    () -> s.send("WARP_DELETE", "", wn)))
                 .bounds(s.px + s.pw - 34, y, 18, 14).build());
             y += 20;
         }

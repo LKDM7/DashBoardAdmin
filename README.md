@@ -4,7 +4,7 @@ Mod d'administration pour serveur SMP, sous NeoForge pour Minecraft 1.21.1.
 
 ## Téléchargement
 
-**[Télécharger la v1.6.9 (.jar)](https://github.com/LKDM7/DashBoardAdmin/raw/master/releases/dashboardadmin-1.6.9.jar)**
+**[Télécharger la v1.6.10 (.jar)](https://github.com/LKDM7/DashBoardAdmin/raw/master/releases/dashboardadmin-1.6.10.jar)**
 
 Les versions précédentes sont disponibles dans le dossier [`releases/`](releases/). Tous les joueurs doivent utiliser la même version que le serveur (vérification réseau stricte).
 
@@ -21,6 +21,7 @@ Les versions précédentes sont disponibles dans le dossier [`releases/`](releas
 - **Sanctions** : gestion des avertissements et sanctions
 - **Deals** : échanges entre joueurs
 - **HUD** : affichage en temps réel (groupes, notifications)
+- **Auto-manger** (client) : panneau optionnel à gauche de l'inventaire (onglet pour l'afficher ou le masquer) — choisis jusqu'à 9 aliments par priorité, règle un seuil de faim (17 / 10 / 6), et le joueur mange tout seul quand il a faim, en remontant la nourriture depuis l'inventaire si besoin. Réglages enregistrés côté client
 - **Bilingue** : interfaces **et** messages serveur (commandes, chat, notifications) en français ou en anglais, résolus selon la langue de chaque joueur
 
 ## Installation
@@ -38,7 +39,7 @@ Le fichier `.jar` généré se trouve dans `build/libs/`.
 
 ## Infos
 
-- **Version du mod :** 1.6.7
+- **Version du mod :** 1.6.10
 - **Version Minecraft :** 1.21.1
 - **Loader :** NeoForge `21.1.232`
 - **Auteur :** LKDM

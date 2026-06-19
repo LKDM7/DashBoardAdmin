@@ -37,6 +37,9 @@ public class DashboardAdminClient {
         NotifHud.register();
         ZoneOverlayRenderer.register();
         ClientZoneCache.loadConfig();
+        AutoEatConfig.load();
+        AutoEatPanel.register();
+        AutoEatHandler.register();
     }
 
     // ─── Tick handler (inner static class on GAME bus) ────────────────────────

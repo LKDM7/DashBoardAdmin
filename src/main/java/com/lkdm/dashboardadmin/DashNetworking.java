@@ -73,6 +73,61 @@ public class DashNetworking {
 
         reg.playToServer(DealActionPayload.TYPE, DealActionPayload.CODEC,
             (payload, ctx) -> ctx.enqueueWork(() -> handleDealAction(payload, (ServerPlayer) ctx.player())));
+
+        reg.playToServer(AutoEatPayload.TYPE, AutoEatPayload.CODEC,
+            (payload, ctx) -> ctx.enqueueWork(() -> handleAutoEat(payload, (ServerPlayer) ctx.player())));
+    }
+
+    // ─── Auto-manger : consommation instantanée côté serveur (sans animation NI son) ──
+    private static void handleAutoEat(AutoEatPayload payload, ServerPlayer player) {
+        if (player == null) return;
+        int slot = payload.slot();
+        net.minecraft.world.entity.player.Inventory inv = player.getInventory();
+        if (slot < 0 || slot >= inv.getContainerSize()) return;
+        ItemStack stack = inv.getItem(slot);
+        if (stack.isEmpty()) return;
+        net.minecraft.world.food.FoodProperties food = stack.get(net.minecraft.core.component.DataComponents.FOOD);
+        if (food == null) return;
+        if (!player.canEat(food.canAlwaysEat())) return; // anti-abus : pas si rassasié
+
+        net.minecraft.world.item.Item item = stack.getItem();
+
+        // 1) faim + saturation
+        player.getFoodData().eat(food);
+
+        // 2) effets de l'aliment (probabilistes), ex. pomme dorée / poisson-globe
+        for (net.minecraft.world.food.FoodProperties.PossibleEffect pe : food.effects()) {
+            if (player.getRandom().nextFloat() < pe.probability())
+                player.addEffect(new net.minecraft.world.effect.MobEffectInstance(pe.effect()));
+        }
+        // 2b) effets stockés (soupe suspecte)
+        net.minecraft.world.item.component.SuspiciousStewEffects stew =
+            stack.get(net.minecraft.core.component.DataComponents.SUSPICIOUS_STEW_EFFECTS);
+        if (stew != null)
+            for (net.minecraft.world.item.component.SuspiciousStewEffects.Entry en : stew.effects())
+                player.addEffect(en.createEffectInstance());
+
+        player.awardStat(net.minecraft.stats.Stats.ITEM_USED.get(item));
+
+        // 3) décrément + contenant éventuel (bol, bouteille) — pas de son, pas d'animation
+        if (!player.getAbilities().instabuild) stack.shrink(1);
+        ItemStack remainder = containerRemainder(item);
+        if (!remainder.isEmpty()) {
+            if (stack.isEmpty()) inv.setItem(slot, remainder);
+            else if (!inv.add(remainder)) player.drop(remainder, false);
+        }
+    }
+
+    /** Contenant rendu après consommation (sinon vide). */
+    private static ItemStack containerRemainder(net.minecraft.world.item.Item item) {
+        if (item == net.minecraft.world.item.Items.MUSHROOM_STEW
+            || item == net.minecraft.world.item.Items.RABBIT_STEW
+            || item == net.minecraft.world.item.Items.BEETROOT_SOUP
+            || item == net.minecraft.world.item.Items.SUSPICIOUS_STEW)
+            return new ItemStack(net.minecraft.world.item.Items.BOWL);
+        if (item == net.minecraft.world.item.Items.HONEY_BOTTLE)
+            return new ItemStack(net.minecraft.world.item.Items.GLASS_BOTTLE);
+        return ItemStack.EMPTY;
     }
 
     // ─── Admin action handler ─────────────────────────────────────────────────

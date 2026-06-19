@@ -24,6 +24,7 @@ public class ModMessages {
     public static final ResourceLocation REPORT_IMAGE    = ResourceLocation.fromNamespaceAndPath("dashboardadmin", "report_image");
     public static final ResourceLocation ZONE_SYNC       = ResourceLocation.fromNamespaceAndPath("dashboardadmin", "zone_sync");
     public static final ResourceLocation WAND_SELECTION  = ResourceLocation.fromNamespaceAndPath("dashboardadmin", "wand_selection");
+    public static final ResourceLocation AUTO_EAT        = ResourceLocation.fromNamespaceAndPath("dashboardadmin", "auto_eat");
 
     public static void registerC2SPackets() {}
     public static void registerS2CPackets() {}

@@ -241,28 +241,26 @@ public class ZoneScreen extends Screen {
 
     // ── OPTIONS ──────────────────────────────────────────────────────────────────
 
+    // Two-column layout: réglages (vision/couleur), presets, flags groupés ACCÈS|MONDE,
+    // puis TP et SUPPRIMER isolés en bas. Toutes les métriques sont partagées avec
+    // renderOptions() via optionLayout() pour que widgets et libellés restent alignés.
     private void buildOptions(ZoneData z, int top, int bot) {
-        int lx = detX + 4, w = detW - 8;
-        // nightVision + couleur + presets + flags + TP + delete. Row height is derived from the
-        // available height so the list always fits the panel, whatever the GUI scale.
-        int rows = 5 + ZoneFlag.values().length;
-        int rowH = Math.max(13, Math.min(20, (bot - top) / rows));
-        int bh   = Math.max(12, rowH - 2);
+        int[] L = optionLayout(top, bot);
+        int lx = L[0], w = L[1], colW = L[2], rightX = L[3], rowH = L[4], bh = L[5], headerH = L[6], sepH = L[7];
         int y = top;
 
-        addRenderableWidget(btn(Lang.t("Vision nocturne : ", "Night vision: ") + (z.nightVision() ? "§aON" : "§cOFF"),
-            b -> send("TOGGLE_NIGHT_VISION", selected, "")).bounds(lx, y, w, bh).build());
-        y += rowH;
-
+        // Ligne 1 — vision nocturne | couleur
+        addRenderableWidget(btn(Lang.t("Vision : ", "Vision: ") + Lang.onOff(z.nightVision()),
+            b -> send("TOGGLE_NIGHT_VISION", selected, "")).bounds(lx, y, colW, bh).build());
         int cIdx = Math.floorMod(z.colorIdx(), com.lkdm.dashboardadmin.Zone.COLORS.length);
-        Component colorLbl = Component.literal(Lang.t("Couleur : ", "Color: "))
+        Component colorLbl = Component.literal(Lang.t("Couleur ", "Color "))
             .append(Component.literal("■ ").withStyle(s -> s.withColor(z.color())))
             .append(Lang.t(com.lkdm.dashboardadmin.Zone.COLOR_NAMES[cIdx], com.lkdm.dashboardadmin.Zone.COLOR_NAMES_EN[cIdx]));
         addRenderableWidget(Button.builder(colorLbl,
-            b -> send("CYCLE_COLOR", selected, "")).bounds(lx, y, w, bh).build());
+            b -> send("CYCLE_COLOR", selected, "")).bounds(rightX, y, colW, bh).build());
         y += rowH;
 
-        // Presets : combinaison complète de flags en un clic
+        // Ligne 2 — presets (combinaison complète de flags en un clic)
         int pw3 = (w - 8) / 3;
         addRenderableWidget(btn("§bSpawn", b -> send("APPLY_PRESET", selected, "SPAWN"))
             .bounds(lx, y, pw3, bh).build());
@@ -272,19 +270,66 @@ public class ZoneScreen extends Screen {
             .bounds(lx + (pw3 + 4) * 2, y, pw3, bh).build());
         y += rowH;
 
-        for (ZoneFlag fl : ZoneFlag.values()) {
-            boolean allowed = z.flags().getOrDefault(fl, fl.defaultAllowed);
-            addRenderableWidget(btn(Lang.t(fl.label, fl.labelEn) + Lang.t(" : ", ": ")
-                    + (allowed ? Lang.t("§aautorisé", "§aallowed") : Lang.t("§cbloqué", "§cblocked")),
-                b -> send("TOGGLE_FLAG", selected, fl.name())).bounds(lx, y, w, bh).build());
+        // En-têtes ACCÈS / MONDE (texte dessiné dans renderOptions)
+        y += headerH;
+
+        // Flags — colonne gauche = accès (areaRule false), droite = monde (areaRule true)
+        List<ZoneFlag> access = new ArrayList<>();
+        List<ZoneFlag> world  = new ArrayList<>();
+        for (ZoneFlag fl : ZoneFlag.values()) (fl.areaRule ? world : access).add(fl);
+        int flagRows = Math.max(access.size(), world.size());
+        for (int i = 0; i < flagRows; i++) {
+            if (i < access.size()) addFlagBtn(z, access.get(i), lx,     y, colW, bh);
+            if (i < world.size())  addFlagBtn(z, world.get(i),  rightX, y, colW, bh);
             y += rowH;
         }
 
+        // Séparateur (ligne dessinée dans renderOptions) puis actions
+        y += sepH;
         addRenderableWidget(btn(Lang.t("§eTéléporter vers la zone", "§eTeleport to zone"),
             b -> { send("TP_ZONE", selected, ""); onClose(); }).bounds(lx, y, w, bh).build());
         y += rowH;
         addRenderableWidget(btn(Lang.t("§c§lSUPPRIMER LA ZONE", "§c§lDELETE ZONE"),
             b -> { send("DELETE_ZONE", selected, ""); selected = null; init(); }).bounds(lx, y, w, bh).build());
+    }
+
+    private void addFlagBtn(ZoneData z, ZoneFlag fl, int x, int y, int w, int h) {
+        boolean allowed = z.flags().getOrDefault(fl, fl.defaultAllowed);
+        addRenderableWidget(btn(Lang.t(fl.label, fl.labelEn) + (allowed ? " §a✓" : " §c✗"),
+            b -> send("TOGGLE_FLAG", selected, fl.name()))
+            .tooltip(net.minecraft.client.gui.components.Tooltip.create(Lang.flagTooltip(fl.areaRule)))
+            .bounds(x, y, w, h).build());
+    }
+
+    /** Métriques partagées de l'onglet OPTIONS : {lx, w, colW, rightX, rowH, bh, headerH, sepH}. */
+    private int[] optionLayout(int top, int bot) {
+        int lx = detX + 4, w = detW - 8;
+        int colGap = 4;
+        int colW   = (w - colGap) / 2;
+        int rightX = lx + colW + colGap;
+        int headerH = 11, sepH = 7;
+        int access = 0;
+        for (ZoneFlag fl : ZoneFlag.values()) if (!fl.areaRule) access++;
+        int flagRows   = Math.max(access, ZoneFlag.values().length - access);
+        int buttonRows = flagRows + 4; // vision/couleur + presets + TP + delete
+        int rowH = Math.max(14, Math.min(20, (bot - top - headerH - sepH) / buttonRows));
+        int bh   = Math.max(12, rowH - 2);
+        return new int[]{ lx, w, colW, rightX, rowH, bh, headerH, sepH };
+    }
+
+    private void renderOptions(GuiGraphics g, int top, int bot) {
+        int[] L = optionLayout(top, bot);
+        int lx = L[0], w = L[1], rightX = L[3], rowH = L[4], headerH = L[6], sepH = L[7];
+
+        int headerY = top + 2 * rowH + 1;
+        g.drawString(font, Lang.t("§7ACCÈS", "§7ACCESS"), lx, headerY, 0xFF888888);
+        g.drawString(font, Lang.t("§7MONDE", "§7WORLD"), rightX, headerY, 0xFF888888);
+
+        int access = 0;
+        for (ZoneFlag fl : ZoneFlag.values()) if (!fl.areaRule) access++;
+        int flagRows = Math.max(access, ZoneFlag.values().length - access);
+        int sepY = top + 2 * rowH + headerH + flagRows * rowH + sepH / 2;
+        g.fill(lx, sepY, lx + w, sepY + 1, C_DIV);
     }
 
     // ── MSG (messages d'entrée/sortie) ──────────────────────────────────────────
@@ -414,7 +459,7 @@ public class ZoneScreen extends Screen {
         switch (detailTab) {
             case 0 -> renderMembers(g, z, contentTop, contentBot);
             case 1 -> renderCoords(g, z, contentTop, contentBot);
-            case 2 -> {} // buttons rendered via super.render()
+            case 2 -> renderOptions(g, contentTop, contentBot); // section headers + divider; buttons via super.render()
             case 3 -> renderMessages(g, z, contentTop, contentBot);
         }
     }

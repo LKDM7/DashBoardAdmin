@@ -181,8 +181,7 @@ public final class AutoEatPanel {
                 Component.literal(Lang.t("§7Clic droit : vider", "§7Right-click: clear"))), mx, my);
         } else if (chHov) {
             g.renderComponentTooltip(font, List.of(
-                Component.literal(Lang.t("§bAuto-manger : ", "§bAuto-eat: ")
-                    + (AutoEatConfig.enabled ? Lang.t("§aACTIVÉ", "§aON") : Lang.t("§cDÉSACTIVÉ", "§cOFF"))),
+                Component.literal(Lang.t("§bAuto-manger : ", "§bAuto-eat: ") + Lang.onOff(AutoEatConfig.enabled)),
                 Component.literal(Lang.t("§7Clic pour basculer", "§7Click to toggle"))), mx, my);
         } else if (tHov) {
             g.renderComponentTooltip(font, List.of(

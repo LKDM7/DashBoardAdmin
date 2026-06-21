@@ -217,28 +217,28 @@ class ZonesTab {
             .bounds(lx + 42, top + 112, 30, 16).build());
     }
 
+    // Two-column layout : état (pleine largeur), vision|couleur, presets, flags groupés
+    // ACCÈS|MONDE, puis TP et SUPPRIMER isolés en bas. Métriques partagées avec
+    // renderZoneOptions() via zoneOptionLayout() pour aligner libellés et boutons.
     private void buildZoneOptions(ZoneData z, int detX, int detW, int top, int bot) {
-        int w = detW - 8, lx = detX + 4;
-        int rows = 6 + ZoneFlag.values().length;
-        int rowH = Math.max(13, Math.min(20, (bot - top) / rows));
-        int bh   = Math.max(12, rowH - 2);
+        int[] L = zoneOptionLayout(detX, detW, top, bot);
+        int lx = L[0], w = L[1], colW = L[2], rightX = L[3], rowH = L[4], bh = L[5], headerH = L[6], sepH = L[7];
         int y = top;
 
-        s.add(s.btn(Lang.t("État de la zone : ", "Zone state: ")
-                + (z.enabled() ? Lang.t("§aACTIVÉE", "§aENABLED") : Lang.t("§cDÉSACTIVÉE", "§cDISABLED")),
+        // État de la zone — pleine largeur (réglage majeur)
+        s.add(s.btn(Lang.t("État de la zone : ", "Zone state: ") + Lang.onOff(z.enabled()),
             b -> sendZone("TOGGLE_ENABLED", selectedZone, "")).bounds(lx, y, w, bh).build());
         y += rowH;
 
-        s.add(s.btn(Lang.t("Vision nocturne : ", "Night vision: ") + (z.nightVision() ? "§aON" : "§cOFF"),
-            b -> sendZone("TOGGLE_NIGHT_VISION", selectedZone, "")).bounds(lx, y, w, bh).build());
-        y += rowH;
-
+        // Vision nocturne | couleur
+        s.add(s.btn(Lang.t("Vision : ", "Vision: ") + Lang.onOff(z.nightVision()),
+            b -> sendZone("TOGGLE_NIGHT_VISION", selectedZone, "")).bounds(lx, y, colW, bh).build());
         int cIdx = Math.floorMod(z.colorIdx(), Zone.COLORS.length);
-        Component colorLbl = Component.literal(Lang.t("Couleur : ", "Color: "))
+        Component colorLbl = Component.literal(Lang.t("Couleur ", "Color "))
             .append(Component.literal("■ ").withStyle(st -> st.withColor(z.color())))
             .append(Lang.t(Zone.COLOR_NAMES[cIdx], Zone.COLOR_NAMES_EN[cIdx]));
         s.add(Button.builder(colorLbl,
-            b -> sendZone("CYCLE_COLOR", selectedZone, "")).bounds(lx, y, w, bh).build());
+            b -> sendZone("CYCLE_COLOR", selectedZone, "")).bounds(rightX, y, colW, bh).build());
         y += rowH;
 
         // Presets : combinaison complète de flags en un clic
@@ -251,14 +251,22 @@ class ZonesTab {
             .bounds(lx + (pw3 + 4) * 2, y, pw3, bh).build());
         y += rowH;
 
-        for (ZoneFlag fl : ZoneFlag.values()) {
-            boolean allowed = z.flags().getOrDefault(fl, fl.defaultAllowed);
-            s.add(s.btn(Lang.t(fl.label, fl.labelEn) + Lang.t(" : ", ": ")
-                    + (allowed ? Lang.t("§aautorisé", "§aallowed") : Lang.t("§cbloqué", "§cblocked")),
-                b -> sendZone("TOGGLE_FLAG", selectedZone, fl.name())).bounds(lx, y, w, bh).build());
+        // En-têtes ACCÈS / MONDE (texte dessiné dans renderZoneOptions)
+        y += headerH;
+
+        // Flags — colonne gauche = accès (areaRule false), droite = monde (areaRule true)
+        java.util.List<ZoneFlag> access = new java.util.ArrayList<>();
+        java.util.List<ZoneFlag> world  = new java.util.ArrayList<>();
+        for (ZoneFlag fl : ZoneFlag.values()) (fl.areaRule ? world : access).add(fl);
+        int flagRows = Math.max(access.size(), world.size());
+        for (int i = 0; i < flagRows; i++) {
+            if (i < access.size()) addZoneFlagBtn(z, access.get(i), lx,     y, colW, bh);
+            if (i < world.size())  addZoneFlagBtn(z, world.get(i),  rightX, y, colW, bh);
             y += rowH;
         }
 
+        // Séparateur (ligne dessinée dans renderZoneOptions) puis actions
+        y += sepH;
         s.add(s.btn(Lang.t("§eTéléporter vers la zone", "§eTeleport to zone"),
             b -> sendZone("TP_ZONE", selectedZone, "")).bounds(lx, y, w, bh).build());
         y += rowH;
@@ -267,6 +275,46 @@ class ZonesTab {
                 Lang.t("Supprimer la zone « " + zn + " » ?", "Delete zone \"" + zn + "\"?"),
                 () -> { sendZone("DELETE_ZONE", zn, ""); selectedZone = null; }); })
             .bounds(lx, y, w, bh).build());
+    }
+
+    private void addZoneFlagBtn(ZoneData z, ZoneFlag fl, int x, int y, int w, int h) {
+        boolean allowed = z.flags().getOrDefault(fl, fl.defaultAllowed);
+        s.add(s.btn(Lang.t(fl.label, fl.labelEn) + (allowed ? " §a✓" : " §c✗"),
+            b -> sendZone("TOGGLE_FLAG", selectedZone, fl.name()))
+            .tooltip(net.minecraft.client.gui.components.Tooltip.create(Lang.flagTooltip(fl.areaRule)))
+            .bounds(x, y, w, h).build());
+    }
+
+    /** Métriques partagées de l'onglet OPTIONS : {lx, w, colW, rightX, rowH, bh, headerH, sepH}. */
+    private int[] zoneOptionLayout(int detX, int detW, int top, int bot) {
+        int lx = detX + 4, w = detW - 8;
+        int colGap = 4;
+        int colW   = (w - colGap) / 2;
+        int rightX = lx + colW + colGap;
+        int headerH = 11, sepH = 7;
+        int access = 0;
+        for (ZoneFlag fl : ZoneFlag.values()) if (!fl.areaRule) access++;
+        int flagRows   = Math.max(access, ZoneFlag.values().length - access);
+        int buttonRows = flagRows + 5; // état + vision/couleur + presets + TP + delete
+        int rowH = Math.max(14, Math.min(20, (bot - top - headerH - sepH) / buttonRows));
+        int bh   = Math.max(12, rowH - 2);
+        return new int[]{ lx, w, colW, rightX, rowH, bh, headerH, sepH };
+    }
+
+    private void renderZoneOptions(GuiGraphics g, int detX, int detW, int top, int bot) {
+        int[] L = zoneOptionLayout(detX, detW, top, bot);
+        int lx = L[0], w = L[1], rightX = L[3], rowH = L[4], headerH = L[6], sepH = L[7];
+
+        // L'en-tête se situe sous l'état + vision/couleur + presets = 3 lignes de boutons
+        int headerY = top + 3 * rowH + 1;
+        g.drawString(s.font(), Lang.t("§7ACCÈS", "§7ACCESS"), lx, headerY, 0xFF888888);
+        g.drawString(s.font(), Lang.t("§7MONDE", "§7WORLD"), rightX, headerY, 0xFF888888);
+
+        int access = 0;
+        for (ZoneFlag fl : ZoneFlag.values()) if (!fl.areaRule) access++;
+        int flagRows = Math.max(access, ZoneFlag.values().length - access);
+        int sepY = top + 3 * rowH + headerH + flagRows * rowH + sepH / 2;
+        g.fill(lx, sepY, lx + w, sepY + 1, AdminScreen.C_DIV);
     }
 
     private void buildZoneMessages(ZoneData z, int detX, int detW, int top, int bot) {
@@ -352,6 +400,7 @@ class ZonesTab {
         int contentBot = s.py + s.ph - 5;
         if (zoneDetailTab == 0) renderZoneMembers(g, z, znDetX, znDetW, contentTop, contentBot);
         else if (zoneDetailTab == 1) renderZoneCoords(g, z, znDetX, znDetW, contentTop, contentBot);
+        else if (zoneDetailTab == 2) renderZoneOptions(g, znDetX, znDetW, contentTop, contentBot);
         else if (zoneDetailTab == 3) renderZoneMessages(g, z, znDetX, znDetW, contentTop, contentBot);
     }
 

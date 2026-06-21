@@ -28,34 +28,34 @@ class FeaturesTab {
         int fy = s.py + 34;
 
         // Row 1
-        s.add(s.btn(Lang.t("PIÉTINEMENT: ", "TRAMPLING: ") + (s.cropTrampleEnabled ? "§aON" : "§cOFF"),
+        s.add(s.btn(Lang.t("PIÉTINEMENT: ", "TRAMPLING: ") + Lang.onOff(s.cropTrampleEnabled),
             b -> { s.send("TOGGLE_CROP_TRAMPLE", "", ""); s.cropTrampleEnabled = !s.cropTrampleEnabled; s.init(); })
             .bounds(bx, fy, hw, 20).build());
-        s.add(s.btn("AFK AUTO: " + (s.afkAutoEnabled ? "§aON" : "§cOFF"),
+        s.add(s.btn("AFK AUTO: " + Lang.onOff(s.afkAutoEnabled),
             b -> { s.send("TOGGLE_AFK_AUTO", "", ""); s.afkAutoEnabled = !s.afkAutoEnabled; s.init(); })
             .bounds(bx + hw + 4, fy, hw, 20).build());
 
         // Row 2
-        s.add(s.btn(Lang.t("SOMMEIL PROPORTIONNEL: ", "PROPORTIONAL SLEEP: ") + (s.proportionalSleepEnabled ? "§aON" : "§cOFF"),
+        s.add(s.btn(Lang.t("SOMMEIL PROPORTIONNEL: ", "PROPORTIONAL SLEEP: ") + Lang.onOff(s.proportionalSleepEnabled),
             b -> { s.send("TOGGLE_PROPORTIONAL_SLEEP", "", ""); s.proportionalSleepEnabled = !s.proportionalSleepEnabled; s.init(); })
             .bounds(bx, fy + 24, hw, 20).build());
-        s.add(s.btn(Lang.t("BÛCHERON INTELLIGENT: ", "TREE CAPITATOR: ") + (s.treeCapitatorEnabled ? "§aON" : "§cOFF"),
+        s.add(s.btn(Lang.t("BÛCHERON INTELLIGENT: ", "TREE CAPITATOR: ") + Lang.onOff(s.treeCapitatorEnabled),
             b -> { s.send("TOGGLE_TREE_CAPITATOR", "", ""); s.treeCapitatorEnabled = !s.treeCapitatorEnabled; s.init(); })
             .bounds(bx + hw + 4, fy + 24, hw, 20).build());
 
         // Row 3
-        s.add(s.btn("FAST LEAF DECAY: " + (s.fastLeafDecayEnabled ? "§aON" : "§cOFF"),
+        s.add(s.btn("FAST LEAF DECAY: " + Lang.onOff(s.fastLeafDecayEnabled),
             b -> { s.send("TOGGLE_FAST_LEAF_DECAY", "", ""); s.fastLeafDecayEnabled = !s.fastLeafDecayEnabled; s.init(); })
             .bounds(bx, fy + 48, hw, 20).build());
-        s.add(s.btn("DOUBLE DOOR: " + (s.doubleDoorEnabled ? "§aON" : "§cOFF"),
+        s.add(s.btn("DOUBLE DOOR: " + Lang.onOff(s.doubleDoorEnabled),
             b -> { s.send("TOGGLE_DOUBLE_DOOR", "", ""); s.doubleDoorEnabled = !s.doubleDoorEnabled; s.init(); })
             .bounds(bx + hw + 4, fy + 48, hw, 20).build());
 
         // Row 4
-        s.add(s.btn(Lang.t("RÉCOLTE CLIC DROIT: ", "RIGHT-CLICK HARVEST: ") + (s.rightClickHarvestEnabled ? "§aON" : "§cOFF"),
+        s.add(s.btn(Lang.t("RÉCOLTE CLIC DROIT: ", "RIGHT-CLICK HARVEST: ") + Lang.onOff(s.rightClickHarvestEnabled),
             b -> { s.send("TOGGLE_RIGHT_CLICK_HARVEST", "", ""); s.rightClickHarvestEnabled = !s.rightClickHarvestEnabled; s.init(); })
             .bounds(bx, fy + 72, hw, 20).build());
-        s.add(s.btn(Lang.t("DISTRIBUTEUR RÉCOLTE: ", "DISPENSER HARVEST: ") + (s.dispenserHarvestEnabled ? "§aON" : "§cOFF"),
+        s.add(s.btn(Lang.t("DISTRIBUTEUR RÉCOLTE: ", "DISPENSER HARVEST: ") + Lang.onOff(s.dispenserHarvestEnabled),
             b -> { s.send("TOGGLE_DISPENSER_HARVEST", "", ""); s.dispenserHarvestEnabled = !s.dispenserHarvestEnabled; s.init(); })
             .bounds(bx + hw + 4, fy + 72, hw, 20).build());
 

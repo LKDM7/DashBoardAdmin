@@ -82,10 +82,10 @@ class ChatTab {
             .bounds(contentX + (btnW + 6) * 2, aY + 44, btnW, 20).build());
 
         // Ligne dédiée sous la divider : BYPASS anti-spam à gauche, SPY MP à droite.
-        s.add(s.btn(Lang.t("BYPASS SPAM (staff) : ", "SPAM BYPASS (staff): ") + (s.antiSpamBypassEnabled ? "§aON" : "§cOFF"),
+        s.add(s.btn(Lang.t("BYPASS SPAM (staff) : ", "SPAM BYPASS (staff): ") + Lang.onOff(s.antiSpamBypassEnabled),
             b -> { s.send("TOGGLE_ANTISPAM_BYPASS", "", ""); s.antiSpamBypassEnabled = !s.antiSpamBypassEnabled; s.init(); })
             .bounds(contentX, aY + 103, 150, 14).build());
-        s.add(s.btn(Lang.t("SPY MP : ", "PM SPY: ") + (s.mailSpyEnabled ? "§aON" : "§cOFF"),
+        s.add(s.btn(Lang.t("SPY MP : ", "PM SPY: ") + Lang.onOff(s.mailSpyEnabled),
             b -> { s.send("TOGGLE_MAIL_SPY", "", ""); s.mailSpyEnabled = !s.mailSpyEnabled; s.init(); })
             .bounds(contentX + contentW - 90, aY + 103, 90, 14).build());
 

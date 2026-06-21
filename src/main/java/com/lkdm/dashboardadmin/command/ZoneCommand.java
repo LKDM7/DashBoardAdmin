@@ -683,22 +683,22 @@ public class ZoneCommand {
         double step = Math.max(0.5, span / 24.0);
 
         for (double x = x1; x <= x2; x += step) {
-            level.sendParticles(player, particle, true, (double)x, (double)y1, (double)z1, 1, 0.0, 0.0, 0.0, 0.0);
-            level.sendParticles(player, particle, true, (double)x, (double)y2, (double)z1, 1, 0.0, 0.0, 0.0, 0.0);
-            level.sendParticles(player, particle, true, (double)x, (double)y1, (double)z2, 1, 0.0, 0.0, 0.0, 0.0);
-            level.sendParticles(player, particle, true, (double)x, (double)y2, (double)z2, 1, 0.0, 0.0, 0.0, 0.0);
+            level.sendParticles(player, particle, true, false, (double)x, (double)y1, (double)z1, 1, 0.0, 0.0, 0.0, 0.0);
+            level.sendParticles(player, particle, true, false, (double)x, (double)y2, (double)z1, 1, 0.0, 0.0, 0.0, 0.0);
+            level.sendParticles(player, particle, true, false, (double)x, (double)y1, (double)z2, 1, 0.0, 0.0, 0.0, 0.0);
+            level.sendParticles(player, particle, true, false, (double)x, (double)y2, (double)z2, 1, 0.0, 0.0, 0.0, 0.0);
         }
         for (double y = y1; y <= y2; y += step) {
-            level.sendParticles(player, particle, true, (double)x1, (double)y, (double)z1, 1, 0.0, 0.0, 0.0, 0.0);
-            level.sendParticles(player, particle, true, (double)x2, (double)y, (double)z1, 1, 0.0, 0.0, 0.0, 0.0);
-            level.sendParticles(player, particle, true, (double)x1, (double)y, (double)z2, 1, 0.0, 0.0, 0.0, 0.0);
-            level.sendParticles(player, particle, true, (double)x2, (double)y, (double)z2, 1, 0.0, 0.0, 0.0, 0.0);
+            level.sendParticles(player, particle, true, false, (double)x1, (double)y, (double)z1, 1, 0.0, 0.0, 0.0, 0.0);
+            level.sendParticles(player, particle, true, false, (double)x2, (double)y, (double)z1, 1, 0.0, 0.0, 0.0, 0.0);
+            level.sendParticles(player, particle, true, false, (double)x1, (double)y, (double)z2, 1, 0.0, 0.0, 0.0, 0.0);
+            level.sendParticles(player, particle, true, false, (double)x2, (double)y, (double)z2, 1, 0.0, 0.0, 0.0, 0.0);
         }
         for (double z = z1; z <= z2; z += step) {
-            level.sendParticles(player, particle, true, (double)x1, (double)y1, (double)z, 1, 0.0, 0.0, 0.0, 0.0);
-            level.sendParticles(player, particle, true, (double)x2, (double)y1, (double)z, 1, 0.0, 0.0, 0.0, 0.0);
-            level.sendParticles(player, particle, true, (double)x1, (double)y2, (double)z, 1, 0.0, 0.0, 0.0, 0.0);
-            level.sendParticles(player, particle, true, (double)x2, (double)y2, (double)z, 1, 0.0, 0.0, 0.0, 0.0);
+            level.sendParticles(player, particle, true, false, (double)x1, (double)y1, (double)z, 1, 0.0, 0.0, 0.0, 0.0);
+            level.sendParticles(player, particle, true, false, (double)x2, (double)y1, (double)z, 1, 0.0, 0.0, 0.0, 0.0);
+            level.sendParticles(player, particle, true, false, (double)x1, (double)y2, (double)z, 1, 0.0, 0.0, 0.0, 0.0);
+            level.sendParticles(player, particle, true, false, (double)x2, (double)y2, (double)z, 1, 0.0, 0.0, 0.0, 0.0);
         }
     }
 
@@ -789,7 +789,7 @@ public class ZoneCommand {
 
             player.teleportTo((ServerLevel) player.level(),
                 saved.entryPos().x, saved.entryPos().y, saved.entryPos().z,
-                Set.of(), player.getYRot(), player.getXRot());
+                Set.of(), player.getYRot(), player.getXRot(), true);
         }
         pendingRestore.remove(player.getUUID());
         saveBuildState(player.getServer());
@@ -818,7 +818,7 @@ public class ZoneCommand {
                     for (MobEffectInstance eff : saved.effects()) player.addEffect(eff);
                     player.teleportTo((ServerLevel) player.level(),
                         saved.entryPos().x, saved.entryPos().y, saved.entryPos().z,
-                        Set.of(), player.getYRot(), player.getXRot());
+                        Set.of(), player.getYRot(), player.getXRot(), true);
                 }
                 player.sendSystemMessage(Component.literal(SrvLang.t(player,
                     "§c⚠ La zone §e" + name + " §ca été supprimée. Inventaire restauré.",
@@ -1072,7 +1072,7 @@ public class ZoneCommand {
                     BlockPos c = z.center();
                     admin.teleportTo((ServerLevel) admin.level(),
                         c.getX() + 0.5, c.getY(), c.getZ() + 0.5,
-                        Set.of(), admin.getYRot(), admin.getXRot());
+                        Set.of(), admin.getYRot(), admin.getXRot(), true);
                 }
             }
             case "DELETE_ZONE" -> {

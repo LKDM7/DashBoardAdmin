@@ -95,11 +95,12 @@ public class DashNetworking {
         // 1) faim + saturation
         player.getFoodData().eat(food);
 
-        // 2) effets de l'aliment (probabilistes), ex. pomme dorée / poisson-globe
-        for (net.minecraft.world.food.FoodProperties.PossibleEffect pe : food.effects()) {
-            if (player.getRandom().nextFloat() < pe.probability())
-                player.addEffect(new net.minecraft.world.effect.MobEffectInstance(pe.effect()));
-        }
+        // 2) effets de l'aliment via le composant Consumable (sans son ni animation)
+        net.minecraft.world.item.component.Consumable consumable =
+            stack.get(net.minecraft.core.component.DataComponents.CONSUMABLE);
+        if (consumable != null)
+            for (net.minecraft.world.item.consume_effects.ConsumeEffect ce : consumable.onConsumeEffects())
+                ce.apply(player.level(), stack, player);
         // 2b) effets stockés (soupe suspecte)
         net.minecraft.world.item.component.SuspiciousStewEffects stew =
             stack.get(net.minecraft.core.component.DataComponents.SUSPICIOUS_STEW_EFFECTS);
@@ -216,10 +217,10 @@ public class DashNetworking {
                 } else { ServerPlayer tgtPlayer = admin.getServer().getPlayerList().getPlayerByName(tgt); if (tgtPlayer != null) tgtPlayer.sendSystemMessage(mkAnnounce.apply(tgtPlayer)); }
             }
             case "KICK"        -> { if (target != null) { DashboardAdmin.addLog(target.getUUID(), "Kicked par " + admin.getName().getString()); DashboardAdmin.addSanction("KICK", target.getName().getString(), admin.getName().getString(), ""); DiscordWebhook.sendSanction(DashboardAdmin.getWebhookSanctions(), admin.getName().getString(), target.getName().getString(), "KICK", ""); target.connection.disconnect(Component.literal(SrvLang.t(target, "Expulsé par un admin.", "Kicked by an admin."))); } }
-            case "TELEPORT_TO" -> { if (target != null) { DashboardAdmin.addLog(target.getUUID(), "TP vers par " + admin.getName().getString()); admin.teleportTo((ServerLevel) target.level(), target.getX(), target.getY(), target.getZ(), Set.of(), admin.getYRot(), admin.getXRot()); } }
+            case "TELEPORT_TO" -> { if (target != null) { DashboardAdmin.addLog(target.getUUID(), "TP vers par " + admin.getName().getString()); admin.teleportTo((ServerLevel) target.level(), target.getX(), target.getY(), target.getZ(), Set.of(), admin.getYRot(), admin.getXRot(), true); } }
             case "OPEN_INV"    -> { if (target != null) admin.openMenu(new SimpleMenuProvider((id, inv, p) -> new EditablePlayerInventoryMenu(id, inv, target.getInventory()), Component.literal("Inv: " + target.getName().getString()))); else OfflinePlayerInventory.openInventory(admin, payload.target()); }
             case "ENDERCHEST"  -> { if (target != null) admin.openMenu(new SimpleMenuProvider((id, inv, p) -> new ChestMenu(MenuType.GENERIC_9x3, id, inv, target.getEnderChestInventory(), 3), Component.literal("Ender: " + target.getName().getString()))); else OfflinePlayerInventory.openEnderchest(admin, payload.target()); }
-            case "BRING"       -> { if (target != null) { DashboardAdmin.addLog(target.getUUID(), "Bring par " + admin.getName().getString()); target.teleportTo((ServerLevel) admin.level(), admin.getX(), admin.getY(), admin.getZ(), Set.of(), target.getYRot(), target.getXRot()); } }
+            case "BRING"       -> { if (target != null) { DashboardAdmin.addLog(target.getUUID(), "Bring par " + admin.getName().getString()); target.teleportTo((ServerLevel) admin.level(), admin.getX(), admin.getY(), admin.getZ(), Set.of(), target.getYRot(), target.getXRot(), true); } }
             case "FREEZE" -> {
                 if (target != null) {
                     boolean frozen = !DashboardAdmin.frozenPlayers.getOrDefault(target.getUUID(), false);
@@ -443,7 +444,7 @@ public class DashNetworking {
                     net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimKey = net.minecraft.resources.ResourceKey.create(net.minecraft.world.level.Level.OVERWORLD.registryKey(), net.minecraft.resources.ResourceLocation.parse(dimId));
                     ServerLevel targetLevel = player.getServer().getLevel(dimKey);
                     if (targetLevel == null) targetLevel = (ServerLevel) player.level();
-                    player.teleportTo(targetLevel, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot());
+                    player.teleportTo(targetLevel, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot(), true);
                     player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aTéléporté au home '" + payload.value() + "'.", "§aTeleported to home '" + payload.value() + "'.")));
                 }
             }

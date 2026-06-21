@@ -88,19 +88,19 @@ public final class AutoEatPanel {
     // ─── helpers texture (resource-pack aware) ──────────────────────────────────────
 
     private static void panelBg(GuiGraphics g, int x, int y, int w, int h) {
-        g.blit(INV_TEX, x + B, y + B, w - 2 * B, h - 2 * B, 88f, 6f, 1, 1, TEX, TEX);
-        g.blit(INV_TEX, x + B,     y,         w - 2 * B, B,         B,         0f,          WIN_W - 2 * B, B,             TEX, TEX);
-        g.blit(INV_TEX, x + B,     y + h - B, w - 2 * B, B,         B,         WIN_H - B,   WIN_W - 2 * B, B,             TEX, TEX);
-        g.blit(INV_TEX, x,         y + B,     B,         h - 2 * B, 0f,        B,           B,             WIN_H - 2 * B, TEX, TEX);
-        g.blit(INV_TEX, x + w - B, y + B,     B,         h - 2 * B, WIN_W - B, B,           B,             WIN_H - 2 * B, TEX, TEX);
-        g.blit(INV_TEX, x,         y,         B, B, 0f,        0f,        B, B, TEX, TEX);
-        g.blit(INV_TEX, x + w - B, y,         B, B, WIN_W - B, 0f,        B, B, TEX, TEX);
-        g.blit(INV_TEX, x,         y + h - B, B, B, 0f,        WIN_H - B, B, B, TEX, TEX);
-        g.blit(INV_TEX, x + w - B, y + h - B, B, B, WIN_W - B, WIN_H - B, B, B, TEX, TEX);
+        g.blit(net.minecraft.client.renderer.RenderType::guiTextured, INV_TEX, x + B, y + B, 88f, 6f, w - 2 * B, h - 2 * B, 1, 1, TEX, TEX);
+        g.blit(net.minecraft.client.renderer.RenderType::guiTextured, INV_TEX, x + B,     y,         B,         0f,          w - 2 * B, B,         WIN_W - 2 * B, B,             TEX, TEX);
+        g.blit(net.minecraft.client.renderer.RenderType::guiTextured, INV_TEX, x + B,     y + h - B, B,         WIN_H - B,   w - 2 * B, B,         WIN_W - 2 * B, B,             TEX, TEX);
+        g.blit(net.minecraft.client.renderer.RenderType::guiTextured, INV_TEX, x,         y + B,     0f,        B,           B,         h - 2 * B, B,             WIN_H - 2 * B, TEX, TEX);
+        g.blit(net.minecraft.client.renderer.RenderType::guiTextured, INV_TEX, x + w - B, y + B,     WIN_W - B, B,           B,         h - 2 * B, B,             WIN_H - 2 * B, TEX, TEX);
+        g.blit(net.minecraft.client.renderer.RenderType::guiTextured, INV_TEX, x,         y,         0f,        0f,        B, B, B, B, TEX, TEX);
+        g.blit(net.minecraft.client.renderer.RenderType::guiTextured, INV_TEX, x + w - B, y,         WIN_W - B, 0f,        B, B, B, B, TEX, TEX);
+        g.blit(net.minecraft.client.renderer.RenderType::guiTextured, INV_TEX, x,         y + h - B, 0f,        WIN_H - B, B, B, B, B, TEX, TEX);
+        g.blit(net.minecraft.client.renderer.RenderType::guiTextured, INV_TEX, x + w - B, y + h - B, WIN_W - B, WIN_H - B, B, B, B, B, TEX, TEX);
     }
 
     private static void slotTile(GuiGraphics g, int x, int y) {
-        g.blit(INV_TEX, x, y, SLOT, SLOT, 7f, 83f, SLOT, SLOT, TEX, TEX);
+        g.blit(net.minecraft.client.renderer.RenderType::guiTextured, INV_TEX, x, y, 7f, 83f, SLOT, SLOT, SLOT, SLOT, TEX, TEX);
     }
 
     // ─── rendu ────────────────────────────────────────────────────────────────────

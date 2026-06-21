@@ -268,7 +268,7 @@ public class ReportScreen extends Screen {
 
         g.fill(bx + 12, by + 20, bx + 12 + PREVIEW_W, by + 20 + PREVIEW_H, C_PANEL);
         if (hasImage && previewTexLoc != null) {
-            g.blit(previewTexLoc,
+            g.blit(net.minecraft.client.renderer.RenderType::guiTextured, previewTexLoc,
                 bx + 12, by + 20, 0f, 0f, PREVIEW_W, PREVIEW_H, PREVIEW_W, PREVIEW_H);
         } else {
             g.drawCenteredString(font, hintText,

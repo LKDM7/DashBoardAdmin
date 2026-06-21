@@ -52,7 +52,7 @@ public final class WarpManager {
         ServerLevel targetLevel = player.getServer().getLevel(dimKey);
         if (targetLevel == null) targetLevel = (ServerLevel) player.level();
         DashboardAdmin.savePosition(player);
-        player.teleportTo(targetLevel, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot());
+        player.teleportTo(targetLevel, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot(), true);
         player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aTéléporté au warp §e'" + name + "'§a.", "§aTeleported to warp §e'" + name + "'§a.")));
     }
 }

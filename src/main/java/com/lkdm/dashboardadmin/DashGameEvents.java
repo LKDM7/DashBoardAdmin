@@ -120,7 +120,7 @@ public class DashGameEvents {
                 int x = spawn.getX() + (int) (Math.cos(angle) * dist);
                 int z = spawn.getZ() + (int) (Math.sin(angle) * dist);
                 int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
-                if (y <= level.getMinBuildHeight() + 1) continue;
+                if (y <= level.getMinY() + 1) continue;
                 net.minecraft.core.BlockPos groundPos = new net.minecraft.core.BlockPos(x, y - 1, z);
                 net.minecraft.world.level.block.state.BlockState ground = level.getBlockState(groundPos);
                 if (!ground.getFluidState().isEmpty()) continue; // eau / lave
@@ -130,7 +130,7 @@ public class DashGameEvents {
                     || ground.is(net.minecraft.world.level.block.Blocks.POWDER_SNOW)
                     || ground.is(net.minecraft.world.level.block.Blocks.FIRE)) continue;
                 DashboardAdmin.savePosition(player); // /back ramène au point de départ
-                player.teleportTo(level, x + 0.5, y, z + 0.5, java.util.Set.of(), player.getYRot(), player.getXRot());
+                player.teleportTo(level, x + 0.5, y, z + 0.5, java.util.Set.of(), player.getYRot(), player.getXRot(), true);
                 player.sendSystemMessage(Component.literal(SrvLang.t(player,
                     "§a✔ Téléporté aléatoirement en §e(" + x + ", " + y + ", " + z + ")§a — §7/back §apour revenir.",
                     "§a✔ Randomly teleported to §e(" + x + ", " + y + ", " + z + ")§a — §7/back §ato return.")));
@@ -228,7 +228,7 @@ public class DashGameEvents {
             ServerLevel targetLevel = dim != null ? ctx.getSource().getServer().getLevel(dim) : null;
             if (targetLevel == null) targetLevel = (ServerLevel) player.level();
             DashboardAdmin.savePosition(player);
-            player.teleportTo(targetLevel, pos.x, pos.y, pos.z, Set.of(), player.getYRot(), player.getXRot());
+            player.teleportTo(targetLevel, pos.x, pos.y, pos.z, Set.of(), player.getYRot(), player.getXRot(), true);
             player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aRetour à la position précédente.", "§aReturned to previous position.")));
             return 1;
         }));
@@ -272,7 +272,7 @@ public class DashGameEvents {
                 net.minecraft.core.BlockPos pos = DashboardAdmin.getPlayerHomes(player.getUUID()).get(name);
                 if (pos == null) { player.sendSystemMessage(Component.literal(SrvLang.t(player, "§cHome '" + name + "' introuvable.", "§cHome '" + name + "' not found."))); return 0; }
                 DashboardAdmin.savePosition(player);
-                player.teleportTo((ServerLevel)player.level(), pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot());
+                player.teleportTo((ServerLevel)player.level(), pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot(), true);
                 player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aTéléporté au home '" + name + "'.", "§aTeleported to home '" + name + "'.")));
                 return 1;
             })));
@@ -577,7 +577,7 @@ public class DashGameEvents {
                 ServerLevel targetLevel = player.getServer().getLevel(dimKey);
                 if (targetLevel == null) targetLevel = (ServerLevel) player.level();
                 DashboardAdmin.savePosition(player);
-                player.teleportTo(targetLevel, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot());
+                player.teleportTo(targetLevel, pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, Set.of(), player.getYRot(), player.getXRot(), true);
                 player.sendSystemMessage(Component.literal(SrvLang.t(player, "§aTéléporté au warp §e'" + name + "'§a.", "§aTeleported to warp §e'" + name + "'§a.")));
                 return 1;
             })));
@@ -732,7 +732,7 @@ public class DashGameEvents {
             // Teleport back to origin — destination level is now player's level
             ServerLevel origin = player.getServer().getLevel(event.getFrom());
             if (origin != null)
-                player.teleportTo(origin, player.getX(), player.getY(), player.getZ(), Set.of(), player.getYRot(), player.getXRot());
+                player.teleportTo(origin, player.getX(), player.getY(), player.getZ(), Set.of(), player.getYRot(), player.getXRot(), true);
         }
     }
 

@@ -72,9 +72,9 @@ public class VirtualChestManager {
                         } catch (Exception ex) { ex.printStackTrace(); }
                     } else if (item.has("id") && i < 9) {
                         // Ancien format (id + count, sans composants) : lu positionnellement.
-                        var it = BuiltInRegistries.ITEM.get(ResourceLocation.parse(item.get("id").getAsString()));
+                        var holder = BuiltInRegistries.ITEM.get(ResourceLocation.parse(item.get("id").getAsString()));
                         int count = item.has("count") ? item.get("count").getAsInt() : 1;
-                        if (it != null && count > 0) list.set(i, new ItemStack(it, count));
+                        if (holder.isPresent() && count > 0) list.set(i, new ItemStack(holder.get(), count));
                     }
                 }
                 playerChests.put(uuid, list);

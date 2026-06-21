@@ -102,9 +102,9 @@ public final class TpaManager {
             }
             if (here) {
                 // /tpahere : c'est l'accepteur (target) qui rejoint le demandeur (sender).
-                target.teleportTo((ServerLevel) sender.level(), sender.getX(), sender.getY(), sender.getZ(), Set.of(), target.getYRot(), target.getXRot());
+                target.teleportTo((ServerLevel) sender.level(), sender.getX(), sender.getY(), sender.getZ(), Set.of(), target.getYRot(), target.getXRot(), true);
             } else {
-                sender.teleportTo((ServerLevel) target.level(), target.getX(), target.getY(), target.getZ(), Set.of(), sender.getYRot(), sender.getXRot());
+                sender.teleportTo((ServerLevel) target.level(), target.getX(), target.getY(), target.getZ(), Set.of(), sender.getYRot(), sender.getXRot(), true);
             }
             target.sendSystemMessage(Component.literal(SrvLang.t(target, "§a✔ Vous avez accepté la demande de §e" + sender.getName().getString() + "§a.", "§a✔ You accepted §e" + sender.getName().getString() + "§a's request.")));
             sender.sendSystemMessage(Component.literal(SrvLang.t(sender, "§a✔ §e" + target.getName().getString() + "§a a accepté — téléporté !", "§a✔ §e" + target.getName().getString() + "§a accepted — teleported!")));

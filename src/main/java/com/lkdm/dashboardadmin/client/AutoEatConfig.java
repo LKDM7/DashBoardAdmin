@@ -119,8 +119,10 @@ public final class AutoEatConfig {
 
     private static Item resolve(String id) {
         try {
-            Item it = BuiltInRegistries.ITEM.get(ResourceLocation.parse(id));
-            return it == Items.AIR ? null : it;
+            return BuiltInRegistries.ITEM.get(ResourceLocation.parse(id))
+                .map(net.minecraft.core.Holder.Reference::value)
+                .filter(it -> it != Items.AIR)
+                .orElse(null);
         } catch (RuntimeException e) {
             return null;
         }

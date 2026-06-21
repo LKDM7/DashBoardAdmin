@@ -4,8 +4,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.ShapeRenderer;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -71,10 +71,10 @@ public final class ZoneOverlayRenderer {
                                 z.maxX() + 1, z.maxY() + 1, z.maxZ() + 1);
             if (z.enabled()) {
                 int c = z.color();
-                LevelRenderer.renderLineBox(pose, lines, box,
+                ShapeRenderer.renderLineBox(pose, lines, box,
                     ((c >> 16) & 0xFF) / 255f, ((c >> 8) & 0xFF) / 255f, (c & 0xFF) / 255f, 0.90f);
             } else {
-                LevelRenderer.renderLineBox(pose, lines, box, 0.55f, 0.55f, 0.55f, 0.70f);
+                ShapeRenderer.renderLineBox(pose, lines, box, 0.55f, 0.55f, 0.55f, 0.70f);
             }
             renderZoneName(mc, pose, buffers, evt, z);
         }
@@ -86,11 +86,11 @@ public final class ZoneOverlayRenderer {
             AABB sel = new AABB(
                 Math.min(a.getX(), b.getX()), Math.min(a.getY(), b.getY()), Math.min(a.getZ(), b.getZ()),
                 Math.max(a.getX(), b.getX()) + 1, Math.max(a.getY(), b.getY()) + 1, Math.max(a.getZ(), b.getZ()) + 1);
-            LevelRenderer.renderLineBox(pose, lines, sel, 1.00f, 0.90f, 0.20f, 1.00f);
+            ShapeRenderer.renderLineBox(pose, lines, sel, 1.00f, 0.90f, 0.20f, 1.00f);
         } else if (a != null) {
-            LevelRenderer.renderLineBox(pose, lines, new AABB(a), 1.00f, 0.90f, 0.20f, 1.00f);
+            ShapeRenderer.renderLineBox(pose, lines, new AABB(a), 1.00f, 0.90f, 0.20f, 1.00f);
         } else if (b != null) {
-            LevelRenderer.renderLineBox(pose, lines, new AABB(b), 0.40f, 0.80f, 1.00f, 1.00f);
+            ShapeRenderer.renderLineBox(pose, lines, new AABB(b), 0.40f, 0.80f, 1.00f, 1.00f);
         }
 
         buffers.endBatch(RenderType.lines());

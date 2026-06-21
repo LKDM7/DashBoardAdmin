@@ -783,7 +783,7 @@ public class AdminScreen extends Screen {
             g.drawCenteredString(font,
                 Component.literal(Lang.t("§bCapture : §f", "§bScreenshot: §f") + reportImagePlayer),
                 ix + imgW / 2, iy - 15, 0xFFFFFFFF);
-            g.blit(reportOverlayTexLoc,
+            g.blit(net.minecraft.client.renderer.RenderType::guiTextured, reportOverlayTexLoc,
                 ix, iy, 0f, 0f, imgW, imgH, imgW, imgH);
         }
 

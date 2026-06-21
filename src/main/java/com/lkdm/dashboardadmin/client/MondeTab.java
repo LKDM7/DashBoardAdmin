@@ -25,11 +25,11 @@ class MondeTab {
         s.add(s.btn(Lang.t("SOLEIL", "CLEAR"),   b -> s.send("SET_WEATHER_CLEAR",   "", "")).bounds(lx,       my, 72, 20).build());
         s.add(s.btn(Lang.t("PLUIE", "RAIN"),     b -> s.send("SET_WEATHER_RAIN",    "", "")).bounds(lx + 76,  my, 72, 20).build());
         s.add(s.btn(Lang.t("ORAGE", "THUNDER"),  b -> s.send("SET_WEATHER_THUNDER", "", "")).bounds(lx + 152, my, 72, 20).build());
-        s.add(s.btn(Lang.t("CYCLE MÉTÉO: ", "WEATHER: ") + (s.weatherCycleEnabled ? "§aON" : "§cOFF"),
+        s.add(s.btn(Lang.t("CYCLE MÉTÉO: ", "WEATHER: ") + Lang.onOff(s.weatherCycleEnabled),
             b -> { s.send("TOGGLE_WEATHER_CYCLE", "", ""); s.weatherCycleEnabled = !s.weatherCycleEnabled; s.init(); })
             .bounds(lx, my + 26, 118, 20).build());
         // Cycle jour/nuit (gamerule doDaylightCycle) — fige l'heure quand OFF, même logique que le cycle météo.
-        s.add(s.btn(Lang.t("CYCLE J/N: ", "DAY/NIGHT: ") + (s.daylightCycleEnabled ? "§aON" : "§cOFF"),
+        s.add(s.btn(Lang.t("CYCLE J/N: ", "DAY/NIGHT: ") + Lang.onOff(s.daylightCycleEnabled),
             b -> { s.send("TOGGLE_DAYLIGHT_CYCLE", "", ""); s.daylightCycleEnabled = !s.daylightCycleEnabled; s.init(); })
             .bounds(lx + 122, my + 26, 118, 20).build());
 

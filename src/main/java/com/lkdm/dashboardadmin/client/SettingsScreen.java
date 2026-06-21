@@ -7,7 +7,6 @@ import net.minecraft.client.gui.components.EditBox;
 import com.lkdm.dashboardadmin.networking.PlayerActionPayload;
 import com.lkdm.dashboardadmin.networking.UpdateSettingsPayload;
 import net.neoforged.neoforge.network.PacketDistributor;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
@@ -305,9 +304,8 @@ public class SettingsScreen extends Screen {
     }
 
     private static Component overlayLabel() {
-        return Component.literal(ClientZoneCache.overlayEnabled
-            ? Lang.t("§aVISUALISATION ZONES : ON", "§aZONE OVERLAY: ON")
-            : Lang.t("§cVISUALISATION ZONES : OFF", "§cZONE OVERLAY: OFF"));
+        return Component.literal(Lang.t("VISUALISATION ZONES : ", "ZONE OVERLAY: ")
+            + Lang.onOff(ClientZoneCache.overlayEnabled));
     }
 
     private void buildSettings() {
@@ -318,7 +316,7 @@ public class SettingsScreen extends Screen {
             final int idx = i;
             boolean cur = vals[i];
             addRenderableWidget(Button.builder(
-                Component.literal(cur ? "  ON  " : "  OFF  ").withStyle(cur ? ChatFormatting.GREEN : ChatFormatting.RED),
+                Component.literal(Lang.onOff(cur)),
                 b -> toggle(idx)
             ).bounds(btnX, start + ROW_H * i + 10, 58, 18).build());
         }
@@ -474,11 +472,11 @@ public class SettingsScreen extends Screen {
         // Toggles — 2 equal columns
         int hw = (contentW - 16) / 2;
         addRenderableWidget(Button.builder(
-            Component.literal(Lang.t("Pseudos : ", "Names: ") + (showNames ? "§aON" : "§cOFF")),
+            Component.literal(Lang.t("Pseudos : ", "Names: ") + Lang.onOff(showNames)),
             b -> { sendGroup("TOGGLE_SHOW_NAMES", ""); showNames = !showNames; init(); })
             .bounds(cx + 6, botY + 76, hw, 16).build());
         addRenderableWidget(Button.builder(
-            Component.literal(Lang.t("Trust : ", "Trust: ") + (groupTrustEnabled ? "§aON" : "§cOFF")),
+            Component.literal(Lang.t("Trust : ", "Trust: ") + Lang.onOff(groupTrustEnabled)),
             b -> { sendGroup("TOGGLE_GROUP_TRUST", ""); groupTrustEnabled = !groupTrustEnabled; init(); })
             .bounds(cx + 10 + hw, botY + 76, hw, 16).build());
 
